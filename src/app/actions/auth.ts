@@ -37,15 +37,13 @@ export async function signUpWithEmail(formData: FormData) {
   if (error) return { error: error.message }
 
   if (data?.user) {
-    try {
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
-        email: data.user.email,
-        created_at: new Date().toISOString()
-      }, { onConflict: 'id' });
-    } catch (e) {
-      console.error("Failed to upsert user profile:", e);
-      throw new Error("Critical error: Profile creation failed.");
+    const { error: upsertError } = await supabase.from('profiles').upsert({
+      id: data.user.id,
+      email: data.user.email,
+      created_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+    if (upsertError) {
+      console.error("Failed to upsert user profile:", upsertError);
     }
   }
 
@@ -61,15 +59,13 @@ export async function signInWithEmail(formData: FormData) {
   if (error) return { error: error.message }
 
   if (data?.user) {
-    try {
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
-        email: data.user.email,
-        created_at: new Date().toISOString()
-      }, { onConflict: 'id' });
-    } catch (e) {
-      console.error("Failed to sync user profile on signin:", e);
-      throw new Error("Critical error: Profile sync failed.");
+    const { error: upsertError } = await supabase.from('profiles').upsert({
+      id: data.user.id,
+      email: data.user.email,
+      created_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+    if (upsertError) {
+      console.error("Failed to sync user profile on signin:", upsertError);
     }
   }
 

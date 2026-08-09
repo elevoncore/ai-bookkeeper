@@ -35,6 +35,13 @@ export default function DashboardPage() {
     fetchInitialData();
   }, []);
 
+  // Refresh dashboard data when navigating back to overview
+  useEffect(() => {
+    if (activeTab === 'overview' && userId) {
+      fetchFinancials(userId);
+    }
+  }, [activeTab, userId]);
+
   async function fetchInitialData() {
     setIsLoading(true);
     
