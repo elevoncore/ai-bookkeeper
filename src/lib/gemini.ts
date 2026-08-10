@@ -13,6 +13,7 @@ export const expenseSchema = {
     issue_date: { type: SchemaType.STRING, description: "Date in YYYY-MM-DD format (used for payment date as well)", nullable: true },
     due_date: { type: SchemaType.STRING, description: "Date in YYYY-MM-DD format", nullable: true },
     payment_method: { type: SchemaType.STRING, description: "Method of payment (e.g. Cash, Bank Transfer, Credit Card)", nullable: true },
+    currency_code: { type: SchemaType.STRING, description: "3-letter currency code (e.g. USD, EUR, GBP, PKR)", nullable: true },
     line_items: {
       type: SchemaType.ARRAY,
       description: "Array of line items",
@@ -23,7 +24,9 @@ export const expenseSchema = {
           quantity: { type: SchemaType.NUMBER },
           unit_price: { type: SchemaType.NUMBER },
           total: { type: SchemaType.NUMBER },
-          account_name: { type: SchemaType.STRING }
+          account_name: { type: SchemaType.STRING },
+          product_name: { type: SchemaType.STRING, nullable: true },
+          is_inventory_tracked: { type: SchemaType.BOOLEAN, nullable: true }
         },
         required: ["description", "quantity", "unit_price", "total", "account_name"]
       }

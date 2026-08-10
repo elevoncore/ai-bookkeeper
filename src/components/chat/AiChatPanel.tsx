@@ -249,10 +249,23 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
       }
 
       // Helper function to resolve or create product
-      async function resolveProductId(prodName: string, price: number) {
+      async function resolveProductId(prodName: string, price: number, isInventoryTracked: boolean = false) {
         if (!prodName) return null;
-        const { data: upsertedProd } = await supabase.from('products').upsert({ user_id: user!.id, name: prodName, price }, { onConflict: 'user_id,name' }).select('id').single();
-        return upsertedProd?.id;
+        const { data: existingProd } = await supabase
+          .from('products')
+          .select('id')
+          .eq('user_id', user!.id)
+          .ilike('name', prodName)
+          .single();
+        
+        if (existingProd) return existingProd.id;
+
+        const { data: newProd } = await supabase
+          .from('products')
+          .insert({ user_id: user!.id, name: prodName, price, is_inventory_tracked: isInventoryTracked })
+          .select('id')
+          .single();
+        return newProd?.id;
       }
 
       if (ext.intent === 'LOG_BILL') {
@@ -267,9 +280,18 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
         for (const item of ext.line_items || []) {
           const targetAccountId = await resolveAccountId(item.account_name, ext.intent);
           if (!targetAccountId) throw new Error(`Account resolution failed for ${item.account_name}`);
+          
+          let productId = null;
+          if (item.product_name) {
+            productId = await resolveProductId(item.product_name, parseToCents(item.unit_price || 0) / 100, item.is_inventory_tracked);
+          }
+
           resolvedLines.push({
             account_id: targetAccountId,
+            product_id: productId,
             description: item.description,
+            quantity: item.quantity || 1,
+            unit_price: parseToCents(item.unit_price || item.total || 0) / 100,
             amount: parseToCents(item.total || 0) / 100 // RPC expects numeric string/float, we divide by 100 for NUMERIC(15,2)
           });
         }
@@ -282,7 +304,10 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
           p_status: 'open', // Always force open initially so payment RPC works
           p_total_amount: safeAmountCents / 100,
           p_receipt_url: receiptUrl,
-          p_line_items: resolvedLines
+          p_line_items: resolvedLines,
+          p_currency_code: ext.currency_code || 'PKR',
+          p_exchange_rate: ext.exchange_rate || 1.0,
+          p_original_amount: ext.original_amount || (safeAmountCents / 100)
         });
         
         if (rpcError) throw new Error(`Atomic Bill Creation Failed: ${rpcError.message}`);
@@ -311,8 +336,9 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
         const resolvedLines = [];
         for (const item of ext.line_items || []) {
           const safePrice = parseToCents(item.unit_price || 0) / 100;
-          const productId = await resolveProductId(item.description, safePrice);
-          if (!productId) throw new Error(`Product resolution failed for ${item.description}`);
+          const targetProdName = item.product_name || item.description;
+          const productId = await resolveProductId(targetProdName, safePrice, item.is_inventory_tracked);
+          if (!productId) throw new Error(`Product resolution failed for ${targetProdName}`);
           resolvedLines.push({
             product_id: productId,
             description: item.description,
@@ -330,7 +356,10 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
           p_status: 'open', // Force open
           p_total_amount: safeAmountCents / 100,
           p_receipt_url: receiptUrl,
-          p_line_items: resolvedLines
+          p_line_items: resolvedLines,
+          p_currency_code: ext.currency_code || 'PKR',
+          p_exchange_rate: ext.exchange_rate || 1.0,
+          p_original_amount: ext.original_amount || (safeAmountCents / 100)
         });
         
         if (rpcError) throw new Error(`Atomic Invoice Creation Failed: ${rpcError.message}`);

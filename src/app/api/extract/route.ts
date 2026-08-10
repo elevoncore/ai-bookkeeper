@@ -3,6 +3,41 @@ import { getGeminiModel } from "@/lib/gemini";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
+async function fetchExchangeRate(fromCurrency: string, toCurrency: string = "PKR"): Promise<number> {
+  const cleanFrom = (fromCurrency || "PKR").toUpperCase().trim();
+  const cleanTo = (toCurrency || "PKR").toUpperCase().trim();
+
+  if (cleanFrom === cleanTo) return 1.0;
+
+  // Fallback static rates table for SME base PKR resilience
+  const fallbackRates: Record<string, number> = {
+    USD: 278.50,
+    EUR: 302.10,
+    GBP: 355.20,
+    AED: 75.80,
+    SAR: 74.20,
+    CAD: 204.30,
+    AUD: 182.40,
+    PKR: 1.0
+  };
+
+  try {
+    const res = await fetch(`https://open.er-api.com/v6/latest/${cleanFrom}`, {
+      next: { revalidate: 3600 }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.rates && typeof data.rates[cleanTo] === "number") {
+        return data.rates[cleanTo];
+      }
+    }
+  } catch (err) {
+    console.warn(`[Multi-Currency Engine] API fetch failed for ${cleanFrom}->${cleanTo}, using fallback rate.`, err);
+  }
+
+  return fallbackRates[cleanFrom] || 1.0;
+}
+
 export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();
@@ -88,7 +123,6 @@ export async function POST(request: Request) {
 
     const model = getGeminiModel();
 
-    // 2. System Instruction
     const systemInstruction = `You are LoopAI, an expert SME autonomous bookkeeper.
     
     You must classify the user's intent and extract structured financial data for double-entry bookkeeping.
@@ -108,9 +142,12 @@ export async function POST(request: Request) {
     2. Missing Data: For LOG_BILL and LOG_INVOICE, if critical fields (total_amount, line_items, customer/supplier name) are missing, DO NOT guess them. For Payments, line_items are NOT required, only amount and name. If data is missing, set "is_complete": false and ask a conversational "clarification_question".
     3. Entity Resolution: Extract the exact legal name of the vendor or client into 'supplier_name' (for bills/payments made) or 'customer_name' (for invoices/payments received), separating it from the line items.
     4. Chart of Accounts Grounding: You MUST categorize each line item using ONLY the exact account names provided: [${accountNames}]. You must place the exact account name in the "account_name" field of each line item. Do not hallucinate non-existent accounting categories. If none fit perfectly, pick the closest match.
-    5. Dates: Today's date is ${today}. If the user says "yesterday" or "today" or a day of the week, calculate the exact YYYY-MM-DD based on today. The "issue_date" and "due_date" MUST be in strict YYYY-MM-DD format. If no issue_date is given, default to ${today}.
-    6. Conversational Queries: If intent is QUERY_FINANCES, you must provide query_parameters to specify what you need (revenue, expenses, all). If intent is UPDATE_TRANSACTION, you must extract the transaction_id from the history and provide update_parameters.
-    7. Chat History & Privacy: You MUST know that ALL chat history and financial logs ARE securely stored in the system database. Users can view their entire history at any time by clicking the "Chat History" button in the UI. If a user asks about chat history, memory, or persistence, you must explicitly confirm that their history is safely stored and accessible to them.
+    5. Product Name and Quantities (CRITICAL): You must separate the quantity and unit of measurement from the product name. If the user says "50 kg banana", the product_name is "Banana" and the quantity is 50. Do NOT include units ('kg', 'lbs', 'boxes', 'pcs', etc.) in the product name. If the item is a physical product or inventory, you MUST extract the product name into "product_name".
+    6. Smart Inventory Tracking: Determine if an item is physical inventory. If the item has physical units (kg, boxes, pcs) or is a quantifiable tangible good (e.g. "Banana"), set "is_inventory_tracked" to true. If it is a service (e.g. "Web Design", "Hosting", "Consulting") or generic expense, set it to false.
+    7. Dates: Today's date is ${today}. If the user says "yesterday" or "today" or a day of the week, calculate the exact YYYY-MM-DD based on today. The "issue_date" and "due_date" MUST be in strict YYYY-MM-DD format. If no issue_date is given, default to ${today}.
+    8. Currency Code: Extract the 3-letter currency code (e.g. 'USD', 'EUR', 'GBP', 'PKR') from symbols ($ = USD, € = EUR, £ = GBP, Rs / PKR = PKR) or context. Default to 'PKR' if unspecified.
+    9. Conversational Queries: If intent is QUERY_FINANCES, you must provide query_parameters to specify what you need (revenue, expenses, all). If intent is UPDATE_TRANSACTION, you must extract the transaction_id from the history and provide update_parameters.
+    10. Chat History & Privacy: You MUST know that ALL chat history and financial logs ARE securely stored in the system database. Users can view their entire history at any time by clicking the "Chat History" button in the UI. If a user asks about chat history, memory, or persistence, you must explicitly confirm that their history is safely stored and accessible to them.
     
     OUTPUT FORMAT:
     You must respond ONLY with a raw JSON object matching this schema. Do not include markdown formatting, backticks, or any conversational text outside the JSON:
@@ -119,6 +156,7 @@ export async function POST(request: Request) {
       "customer_name": "string | null",
       "supplier_name": "string | null",
       "total_amount": number | null,
+      "currency_code": "PKR" | "USD" | "EUR" | "GBP" | string,
       "status": "paid" | "open" | "partial" | "draft",
       "issue_date": "YYYY-MM-DD",
       "due_date": "YYYY-MM-DD | null",
@@ -128,7 +166,9 @@ export async function POST(request: Request) {
           "quantity": number,
           "unit_price": number,
           "total": number,
-          "account_name": "string"
+          "account_name": "string",
+          "product_name": "string | null",
+          "is_inventory_tracked": boolean
         }
       ],
       "is_complete": boolean,
@@ -196,6 +236,35 @@ export async function POST(request: Request) {
         ) {
           structuredData.is_complete = false;
           structuredData.clarification_question = structuredData.clarification_question || "I couldn't detect the total amount or the individual items. Could you provide those details?";
+        } else if (structuredData.is_complete !== false) {
+          // Real-Time Multi-Currency Conversion Engine
+          const currencyCode = (structuredData.currency_code || 'PKR').toUpperCase();
+          const rate = await fetchExchangeRate(currencyCode, 'PKR');
+
+          structuredData.currency_code = currencyCode;
+          structuredData.exchange_rate = rate;
+          structuredData.original_amount = structuredData.total_amount;
+
+          // Convert total_amount to Base Currency (PKR) for ledger stability
+          const baseTotalAmount = Math.round((structuredData.total_amount * rate) * 100) / 100;
+          structuredData.total_amount = baseTotalAmount;
+
+          // Convert line items to Base Currency (PKR)
+          if (Array.isArray(structuredData.line_items)) {
+            structuredData.line_items = structuredData.line_items.map((item: any) => ({
+              ...item,
+              original_unit_price: item.unit_price,
+              original_total: item.total,
+              unit_price: Math.round(((item.unit_price || 0) * rate) * 100) / 100,
+              total: Math.round(((item.total || 0) * rate) * 100) / 100,
+              currency_code: currencyCode,
+              exchange_rate: rate
+            }));
+          }
+
+          if (currencyCode !== 'PKR') {
+            structuredData.conversational_response = `Converted ${structuredData.original_amount} ${currencyCode} to base currency: ${baseTotalAmount} PKR (Exchange Rate: ${rate} PKR/${currencyCode}).`;
+          }
         }
       }
 
