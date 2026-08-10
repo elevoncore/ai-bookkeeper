@@ -10,6 +10,7 @@ export default function SalesHub() {
   const [activeTab, setActiveTab] = useState<'invoices' | 'customers' | 'products'>('invoices');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
@@ -48,6 +49,13 @@ export default function SalesHub() {
         .eq('user_id', user.id)
         .order('name', { ascending: true });
       if (custData) setCustomers(custData);
+    } else if (activeTab === 'products') {
+      const { data: prodData } = await supabase
+        .from('products')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name', { ascending: true });
+      if (prodData) setProducts(prodData);
     }
     
     setIsLoading(false);
@@ -233,6 +241,12 @@ export default function SalesHub() {
           >
             <Users className="w-4 h-4" /> Customers
           </button>
+          <button
+            onClick={() => setActiveTab('products')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'products' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <Package className="w-4 h-4" /> Products
+          </button>
         </div>
       </div>
 
@@ -293,6 +307,15 @@ export default function SalesHub() {
                     <th className="px-6 py-4">Email</th>
                     <th className="px-6 py-4">Phone</th>
                     <th className="px-6 py-4">Added</th>
+                  </tr>
+                )}
+                {activeTab === 'products' && (
+                  <tr>
+                    <th className="px-6 py-4">Product Name</th>
+                    <th className="px-6 py-4 text-right">Selling Price</th>
+                    <th className="px-6 py-4 text-right">Cost (COGS)</th>
+                    <th className="px-6 py-4 text-center">In Stock</th>
+                    <th className="px-6 py-4 text-center">Tracked</th>
                   </tr>
                 )}
               </thead>
@@ -393,6 +416,22 @@ export default function SalesHub() {
                     <td className="px-6 py-4 text-gray-500">{c.email || '-'}</td>
                     <td className="px-6 py-4 text-gray-500">{c.phone || '-'}</td>
                     <td className="px-6 py-4 text-gray-400 text-xs">{new Date(c.created_at).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+
+                {activeTab === 'products' && products.map((p) => (
+                  <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 font-semibold text-gray-900">{p.name}</td>
+                    <td className="px-6 py-4 text-gray-500 text-right font-medium">{p.currency_code || 'PKR'} {p.price.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-gray-500 text-right font-medium">{p.currency_code || 'PKR'} {(p.cost || 0).toLocaleString()}</td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${p.inventory_count > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {p.inventory_count || 0}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center text-gray-500 text-xs font-semibold">
+                      {p.is_inventory_tracked ? 'YES' : 'NO'}
+                    </td>
                   </tr>
                 ))}
               </tbody>

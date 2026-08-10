@@ -5,7 +5,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 export const expenseSchema = {
   type: SchemaType.OBJECT,
   properties: {
-    intent: { type: SchemaType.STRING, description: "LOG_BILL | LOG_INVOICE | LOG_PAYMENT_MADE | LOG_PAYMENT_RECEIVED | UPDATE_TRANSACTION | QUERY_FINANCES | QUERY_DEBT | GENERAL_HELP" },
+    intent: { type: SchemaType.STRING, description: "LOG_BILL | LOG_INVOICE | LOG_PAYMENT_MADE | LOG_PAYMENT_RECEIVED | UPDATE_TRANSACTION | QUERY_FINANCES | QUERY_DEBT | QUERY_REPORT | GENERAL_HELP" },
     customer_name: { type: SchemaType.STRING, description: "Name of the customer (for invoices/payments received)", nullable: true },
     supplier_name: { type: SchemaType.STRING, description: "Name of the supplier (for bills/payments made)", nullable: true },
     total_amount: { type: SchemaType.NUMBER, description: "Total amount or payment amount", nullable: true },

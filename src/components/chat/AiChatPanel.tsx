@@ -180,7 +180,7 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
 
       const aiData = await res.json();
 
-      if (['QUERY_FINANCES', 'GENERAL_HELP', 'UPDATE_TRANSACTION'].includes(aiData.intent)) {
+      if (['QUERY_FINANCES', 'QUERY_DEBT', 'QUERY_REPORT', 'GENERAL_HELP', 'UPDATE_TRANSACTION'].includes(aiData.intent)) {
         const completeTranscript = [...updatedMessages, {
           id: `ai-${Date.now()}`,
           sender: 'ai' as const,

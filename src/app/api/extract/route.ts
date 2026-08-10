@@ -134,6 +134,7 @@ export async function POST(request: Request) {
     - LOG_PAYMENT_RECEIVED: User received a payment from a customer.
     - UPDATE_TRANSACTION: User wants to update or modify an existing transaction.
     - QUERY_FINANCES: General cash flow or spending queries.
+    - QUERY_REPORT: Detailed financial reporting queries like "How much profit did I make this month?" or "Show me my P&L".
     - QUERY_DEBT: Queries about who owes money or who the user owes.
     - GENERAL_HELP: General chat or usage help.
     
@@ -152,7 +153,7 @@ export async function POST(request: Request) {
     OUTPUT FORMAT:
     You must respond ONLY with a raw JSON object matching this schema. Do not include markdown formatting, backticks, or any conversational text outside the JSON:
     {
-      "intent": "LOG_BILL" | "LOG_INVOICE" | "LOG_PAYMENT_MADE" | "LOG_PAYMENT_RECEIVED" | "UPDATE_TRANSACTION" | "QUERY_FINANCES" | "QUERY_DEBT" | "GENERAL_HELP",
+      "intent": "LOG_BILL" | "LOG_INVOICE" | "LOG_PAYMENT_MADE" | "LOG_PAYMENT_RECEIVED" | "UPDATE_TRANSACTION" | "QUERY_FINANCES" | "QUERY_DEBT" | "QUERY_REPORT" | "GENERAL_HELP",
       "customer_name": "string | null",
       "supplier_name": "string | null",
       "total_amount": number | null,
@@ -290,6 +291,57 @@ export async function POST(request: Request) {
            ...finalContents,
            { role: 'model', parts: [{ text: cleanedText }] },
            { role: 'user', parts: [{ text: `Do not hallucinate. Using this real database data, answer the user's query accurately in the conversational_response field:\n${context}` }] }
+        ];
+
+        const result2 = await model.generateContent({ contents: secondPassContents });
+        const cleanedText2 = result2.response.text().replace(/```json\n?|```/g, '').trim();
+        structuredData = JSON.parse(cleanedText2);
+      }
+
+      if (structuredData.intent === 'QUERY_REPORT') {
+        let context = "Profit and Loss Summary (Real Ledger Data):\n";
+        const { data: accounts } = await supabase.from('accounts').select('id, name, type').eq('user_id', user.id);
+        const { data: journalLines } = await supabase.from('journal_lines').select('account_id, debit, credit, journal_entries!inner(user_id)').eq('journal_entries.user_id', user.id);
+        
+        let revenue = 0;
+        let cogs = 0;
+        let opex = 0;
+
+        if (accounts && journalLines) {
+           const balances = new Map<string, number>();
+           for (const l of journalLines) {
+              const d = Math.round(Number(l.debit || 0) * 100);
+              const c = Math.round(Number(l.credit || 0) * 100);
+              balances.set(l.account_id, (balances.get(l.account_id) || 0) + (d - c));
+           }
+           
+           for (const acc of accounts) {
+              const bal = balances.get(acc.id) || 0;
+              if (acc.type === 'revenue') {
+                 revenue += (-bal); // Credit normal
+              } else if (acc.type === 'expense') {
+                 if (acc.name === 'Cost of Goods Sold') {
+                    cogs += bal; // Debit normal
+                 } else {
+                    opex += bal;
+                 }
+              }
+           }
+        }
+        
+        const gp = revenue - cogs;
+        const np = gp - opex;
+
+        context += `- Total Revenue: ${revenue / 100} PKR\n`;
+        context += `- Cost of Goods Sold: ${cogs / 100} PKR\n`;
+        context += `- Gross Profit: ${gp / 100} PKR\n`;
+        context += `- Operating Expenses: ${opex / 100} PKR\n`;
+        context += `- Net Profit: ${np / 100} PKR\n`;
+
+        const secondPassContents = [
+           ...finalContents,
+           { role: 'model', parts: [{ text: cleanedText }] },
+           { role: 'user', parts: [{ text: `Do not hallucinate. Using this real P&L database data, answer the user's report query accurately in the conversational_response field:\n${context}` }] }
         ];
 
         const result2 = await model.generateContent({ contents: secondPassContents });
