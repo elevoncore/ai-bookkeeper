@@ -325,7 +325,7 @@ export default function SalesHub() {
                 setNewInvoice({ id: '', customer_id: '', issue_date: '', amount: '' });
                 setIsInvoiceModalOpen(true);
               } else if (activeTab === 'products') {
-                setEditingProduct({ id: '', name: '', price: 0, cost: 0, is_inventory_tracked: true });
+                setEditingProduct({ id: '', name: '', price: '0', cost: '0', is_inventory_tracked: true });
                 setIsProductModalOpen(true);
               } else {
                 toast('Customer modal coming soon!', { icon: '🚧' });
