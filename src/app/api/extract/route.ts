@@ -162,7 +162,7 @@ export async function POST(request: Request) {
     6. Product Normalization (CRITICAL): If the product truly does not exist in the catalog and you must create a new one, you MUST normalize the string. Remove all quantities, adjectives, and units of measurement. Always use singular nouns (e.g., create 'Mango', never 'Mangoes' or 'Red Mangoes'). Set "product_id": null and "product_name": "Normalized Product Name".
     7. Quantities & Purchase Unit Costs: You must separate the quantity and unit of measurement from the product name. If the user says "50 kg banana for 4,567 PKR", the product_name is "Banana", the quantity is 50, total is 4567, and unit_price is 91.34 (4567 / 50). Do NOT include units ('kg', 'lbs', 'boxes', 'pcs', etc.) in the product name. For LOG_BILL and LOG_INVOICE of physical inventory items, you MUST ALWAYS extract a numeric quantity so the database can calculate unit cost = amount / quantity to update product inventory and unit cost.
     8. Smart Inventory Tracking: Determine if an item is physical inventory. If the item has physical units (kg, boxes, pcs) or is a quantifiable tangible good (e.g. "Banana"), set "is_inventory_tracked" to true. If it is a service (e.g. "Web Design", "Hosting", "Consulting") or generic expense, set it to false.
-    9. Conversational Fallback / Human in the Loop: If you are ever highly uncertain whether a new item matches an existing product in the catalog (e.g., user mentions "Green Mango" when "Mango" exists in catalog), halt transaction processing by setting "is_complete": false, and ask the user for clarification in "conversational_response" and "clarification_question" (e.g., "You mentioned 'Green Mango'. Should I log this under your existing 'Mango' product, or create a new product entry?").
+    9. Conversational Fallback / Ambiguous Category Matching (CRITICAL): If an extracted item belongs to a similar product category or concept as an existing catalog item (e.g. 'Dell XPS computer' or 'computer' vs existing 'Laptop', or 'Green Mango' vs existing 'Mango'), but is NOT an exact 1:1 match, you MUST NOT automatically log the transaction or create a new product. You MUST set "is_complete": false, and ask the user for explicit clarification in "conversational_response" and "clarification_question" (e.g., "You mentioned 'Dell XPS computer'. Should I log this under your existing 'Laptop' product, or create a new product entry?").
     10. Dates: Today's date is ${today}. If the user says "yesterday" or "today" or a day of the week, calculate the exact YYYY-MM-DD based on today. The "issue_date" and "due_date" MUST be in strict YYYY-MM-DD format. If no issue_date is given, default to ${today}.
     11. Currency Code: Extract the 3-letter currency code (e.g. 'USD', 'EUR', 'GBP', 'PKR') from symbols ($ = USD, € = EUR, £ = GBP, Rs / PKR = PKR) or context. Default to 'PKR' if unspecified.
     12. Inventory Stocktake Adjustments (LOG_INVENTORY_ADJUSTMENT): If the intent is LOG_INVENTORY_ADJUSTMENT, extract "product_name" (the name of the product), "product_id" (if matching catalog), "actual_stock_count" (the actual physical count on shelf), and "reason" (e.g. "Monthly stocktake", "Spilled milk", "Stolen goods").
@@ -252,6 +252,30 @@ export async function POST(request: Request) {
       if (!structuredData.intent) structuredData.intent = 'GENERAL_HELP';
       
       if (['LOG_BILL', 'LOG_INVOICE'].includes(structuredData.intent)) {
+        // Ambiguity Safeguard: Check if extracted line items match existing products partially or in a similar category
+        if (existingProducts && existingProducts.length > 0 && Array.isArray(structuredData.line_items)) {
+          for (const item of structuredData.line_items) {
+            if (!item.product_id && item.product_name) {
+              const lowerExt = item.product_name.toLowerCase();
+              const ambMatch = existingProducts.find((p: any) => {
+                const lowerP = p.name.toLowerCase();
+                const isCompPair = (lowerExt.includes('computer') || lowerExt.includes('pc') || lowerExt.includes('desktop')) && 
+                                   (lowerP.includes('laptop') || lowerP.includes('computer'));
+                const isPartialMatch = lowerExt.includes(lowerP) || lowerP.includes(lowerExt);
+                return isCompPair || (isPartialMatch && lowerExt !== lowerP);
+              });
+
+              if (ambMatch) {
+                structuredData.is_complete = false;
+                const question = `You mentioned '${item.product_name}'. Should I log this under your existing '${ambMatch.name}' product, or create a new product entry?`;
+                structuredData.clarification_question = question;
+                structuredData.conversational_response = question;
+                break;
+              }
+            }
+          }
+        }
+
         if (
           !structuredData.total_amount || 
           !structuredData.line_items || 
