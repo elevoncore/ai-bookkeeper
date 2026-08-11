@@ -132,6 +132,7 @@ export async function POST(request: Request) {
     - LOG_INVOICE: User sent an invoice, or received alternative income from a Customer/Client.
     - LOG_PAYMENT_MADE: User paid a bill.
     - LOG_PAYMENT_RECEIVED: User received a payment from a customer.
+    - LOG_INVENTORY_ADJUSTMENT: User reports physical stock count discrepancy or stocktake adjustment (e.g., "I counted 10 items", "5 bananas spilled/spoiled", "Monthly stocktake").
     - UPDATE_TRANSACTION: User wants to update or modify an existing transaction.
     - QUERY_FINANCES: General cash flow or spending queries.
     - QUERY_REPORT: Detailed financial reporting queries like "How much profit did I make this month?" or "Show me my P&L".
@@ -147,15 +148,19 @@ export async function POST(request: Request) {
     6. Smart Inventory Tracking: Determine if an item is physical inventory. If the item has physical units (kg, boxes, pcs) or is a quantifiable tangible good (e.g. "Banana"), set "is_inventory_tracked" to true. If it is a service (e.g. "Web Design", "Hosting", "Consulting") or generic expense, set it to false.
     7. Dates: Today's date is ${today}. If the user says "yesterday" or "today" or a day of the week, calculate the exact YYYY-MM-DD based on today. The "issue_date" and "due_date" MUST be in strict YYYY-MM-DD format. If no issue_date is given, default to ${today}.
     8. Currency Code: Extract the 3-letter currency code (e.g. 'USD', 'EUR', 'GBP', 'PKR') from symbols ($ = USD, € = EUR, £ = GBP, Rs / PKR = PKR) or context. Default to 'PKR' if unspecified.
-    9. Conversational Queries: If intent is QUERY_FINANCES, you must provide query_parameters to specify what you need (revenue, expenses, all). If intent is UPDATE_TRANSACTION, you must extract the transaction_id from the history and provide update_parameters.
-    10. Chat History & Privacy: You MUST know that ALL chat history and financial logs ARE securely stored in the system database. Users can view their entire history at any time by clicking the "Chat History" button in the UI. If a user asks about chat history, memory, or persistence, you must explicitly confirm that their history is safely stored and accessible to them.
+    9. Inventory Stocktake Adjustments (LOG_INVENTORY_ADJUSTMENT): If the intent is LOG_INVENTORY_ADJUSTMENT, extract "product_name" (the name of the product), "actual_stock_count" (the actual physical count on shelf), and "reason" (e.g. "Monthly stocktake", "Spilled milk", "Stolen goods").
+    10. Conversational Queries: If intent is QUERY_FINANCES, you must provide query_parameters to specify what you need (revenue, expenses, all). If intent is UPDATE_TRANSACTION, you must extract the transaction_id from the history and provide update_parameters.
+    11. Chat History & Privacy: You MUST know that ALL chat history and financial logs ARE securely stored in the system database. Users can view their entire history at any time by clicking the "Chat History" button in the UI. If a user asks about chat history, memory, or persistence, you must explicitly confirm that their history is safely stored and accessible to them.
     
     OUTPUT FORMAT:
     You must respond ONLY with a raw JSON object matching this schema. Do not include markdown formatting, backticks, or any conversational text outside the JSON:
     {
-      "intent": "LOG_BILL" | "LOG_INVOICE" | "LOG_PAYMENT_MADE" | "LOG_PAYMENT_RECEIVED" | "UPDATE_TRANSACTION" | "QUERY_FINANCES" | "QUERY_DEBT" | "QUERY_REPORT" | "GENERAL_HELP",
+      "intent": "LOG_BILL" | "LOG_INVOICE" | "LOG_PAYMENT_MADE" | "LOG_PAYMENT_RECEIVED" | "LOG_INVENTORY_ADJUSTMENT" | "UPDATE_TRANSACTION" | "QUERY_FINANCES" | "QUERY_DEBT" | "QUERY_REPORT" | "GENERAL_HELP",
       "customer_name": "string | null",
       "supplier_name": "string | null",
+      "product_name": "string | null",
+      "actual_stock_count": number | null,
+      "reason": "string | null",
       "total_amount": number | null,
       "currency_code": "PKR" | "USD" | "EUR" | "GBP" | string,
       "status": "paid" | "open" | "partial" | "draft",
@@ -479,6 +484,50 @@ export async function POST(request: Request) {
                structuredData.conversational_response = `I couldn't find a customer named ${structuredData.customer_name}.`;
             }
          }
+      }
+
+      if (structuredData.intent === 'LOG_INVENTORY_ADJUSTMENT') {
+        if (structuredData.product_name && typeof structuredData.actual_stock_count === 'number') {
+          const { data: prod } = await supabase
+            .from('products')
+            .select('id, name, inventory_count, cost')
+            .ilike('name', `%${structuredData.product_name}%`)
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (prod) {
+            const { data: rpcRes, error: rpcErr } = await supabase.rpc('reconcile_inventory_atomic', {
+              p_user_id: user.id,
+              p_product_id: prod.id,
+              p_actual_stock_count: structuredData.actual_stock_count,
+              p_reason: structuredData.reason || 'Stocktake adjustment'
+            });
+
+            if (rpcErr) {
+              structuredData.conversational_response = `Failed to reconcile inventory: ${rpcErr.message}`;
+              structuredData.is_complete = false;
+            } else {
+              const oldStock = prod.inventory_count || 0;
+              const diff = structuredData.actual_stock_count - oldStock;
+              const val = Math.abs(diff * (prod.cost || 0));
+              
+              if (diff > 0) {
+                structuredData.conversational_response = `I updated stock for ${prod.name} from ${oldStock} to ${structuredData.actual_stock_count} (+${diff} surplus). Credited Inventory Shrinkage/Variance Expense by ${val} PKR and debited Inventory Asset.`;
+              } else if (diff < 0) {
+                structuredData.conversational_response = `I updated stock for ${prod.name} from ${oldStock} to ${structuredData.actual_stock_count} (${diff} shrinkage/waste). Debited Inventory Shrinkage/Variance Expense by ${val} PKR and credited Inventory Asset.`;
+              } else {
+                structuredData.conversational_response = `Physical stock count for ${prod.name} matches current ledger (${structuredData.actual_stock_count}). No inventory adjustment needed.`;
+              }
+              structuredData.is_complete = true;
+            }
+          } else {
+            structuredData.conversational_response = `I couldn't find a product named "${structuredData.product_name}" in your product catalog. Please create or edit the product first in the Revenue/Sales Hub.`;
+            structuredData.is_complete = false;
+          }
+        } else {
+          structuredData.conversational_response = "I need the product name and the actual physical stock count to reconcile inventory.";
+          structuredData.is_complete = false;
+        }
       }
 
       if (structuredData.intent === 'UPDATE_TRANSACTION') {
