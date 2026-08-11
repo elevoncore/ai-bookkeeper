@@ -39,6 +39,8 @@ interface BentoStatsPanelProps {
   invoices: Invoice[];
   bills: Bill[];
   chartOfAccounts: any[];
+  forceMobileView?: boolean;
+  forceDesktopView?: boolean;
 }
 
 const CATEGORY_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#6366F1'];
@@ -47,7 +49,9 @@ export default function BentoStatsPanel({
   userEmail = 'user@aibookkeeper.com',
   invoices,
   bills,
-  chartOfAccounts
+  chartOfAccounts,
+  forceMobileView = false,
+  forceDesktopView = false
 }: BentoStatsPanelProps) {
   const [timeRange, setTimeRange] = useState<'Daily' | 'Monthly'>('Monthly');
 
@@ -106,7 +110,7 @@ export default function BentoStatsPanel({
     <div className="space-y-6">
       
       {/* PERSONALIZED GREETING HEADER */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-xs border border-gray-100">
+      <div className={`flex flex-col ${forceMobileView ? '' : forceDesktopView ? 'flex-row' : 'sm:flex-row'} justify-between items-start ${forceMobileView ? '' : forceDesktopView ? 'items-center' : 'sm:items-center'} gap-4 bg-white p-6 rounded-2xl shadow-xs border border-gray-100`}>
         <div>
           <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
             Welcome back, <span className="capitalize text-blue-600">{userName}</span>
@@ -130,7 +134,7 @@ export default function BentoStatsPanel({
       <div className="space-y-6">
         
         {/* BENTO TOP ROW: 3 KEY METRIC CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className={`grid grid-cols-1 ${forceMobileView ? '' : forceDesktopView ? 'grid-cols-3' : 'md:grid-cols-3'} gap-4`}>
           
           <div className="bg-white p-5 rounded-2xl shadow-xs border border-gray-100 relative overflow-hidden group hover:border-blue-200 transition-all">
             <div className="flex items-center justify-between">
@@ -207,7 +211,7 @@ export default function BentoStatsPanel({
         </div>
 
         {/* BENTO MIDDLE ROW: CHARTS */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className={`grid grid-cols-1 ${forceMobileView ? '' : forceDesktopView ? 'grid-cols-2' : 'lg:grid-cols-2'} gap-4`}>
           
           <div className="bg-white p-6 rounded-2xl shadow-xs border border-gray-100 space-y-4">
             <div className="flex items-center justify-between">

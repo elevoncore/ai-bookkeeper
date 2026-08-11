@@ -37,10 +37,11 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const isLoginRoute = request.nextUrl.pathname === '/login'
+  const isLandingRoute = request.nextUrl.pathname === '/'
   const isApiRoute = request.nextUrl.pathname.startsWith('/api')
 
-  // 1. If no user and not on login or api routes -> kick to login
-  if (!user && !isLoginRoute && !isApiRoute) {
+  // 1. If no user and not on login, api, or landing routes -> kick to login
+  if (!user && !isLoginRoute && !isApiRoute && !isLandingRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
