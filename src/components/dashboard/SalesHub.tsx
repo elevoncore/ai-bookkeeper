@@ -324,13 +324,17 @@ export default function SalesHub() {
                 setIsEditing(false);
                 setNewInvoice({ id: '', customer_id: '', issue_date: '', amount: '' });
                 setIsInvoiceModalOpen(true);
+              } else if (activeTab === 'products') {
+                setEditingProduct({ id: '', name: '', price: 0, cost: 0, is_inventory_tracked: true });
+                setIsProductModalOpen(true);
+              } else {
+                toast('Customer modal coming soon!', { icon: '🚧' });
               }
-              else toast('Customer modal coming soon!', { icon: '🚧' });
             }}
             className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4 font-bold" />
-            New {activeTab === 'invoices' ? 'Invoice' : 'Customer'}
+            New {activeTab === 'invoices' ? 'Invoice' : activeTab === 'products' ? 'Product' : 'Customer'}
           </button>
         </div>
 

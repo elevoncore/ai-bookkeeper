@@ -249,14 +249,18 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
       }
 
       // Helper function to resolve or create product
-      async function resolveProductId(prodName: string, price: number, isInventoryTracked: boolean = false) {
+      async function resolveProductId(prodName: string, price: number, isInventoryTracked: boolean = false, passedProductId?: string | null) {
+        if (passedProductId) {
+          const { data: existingById } = await supabase.from('products').select('id').eq('id', passedProductId).eq('user_id', user!.id).maybeSingle();
+          if (existingById) return existingById.id;
+        }
         if (!prodName) return null;
         const { data: existingProd } = await supabase
           .from('products')
           .select('id')
           .eq('user_id', user!.id)
           .ilike('name', prodName)
-          .single();
+          .maybeSingle();
         
         if (existingProd) return existingProd.id;
 
@@ -282,8 +286,8 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
           if (!targetAccountId) throw new Error(`Account resolution failed for ${item.account_name}`);
           
           let productId = null;
-          if (item.product_name) {
-            productId = await resolveProductId(item.product_name, parseToCents(item.unit_price || 0) / 100, item.is_inventory_tracked);
+          if (item.product_name || item.product_id) {
+            productId = await resolveProductId(item.product_name, parseToCents(item.unit_price || 0) / 100, item.is_inventory_tracked, item.product_id);
           }
 
           resolvedLines.push({
@@ -337,7 +341,7 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
         for (const item of ext.line_items || []) {
           const safePrice = parseToCents(item.unit_price || 0) / 100;
           const targetProdName = item.product_name || item.description;
-          const productId = await resolveProductId(targetProdName, safePrice, item.is_inventory_tracked);
+          const productId = await resolveProductId(targetProdName, safePrice, item.is_inventory_tracked, item.product_id);
           if (!productId) throw new Error(`Product resolution failed for ${targetProdName}`);
           resolvedLines.push({
             product_id: productId,
