@@ -21,6 +21,60 @@ export default function SalesHub() {
   const [paymentData, setPaymentData] = useState({ invoice_id: '', amount: '', date: new Date().toISOString().split('T')[0], method: 'Bank Transfer' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState({
+    id: '',
+    name: '',
+    price: '',
+    cost: '',
+    is_inventory_tracked: false
+  });
+
+  function openEditProductModal(p: any) {
+    setEditingProduct({
+      id: p.id,
+      name: p.name || '',
+      price: (p.price || 0).toString(),
+      cost: (p.cost || 0).toString(),
+      is_inventory_tracked: !!p.is_inventory_tracked
+    });
+    setIsProductModalOpen(true);
+  }
+
+  async function handleUpdateProduct(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingProduct.name) return toast.error("Product name is required");
+    
+    const toastId = toast.loading("Updating product...");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.dismiss(toastId);
+      return toast.error("Not authenticated");
+    }
+
+    const safePriceCents = parseToCents(editingProduct.price);
+    const safeCostCents = parseToCents(editingProduct.cost);
+
+    const { error } = await supabase
+      .from('products')
+      .update({
+        name: editingProduct.name,
+        price: Math.round(safePriceCents) / 100,
+        cost: Math.round(safeCostCents) / 100,
+        is_inventory_tracked: editingProduct.is_inventory_tracked
+      })
+      .eq('id', editingProduct.id)
+      .eq('user_id', user.id);
+
+    if (error) {
+      toast.error(`Error updating product: ${error.message}`, { id: toastId });
+    } else {
+      toast.success("Product updated successfully!", { id: toastId });
+      setIsProductModalOpen(false);
+      fetchData();
+    }
+  }
+
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -316,6 +370,7 @@ export default function SalesHub() {
                     <th className="px-6 py-4 text-right">Cost (COGS)</th>
                     <th className="px-6 py-4 text-center">In Stock</th>
                     <th className="px-6 py-4 text-center">Tracked</th>
+                    <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 )}
               </thead>
@@ -338,13 +393,14 @@ export default function SalesHub() {
                 {activeTab === 'customers' && customers.length === 0 && (
                   <tr>
                     <td colSpan={4} className="px-6 py-16 text-center">
-                      <div className="flex flex-col items-center justify-center space-y-3">
-                        <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500">
-                          <Users className="w-6 h-6" />
-                        </div>
-                        <p className="text-gray-500 font-medium">No customers found</p>
-                        <p className="text-xs text-gray-400">Customers are automatically created when the AI logs a new invoice.</p>
-                      </div>
+                      <p className="text-gray-500 font-medium">No customers found</p>
+                    </td>
+                  </tr>
+                )}
+                {activeTab === 'products' && products.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-16 text-center">
+                      <p className="text-gray-500 font-medium">No products found</p>
                     </td>
                   </tr>
                 )}
@@ -431,6 +487,11 @@ export default function SalesHub() {
                     </td>
                     <td className="px-6 py-4 text-center text-gray-500 text-xs font-semibold">
                       {p.is_inventory_tracked ? 'YES' : 'NO'}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button onClick={() => openEditProductModal(p)} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Edit Product">
+                        <Edit2 className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -563,6 +624,94 @@ export default function SalesHub() {
                 </button>
                 <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-green-600/20 cursor-pointer disabled:opacity-50">
                   {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Record Payment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT PRODUCT MODAL */}
+      {isProductModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                <Package className="w-5 h-5 text-purple-600" />
+                Edit Product / Service Catalog
+              </h2>
+              <button onClick={() => setIsProductModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleUpdateProduct} className="p-6 space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Product Name</label>
+                <input 
+                  type="text" 
+                  required
+                  value={editingProduct.name}
+                  onChange={e => setEditingProduct({...editingProduct, name: e.target.value})}
+                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Default Selling Price</label>
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    min="0"
+                    required
+                    value={editingProduct.price}
+                    onChange={e => setEditingProduct({...editingProduct, price: e.target.value})}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cost / Standard Cost</label>
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    min="0"
+                    required
+                    value={editingProduct.cost}
+                    onChange={e => setEditingProduct({...editingProduct, cost: e.target.value})}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl bg-gray-50 hover:bg-gray-100/50 cursor-pointer transition-colors">
+                  <input 
+                    type="checkbox"
+                    checked={editingProduct.is_inventory_tracked}
+                    onChange={e => setEditingProduct({...editingProduct, is_inventory_tracked: e.target.checked})}
+                    className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-gray-900 block">Track Physical Inventory</span>
+                    <span className="text-[11px] text-gray-500 block">Enable to track stock counts and post 4-line COGS entries. Leave unchecked for services.</span>
+                  </div>
+                </label>
+              </div>
+
+              {/* Crucial UI Note */}
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] flex gap-2 items-start">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>Changes here only apply to future transactions. Past verified invoices and bills remain locked to preserve ledger integrity.</span>
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button type="button" onClick={() => setIsProductModalOpen(false)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold rounded-xl transition-colors cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" className="flex-1 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-purple-600/20 cursor-pointer">
+                  Save Product
                 </button>
               </div>
             </form>
