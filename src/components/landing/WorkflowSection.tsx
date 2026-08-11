@@ -4,7 +4,7 @@ import { FileText, Cpu, Database, CheckSquare, ArrowRight } from 'lucide-react';
 
 export default function WorkflowSection() {
   return (
-    <section id="architecture" className="py-24 bg-white dark:bg-slate-950 border-y border-slate-100 dark:border-slate-900 transition-colors duration-300">
+    <section id="architecture" className="py-24 border-y border-slate-100 dark:border-slate-900 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row gap-20 items-center">
           

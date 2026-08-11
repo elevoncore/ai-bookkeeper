@@ -25,7 +25,7 @@ const roadmapItems = [
 
 export default function RoadmapSection() {
   return (
-    <section id="roadmap" className="py-24 bg-white dark:bg-slate-950 transition-colors duration-300">
+    <section id="roadmap" className="py-24 transition-colors duration-300">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-20">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-8 shadow-inner">

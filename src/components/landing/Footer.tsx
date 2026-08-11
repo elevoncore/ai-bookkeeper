@@ -3,7 +3,7 @@ import { BookOpen, Mail, Globe } from 'lucide-react';
 
 export default function Footer() {
   return (
-    <footer className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-300 py-16 border-t border-slate-100 dark:border-slate-900 transition-colors duration-300">
+    <footer className="text-slate-900 dark:text-slate-300 py-16 border-t border-slate-100 dark:border-slate-900 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-10">
           

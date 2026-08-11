@@ -35,7 +35,7 @@ const features = [
 
 export default function FeatureGrid() {
   return (
-    <section id="features" className="py-24 bg-white dark:bg-slate-950 relative transition-colors duration-300">
+    <section id="features" className="py-24 relative transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center max-w-3xl mx-auto mb-20">
           <h2 className="text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-white mb-6 tracking-tight">
