@@ -11,7 +11,7 @@ const { createClient } = require('@supabase/supabase-js');
 
 async function applySql() {
   const supabase = createClient(supabaseUrl, supabaseKey);
-  const sqlContent = fs.readFileSync(path.join(projectPath, 'phase10_cogs_fix.sql'), 'utf8');
+  const sqlContent = fs.readFileSync(path.join(projectPath, 'phase11_wac_costing.sql'), 'utf8');
 
   console.log("Applying SQL functions via REST/Postgres...");
   // Attempt running via exec_sql or direct rest

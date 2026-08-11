@@ -92,7 +92,7 @@ export default function SalesHub() {
     if (activeTab === 'invoices') {
       const { data: invData } = await supabase
         .from('invoices')
-        .select('*, customers(name), invoice_lines(description)')
+        .select('*, customers(name), invoice_lines(description, quantity, total, products(cost, is_inventory_tracked))')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       if (invData) setInvoices(invData);
@@ -350,6 +350,7 @@ export default function SalesHub() {
                     <th className="px-6 py-4">Items</th>
                     <th className="px-6 py-4">Issue Date</th>
                     <th className="px-6 py-4 text-right">Amount</th>
+                    <th className="px-6 py-4 text-right">Est. Margin</th>
                     <th className="px-6 py-4 text-center">Status</th>
                     <th className="px-6 py-4 text-center">AI Verified</th>
                     <th className="px-6 py-4"></th>
@@ -406,7 +407,14 @@ export default function SalesHub() {
                 )}
 
                 {/* DATA ROWS */}
-                {activeTab === 'invoices' && invoices.map((inv) => (
+                {activeTab === 'invoices' && invoices.map((inv) => {
+                  const estMargin = inv.invoice_lines?.reduce((sum: number, l: any) => {
+                    const cost = l.products?.cost || 0;
+                    const margin = Number(l.total || 0) - (Number(l.quantity || 1) * Number(cost));
+                    return sum + margin;
+                  }, 0) || 0;
+
+                  return (
                   <tr key={inv.id} className="hover:bg-gray-50 transition-colors group">
                     <td className="px-6 py-4 font-medium text-gray-900">
                       INV-{inv.id.substring(0, 6).toUpperCase()}
@@ -422,6 +430,9 @@ export default function SalesHub() {
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-gray-900">
                       {inv.total_amount.toLocaleString()} PKR
+                    </td>
+                    <td className="px-6 py-4 text-right font-bold text-emerald-600">
+                      {estMargin > 0 ? '+' : ''}{estMargin.toLocaleString()} PKR
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${
@@ -464,7 +475,8 @@ export default function SalesHub() {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
 
                 {activeTab === 'customers' && customers.map((c) => (
                   <tr key={c.id} className="hover:bg-gray-50 transition-colors">
