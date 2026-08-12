@@ -21,6 +21,37 @@ export default function PurchasesHub() {
   const [paymentData, setPaymentData] = useState({ bill_id: '', amount: '', date: new Date().toISOString().split('T')[0], method: 'Bank Transfer' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
+  const [newSupplier, setNewSupplier] = useState({ name: '', email: '', phone: '' });
+
+  async function handleCreateSupplier(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newSupplier.name) return toast.error("Supplier name is required");
+    
+    const toastId = toast.loading("Creating supplier...");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.dismiss(toastId);
+      return toast.error("Not authenticated");
+    }
+
+    const { error } = await supabase.from('suppliers').insert({
+      user_id: user.id,
+      name: newSupplier.name,
+      email: newSupplier.email || null,
+      phone: newSupplier.phone || null
+    });
+
+    if (error) {
+      toast.error(`Error creating supplier: ${error.message}`, { id: toastId });
+    } else {
+      toast.success("Supplier created successfully!", { id: toastId });
+      setIsSupplierModalOpen(false);
+      setNewSupplier({ name: '', email: '', phone: '' });
+      fetchData();
+    }
+  }
+
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -263,8 +294,10 @@ export default function PurchasesHub() {
                 setIsEditing(false);
                 setNewBill({ id: '', supplier_id: '', account_id: '', issue_date: '', amount: '' });
                 setIsBillModalOpen(true);
+              } else {
+                setNewSupplier({ name: '', email: '', phone: '' });
+                setIsSupplierModalOpen(true);
               }
-              else toast('Supplier modal coming soon!', { icon: '🚧' });
             }}
             className="w-full sm:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
           >
@@ -543,6 +576,68 @@ export default function PurchasesHub() {
                 </button>
                 <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-green-600/20 cursor-pointer disabled:opacity-50">
                   {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Record Payment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* NEW SUPPLIER MODAL */}
+      {isSupplierModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                <Truck className="w-5 h-5 text-indigo-600" />
+                Add New Supplier
+              </h2>
+              <button onClick={() => setIsSupplierModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleCreateSupplier} className="p-6 space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Supplier Name *</label>
+                <input 
+                  type="text" 
+                  required
+                  value={newSupplier.name}
+                  onChange={e => setNewSupplier({...newSupplier, name: e.target.value})}
+                  placeholder="e.g. Acme Supplies Inc"
+                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-sm"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Email Address</label>
+                <input 
+                  type="email" 
+                  value={newSupplier.email}
+                  onChange={e => setNewSupplier({...newSupplier, email: e.target.value})}
+                  placeholder="supplier@example.com"
+                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-sm"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Phone Number</label>
+                <input 
+                  type="text" 
+                  value={newSupplier.phone}
+                  onChange={e => setNewSupplier({...newSupplier, phone: e.target.value})}
+                  placeholder="+1 555-0188"
+                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-sm"
+                />
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button type="button" onClick={() => setIsSupplierModalOpen(false)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold rounded-xl transition-colors cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-indigo-600/20 cursor-pointer">
+                  Save Supplier
                 </button>
               </div>
             </form>

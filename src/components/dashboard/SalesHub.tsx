@@ -21,6 +21,9 @@ export default function SalesHub() {
   const [paymentData, setPaymentData] = useState({ invoice_id: '', amount: '', date: new Date().toISOString().split('T')[0], method: 'Bank Transfer' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '' });
+
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState({
     id: '',
@@ -41,11 +44,39 @@ export default function SalesHub() {
     setIsProductModalOpen(true);
   }
 
-  async function handleUpdateProduct(e: React.FormEvent) {
+  async function handleCreateCustomer(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newCustomer.name) return toast.error("Customer name is required");
+    
+    const toastId = toast.loading("Creating customer...");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.dismiss(toastId);
+      return toast.error("Not authenticated");
+    }
+
+    const { error } = await supabase.from('customers').insert({
+      user_id: user.id,
+      name: newCustomer.name,
+      email: newCustomer.email || null,
+      phone: newCustomer.phone || null
+    });
+
+    if (error) {
+      toast.error(`Error creating customer: ${error.message}`, { id: toastId });
+    } else {
+      toast.success("Customer created successfully!", { id: toastId });
+      setIsCustomerModalOpen(false);
+      setNewCustomer({ name: '', email: '', phone: '' });
+      fetchData();
+    }
+  }
+
+  async function handleSaveProduct(e: React.FormEvent) {
     e.preventDefault();
     if (!editingProduct.name) return toast.error("Product name is required");
     
-    const toastId = toast.loading("Updating product...");
+    const toastId = toast.loading(editingProduct.id ? "Updating product..." : "Creating product...");
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       toast.dismiss(toastId);
@@ -54,22 +85,41 @@ export default function SalesHub() {
 
     const safePriceCents = parseToCents(editingProduct.price);
     const safeCostCents = parseToCents(editingProduct.cost);
+    const priceVal = Math.round(safePriceCents) / 100;
+    const costVal = Math.round(safeCostCents) / 100;
 
-    const { error } = await supabase
-      .from('products')
-      .update({
-        name: editingProduct.name,
-        price: Math.round(safePriceCents) / 100,
-        cost: Math.round(safeCostCents) / 100,
-        is_inventory_tracked: editingProduct.is_inventory_tracked
-      })
-      .eq('id', editingProduct.id)
-      .eq('user_id', user.id);
+    let error = null;
+
+    if (editingProduct.id) {
+      const { error: err } = await supabase
+        .from('products')
+        .update({
+          name: editingProduct.name,
+          price: priceVal,
+          cost: costVal,
+          is_inventory_tracked: editingProduct.is_inventory_tracked
+        })
+        .eq('id', editingProduct.id)
+        .eq('user_id', user.id);
+      error = err;
+    } else {
+      const { error: err } = await supabase
+        .from('products')
+        .insert({
+          user_id: user.id,
+          name: editingProduct.name,
+          price: priceVal,
+          cost: costVal,
+          inventory_count: 0,
+          is_inventory_tracked: editingProduct.is_inventory_tracked
+        });
+      error = err;
+    }
 
     if (error) {
-      toast.error(`Error updating product: ${error.message}`, { id: toastId });
+      toast.error(`Error saving product: ${error.message}`, { id: toastId });
     } else {
-      toast.success("Product updated successfully!", { id: toastId });
+      toast.success(editingProduct.id ? "Product updated successfully!" : "Product created successfully!", { id: toastId });
       setIsProductModalOpen(false);
       fetchData();
     }
@@ -328,7 +378,8 @@ export default function SalesHub() {
                 setEditingProduct({ id: '', name: '', price: '0', cost: '0', is_inventory_tracked: true });
                 setIsProductModalOpen(true);
               } else {
-                toast('Customer modal coming soon!', { icon: '🚧' });
+                setNewCustomer({ name: '', email: '', phone: '' });
+                setIsCustomerModalOpen(true);
               }
             }}
             className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 transition-all cursor-pointer"
@@ -661,7 +712,7 @@ export default function SalesHub() {
               </button>
             </div>
             
-            <form onSubmit={handleUpdateProduct} className="p-6 space-y-4">
+            <form onSubmit={handleSaveProduct} className="p-6 space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Product Name</label>
                 <input 
@@ -728,6 +779,68 @@ export default function SalesHub() {
                 </button>
                 <button type="submit" className="flex-1 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-purple-600/20 cursor-pointer">
                   Save Product
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* NEW CUSTOMER MODAL */}
+      {isCustomerModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-600" />
+                Add New Customer
+              </h2>
+              <button onClick={() => setIsCustomerModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleCreateCustomer} className="p-6 space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer Name *</label>
+                <input 
+                  type="text" 
+                  required
+                  value={newCustomer.name}
+                  onChange={e => setNewCustomer({...newCustomer, name: e.target.value})}
+                  placeholder="e.g. Manual Audit Corp"
+                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-sm"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Email Address</label>
+                <input 
+                  type="email" 
+                  value={newCustomer.email}
+                  onChange={e => setNewCustomer({...newCustomer, email: e.target.value})}
+                  placeholder="audit@example.com"
+                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-sm"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Phone Number</label>
+                <input 
+                  type="text" 
+                  value={newCustomer.phone}
+                  onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})}
+                  placeholder="+1 555-0199"
+                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-sm"
+                />
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button type="button" onClick={() => setIsCustomerModalOpen(false)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold rounded-xl transition-colors cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-blue-600/20 cursor-pointer">
+                  Save Customer
                 </button>
               </div>
             </form>
