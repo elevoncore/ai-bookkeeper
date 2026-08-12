@@ -19,6 +19,7 @@ export default function DashboardPage() {
   const [pendingItems, setPendingItems] = useState<PendingItem[]>([]);
   const [chartOfAccounts, setChartOfAccounts] = useState<any[]>([]);
   const [userEmail, setUserEmail] = useState<string>('user@aibookkeeper.com');
+  const [userName, setUserName] = useState<string>('Alex');
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'sales' | 'purchases' | 'reports'>('overview');
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
@@ -52,6 +53,14 @@ export default function DashboardPage() {
       setUserEmail(user.email);
       setUserId(user.id);
       currentUserId = user.id;
+
+      const metaName = user.user_metadata?.full_name || user.user_metadata?.name;
+      if (metaName) {
+        setUserName(metaName);
+      } else {
+        const fallback = user.email.split('@')[0];
+        setUserName(fallback.charAt(0).toUpperCase() + fallback.slice(1));
+      }
     }
 
     // Fetch Accounts
@@ -147,13 +156,13 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-50 transition-colors duration-300">
+    <div className="relative min-h-screen bg-slate-50 font-sans text-slate-900 transition-colors duration-300">
       
       {/* Global Evolving Background Glows */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute -top-[10%] -left-[10%] w-[50vw] h-[50vw] max-w-[800px] max-h-[800px] rounded-full bg-purple-500/20 dark:bg-purple-600/20 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '10s' }} />
-        <div className="absolute top-[40%] -right-[10%] w-[40vw] h-[40vw] max-w-[600px] max-h-[600px] rounded-full bg-fuchsia-500/20 dark:bg-fuchsia-600/20 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '14s', animationDelay: '2s' }} />
-        <div className="absolute -bottom-[20%] left-[20%] w-[60vw] h-[60vw] max-w-[900px] max-h-[900px] rounded-full bg-indigo-500/10 dark:bg-indigo-700/20 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '18s', animationDelay: '4s' }} />
+        <div className="absolute -top-[10%] -left-[10%] w-[50vw] h-[50vw] max-w-[800px] max-h-[800px] rounded-full bg-purple-500/20 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '10s' }} />
+        <div className="absolute top-[40%] -right-[10%] w-[40vw] h-[40vw] max-w-[600px] max-h-[600px] rounded-full bg-fuchsia-500/20 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '14s', animationDelay: '2s' }} />
+        <div className="absolute -bottom-[20%] left-[20%] w-[60vw] h-[60vw] max-w-[900px] max-h-[900px] rounded-full bg-indigo-500/10 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '18s', animationDelay: '4s' }} />
       </div>
 
       {/* Main Content Wrapper */}
@@ -178,6 +187,7 @@ export default function DashboardPage() {
               <>
                 <PendingTable items={pendingItems} onDataChanged={fetchFinancials} onViewLog={(id) => setLogModalTxId(id)} />
                 <BentoStatsPanel
+                  userName={userName}
                   userEmail={userEmail}
                   invoices={invoices}
                   bills={bills}
@@ -245,3 +255,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

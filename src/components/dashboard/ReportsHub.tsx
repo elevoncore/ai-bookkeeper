@@ -53,7 +53,7 @@ export default function ReportsHub() {
     <div className="space-y-6">
       
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50 p-6 rounded-2xl ">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-6 rounded-2xl ">
         <div>
           <h1 className="text-xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
             Financial Reports
@@ -72,19 +72,19 @@ export default function ReportsHub() {
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setActiveTab('ledger')}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${activeTab === 'ledger' ? 'bg-gray-900 text-white shadow-md' : 'bg-white/70 dark:bg-slate-800/80 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${activeTab === 'ledger' ? 'bg-gray-900 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
         >
           <FileSpreadsheet className="w-4 h-4" /> General Ledger
         </button>
         <button
           onClick={() => setActiveTab('pnl')}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${activeTab === 'pnl' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 dark:bg-slate-800/80 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${activeTab === 'pnl' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
         >
           <DollarSign className="w-4 h-4" /> Profit & Loss
         </button>
         <button
           onClick={() => setActiveTab('trial_balance')}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${activeTab === 'trial_balance' ? 'bg-emerald-600 text-white shadow-md' : 'bg-white/70 dark:bg-slate-800/80 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${activeTab === 'trial_balance' ? 'bg-emerald-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
         >
           <Scale className="w-4 h-4" /> Trial Balance
         </button>
@@ -96,7 +96,7 @@ export default function ReportsHub() {
           <Loader2 className="w-8 h-8 animate-spin" />
         </div>
       ) : (
-        <div className="bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50 rounded-2xl  overflow-hidden">
+        <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-2xl  overflow-hidden">
           
           {/* LEDGER TAB */}
           {activeTab === 'ledger' && (
@@ -281,3 +281,4 @@ export default function ReportsHub() {
     </div>
   );
 }
+

@@ -468,7 +468,7 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
   }
 
   return (
-    <div className="flex flex-col h-full w-full bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50 md:bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50/90 backdrop-blur-md md:rounded-2xl border-0 md:border md:border-gray-100 shadow-sm overflow-hidden relative">
+    <div className="flex flex-col h-full w-full bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 md:bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 backdrop-blur-md md:rounded-2xl border-0 md:border md:border-gray-100 shadow-sm overflow-hidden relative">
       <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-blue-50/30 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
@@ -493,7 +493,7 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
       </div>
 
       {isHistoryOpen && (
-        <div className="absolute inset-0 z-20 bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50 flex flex-col pt-16 animate-in slide-in-from-right-full duration-300">
+        <div className="absolute inset-0 z-20 bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 flex flex-col pt-16 animate-in slide-in-from-right-full duration-300">
           <div className="p-4 border-b border-gray-100 flex items-center justify-between">
             <h3 className="font-bold text-gray-900">Chat History</h3>
             <button onClick={() => setIsHistoryOpen(false)} className="p-1 text-gray-400 hover:bg-gray-100 rounded-full"><X className="w-5 h-5" /></button>
@@ -537,12 +537,12 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
                 </div>
               )}
               
-              <div className={`p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-2xs break-words whitespace-pre-wrap ${msg.sender === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none border border-gray-200/60'}`}>
+              <div className={`p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-2xs break-words whitespace-pre-wrap ${msg.sender === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none border border-gray-200'}`}>
                 {msg.text}
               </div>
 
               {msg.extractedDraft && (
-                <div className="bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50 rounded-xl border border-blue-100 p-3.5 shadow-sm space-y-2.5 mt-2 animate-in fade-in duration-200">
+                <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-xl border border-blue-100 p-3.5 shadow-sm space-y-2.5 mt-2 animate-in fade-in duration-200">
                   <div className="flex items-center justify-between border-b border-gray-100 pb-2">
                     <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
                       <Receipt className="w-4 h-4 text-blue-600" />
@@ -608,14 +608,14 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
         <div ref={chatBottomRef} />
       </div>
 
-      <div className="p-3 bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50 border-t border-gray-100 sticky bottom-0 z-10">
+      <div className="p-3 bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 border-t border-gray-100 sticky bottom-0 z-10">
         {imageBase64 && (
           <div className="mb-2 relative inline-block">
             <img src={imageBase64} alt="Preview" className="h-16 w-16 object-cover rounded-xl border border-gray-300" />
             <button onClick={clearImage} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5"><X className="w-3 h-3" /></button>
           </div>
         )}
-        <form onSubmit={handleSendMessage} className="relative flex items-center bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50 rounded-full p-1.5 shadow-md pl-3 pr-2 border border-gray-200 focus-within:ring-2 focus-within:ring-blue-100">
+        <form onSubmit={handleSendMessage} className="relative flex items-center bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-full p-1.5 shadow-md pl-3 pr-2 border border-gray-200 focus-within:ring-2 focus-within:ring-blue-100">
           <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => e.target.files && handleFileSelect(e.target.files[0])} disabled={isViewingHistory} />
           <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-400 hover:text-blue-600" disabled={isViewingHistory}><Plus className="w-5 h-5" /></button>
           <input type="text" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={isViewingHistory ? "Viewing historical chat (Read-Only)" : "Ask or log bill/invoice..."} className="flex-1 bg-transparent border-none text-gray-900 text-xs sm:text-sm px-3 focus:outline-none" disabled={isExtracting || isViewingHistory} />
@@ -625,3 +625,4 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
     </div>
   );
 }
+

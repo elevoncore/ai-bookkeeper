@@ -56,7 +56,7 @@ export default function AgingSummaryPanel({ invoices, bills }: AgingSummaryPanel
     val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
-    <div className="bg-white/70 dark:bg-slate-800/80 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col space-y-6">
+    <div className="bg-white/70 backdrop-blur-md border border-white/50 shadow-sm rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col space-y-6">
       <div>
         <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
           <Clock className="w-5 h-5 text-blue-600" />
@@ -67,7 +67,7 @@ export default function AgingSummaryPanel({ invoices, bills }: AgingSummaryPanel
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* AR Panel */}
-        <div className="border border-green-100 bg-green-50/30 rounded-2xl p-4">
+        <div className="border border-green-100 bg-green-50 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-4">
             <div className="p-2 bg-green-100 text-green-700 rounded-lg">
               <ArrowDownRight className="w-4 h-4" />
@@ -133,3 +133,4 @@ export default function AgingSummaryPanel({ invoices, bills }: AgingSummaryPanel
     </div>
   );
 }
+
