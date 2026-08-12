@@ -23,6 +23,7 @@ export default function PurchasesHub() {
 
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
   const [newSupplier, setNewSupplier] = useState({ name: '', email: '', phone: '' });
+  const [editedBillIds, setEditedBillIds] = useState<Set<string>>(new Set());
 
   async function handleCreateSupplier(e: React.FormEvent) {
     e.preventDefault();
@@ -139,6 +140,8 @@ export default function PurchasesHub() {
         return;
       }
 
+      try { await supabase.from('bills').update({ is_manually_edited: true }).eq('id', newBill.id); } catch (_) {}
+      setEditedBillIds(prev => new Set(prev).add(newBill.id));
       toast.success("Bill updated successfully!", { id: toastId });
       closeModal();
       fetchData();
@@ -157,14 +160,17 @@ export default function PurchasesHub() {
            account_id: newBill.account_id,
            description: 'Manual entry',
            amount: Math.round(safeAmountCents) / 100
-        }]
+        }],
+        p_currency_code: 'PKR',
+        p_exchange_rate: 1.0,
+        p_original_amount: Math.round(safeAmountCents) / 100
       });
 
       if (createError) {
         toast.error(`Error: ${createError.message}`, { id: toastId });
       } else {
         // Trigger verification AFTER lines exist
-        await supabase.from('bills').update({ is_ai_verified: true }).eq('id', insertedId);
+        try { await supabase.from('bills').update({ is_ai_verified: true, created_by_source: 'MANUAL', is_manually_edited: false }).eq('id', insertedId); } catch (_) {}
         toast.success("Bill created and posted to ledger!", { id: toastId });
         closeModal();
         fetchData();
@@ -369,8 +375,16 @@ export default function PurchasesHub() {
                 {/* DATA ROWS */}
                 {activeTab === 'bills' && bills.map((bill) => (
                   <tr key={bill.id} className="hover:bg-gray-50 transition-colors group">
-                    <td className="px-6 py-4 font-medium text-gray-900">
-                      BILL-{bill.id.substring(0, 6).toUpperCase()}
+                    <td className="px-6 py-4 font-medium text-gray-900 flex items-center gap-2">
+                      <span>BILL-{bill.id.substring(0, 6).toUpperCase()}</span>
+                      {bill.created_by_source === 'AI' || (bill.is_ai_verified && bill.created_by_source !== 'MANUAL') ? (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">🤖 AI</span>
+                      ) : (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">👤 Manual</span>
+                      )}
+                      {(bill.is_manually_edited || editedBillIds.has(bill.id)) && (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200">✏️ Edited</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 font-semibold text-indigo-700">
                       {bill.suppliers?.name || 'Unknown'}
@@ -429,7 +443,17 @@ export default function PurchasesHub() {
 
                 {activeTab === 'suppliers' && suppliers.map((c) => (
                   <tr key={c.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 font-semibold text-gray-900">{c.name}</td>
+                    <td className="px-6 py-4 font-semibold text-gray-900 flex items-center gap-2">
+                      <span>{c.name}</span>
+                      {c.created_by_source === 'AI' ? (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">🤖 AI</span>
+                      ) : (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">👤 Manual</span>
+                      )}
+                      {c.is_manually_edited && (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200">✏️ Edited</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-gray-500">{c.email || '-'}</td>
                     <td className="px-6 py-4 text-gray-500">{c.phone || '-'}</td>
                     <td className="px-6 py-4 text-gray-400 text-xs">{new Date(c.created_at).toLocaleDateString()}</td>

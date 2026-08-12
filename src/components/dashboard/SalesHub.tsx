@@ -25,13 +25,8 @@ export default function SalesHub() {
   const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '' });
 
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState({
-    id: '',
-    name: '',
-    price: '',
-    cost: '',
-    is_inventory_tracked: false
-  });
+  const [editingProduct, setEditingProduct] = useState<{ id?: string; name: string; price: string; cost: string; is_inventory_tracked: boolean }>({ name: '', price: '', cost: '', is_inventory_tracked: true });
+  const [editedInvoiceIds, setEditedInvoiceIds] = useState<Set<string>>(new Set());
 
   function openEditProductModal(p: any) {
     setEditingProduct({
@@ -216,6 +211,8 @@ export default function SalesHub() {
       if (error) {
         toast.error(`Error: ${error.message}`, { id: toastId });
       } else {
+        try { await supabase.from('invoices').update({ is_manually_edited: true }).eq('id', newInvoice.id); } catch (_) {}
+        setEditedInvoiceIds(prev => new Set(prev).add(newInvoice.id));
         toast.success("Invoice updated successfully!", { id: toastId });
         closeModal();
         fetchData();
@@ -235,14 +232,16 @@ export default function SalesHub() {
            quantity: 1,
            unit_price: Math.round(safeAmountCents) / 100,
            total: Math.round(safeAmountCents) / 100
-        }]
+        }],
+        p_currency_code: 'PKR',
+        p_exchange_rate: 1.0,
+        p_original_amount: Math.round(safeAmountCents) / 100
       });
 
       if (createError) {
         toast.error(`Error: ${createError.message}`, { id: toastId });
       } else {
-        // Now trigger the verification securely so the ledger processes the existing lines
-        await supabase.from('invoices').update({ is_ai_verified: true }).eq('id', insertedId);
+        try { await supabase.from('invoices').update({ is_ai_verified: true, created_by_source: 'MANUAL', is_manually_edited: false }).eq('id', insertedId); } catch (_) {}
         toast.success("Invoice created successfully!", { id: toastId });
         closeModal();
         fetchData();
@@ -471,8 +470,16 @@ export default function SalesHub() {
 
                   return (
                   <tr key={inv.id} className="hover:bg-gray-50 transition-colors group">
-                    <td className="px-6 py-4 font-medium text-gray-900">
-                      INV-{inv.id.substring(0, 6).toUpperCase()}
+                    <td className="px-6 py-4 font-medium text-gray-900 flex items-center gap-2">
+                      <span>INV-{inv.id.substring(0, 6).toUpperCase()}</span>
+                      {inv.created_by_source === 'AI' || (inv.is_ai_verified && inv.created_by_source !== 'MANUAL') ? (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">🤖 AI</span>
+                      ) : (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">👤 Manual</span>
+                      )}
+                      {(inv.is_manually_edited || editedInvoiceIds.has(inv.id)) && (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200">✏️ Edited</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 font-semibold text-blue-700">
                       {inv.customers?.name || 'Unknown'}
@@ -535,7 +542,17 @@ export default function SalesHub() {
 
                 {activeTab === 'customers' && customers.map((c) => (
                   <tr key={c.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 font-semibold text-gray-900">{c.name}</td>
+                    <td className="px-6 py-4 font-semibold text-gray-900 flex items-center gap-2">
+                      <span>{c.name}</span>
+                      {c.created_by_source === 'AI' ? (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">🤖 AI</span>
+                      ) : (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">👤 Manual</span>
+                      )}
+                      {c.is_manually_edited && (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200">✏️ Edited</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-gray-500">{c.email || '-'}</td>
                     <td className="px-6 py-4 text-gray-500">{c.phone || '-'}</td>
                     <td className="px-6 py-4 text-gray-400 text-xs">{new Date(c.created_at).toLocaleDateString()}</td>
@@ -544,7 +561,17 @@ export default function SalesHub() {
 
                 {activeTab === 'products' && products.map((p) => (
                   <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 font-semibold text-gray-900">{p.name}</td>
+                    <td className="px-6 py-4 font-semibold text-gray-900 flex items-center gap-2">
+                      <span>{p.name}</span>
+                      {p.created_by_source === 'AI' ? (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">🤖 AI</span>
+                      ) : (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">👤 Manual</span>
+                      )}
+                      {p.is_manually_edited && (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200">✏️ Edited</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-gray-500 text-right font-medium">{p.currency_code || 'PKR'} {p.price.toLocaleString()}</td>
                     <td className="px-6 py-4 text-gray-500 text-right font-medium">{p.currency_code || 'PKR'} {(p.cost || 0).toLocaleString()}</td>
                     <td className="px-6 py-4 text-center">

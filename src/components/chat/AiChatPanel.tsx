@@ -264,20 +264,33 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
         
         if (existingProd) return existingProd.id;
 
-        const { data: newProd } = await supabase
+        let { data: newProd, error: newProdErr } = await supabase
           .from('products')
-          .insert({ user_id: user!.id, name: prodName, price, is_inventory_tracked: isInventoryTracked })
+          .insert({ user_id: user!.id, name: prodName, price, is_inventory_tracked: isInventoryTracked, created_by_source: 'AI' })
           .select('id')
           .single();
+
+        if (newProdErr) {
+          const fallback = await supabase
+            .from('products')
+            .insert({ user_id: user!.id, name: prodName, price, is_inventory_tracked: isInventoryTracked })
+            .select('id')
+            .single();
+          newProd = fallback.data;
+        }
+
         return newProd?.id;
       }
 
       if (ext.intent === 'LOG_BILL') {
         let supplierId = null;
         if (ext.supplier_name) {
-          const { data: upsertedSupp, error: suppErr } = await supabase.from('suppliers').upsert({ user_id: user.id, name: ext.supplier_name }, { onConflict: 'user_id,name' }).select('id').single();
-          if (suppErr) throw new Error(`Supplier resolution failed: ${suppErr.message}`);
-          supplierId = upsertedSupp?.id;
+          let upsertRes = await supabase.from('suppliers').upsert({ user_id: user.id, name: ext.supplier_name, created_by_source: 'AI' }, { onConflict: 'user_id,name' }).select('id').single();
+          if (upsertRes.error) {
+            upsertRes = await supabase.from('suppliers').upsert({ user_id: user.id, name: ext.supplier_name }, { onConflict: 'user_id,name' }).select('id').single();
+          }
+          if (upsertRes.error) throw new Error(`Supplier resolution failed: ${upsertRes.error.message}`);
+          supplierId = upsertRes.data?.id;
         }
 
         const resolvedLines = [];
@@ -316,6 +329,7 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
         
         if (rpcError) throw new Error(`Atomic Bill Creation Failed: ${rpcError.message}`);
         insertedId = billId;
+        try { await supabase.from('bills').update({ created_by_source: 'AI' }).eq('id', billId); } catch (_) {}
 
         // If the AI detected it as already paid, execute the payment RPC to debit Cash
         if (ext.status === 'paid') {
@@ -332,9 +346,12 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
       } else if (ext.intent === 'LOG_INVOICE') {
         let customerId = null;
         if (ext.customer_name) {
-          const { data: upsertedCust, error: custErr } = await supabase.from('customers').upsert({ user_id: user.id, name: ext.customer_name }, { onConflict: 'user_id,name' }).select('id').single();
-          if (custErr) throw new Error(`Customer resolution failed: ${custErr.message}`);
-          customerId = upsertedCust?.id;
+          let upsertRes = await supabase.from('customers').upsert({ user_id: user.id, name: ext.customer_name, created_by_source: 'AI' }, { onConflict: 'user_id,name' }).select('id').single();
+          if (upsertRes.error) {
+            upsertRes = await supabase.from('customers').upsert({ user_id: user.id, name: ext.customer_name }, { onConflict: 'user_id,name' }).select('id').single();
+          }
+          if (upsertRes.error) throw new Error(`Customer resolution failed: ${upsertRes.error.message}`);
+          customerId = upsertRes.data?.id;
         }
 
         const resolvedLines = [];
@@ -368,6 +385,7 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
         
         if (rpcError) throw new Error(`Atomic Invoice Creation Failed: ${rpcError.message}`);
         insertedId = invoiceId;
+        try { await supabase.from('invoices').update({ created_by_source: 'AI' }).eq('id', invoiceId); } catch (_) {}
 
         // If the AI detected it as already paid, execute the payment RPC to debit Cash
         if (ext.status === 'paid') {
