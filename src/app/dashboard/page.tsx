@@ -147,24 +147,33 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
+    <div className="relative min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-50 transition-colors duration-300">
       
-      {/* GLOBAL HEADER */}
-      <HeaderNav 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        userEmail={userEmail}
-        pendingCount={pendingItems.length}
-      />
+      {/* Global Evolving Background Glows */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute -top-[10%] -left-[10%] w-[50vw] h-[50vw] max-w-[800px] max-h-[800px] rounded-full bg-purple-500/20 dark:bg-purple-600/20 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '10s' }} />
+        <div className="absolute top-[40%] -right-[10%] w-[40vw] h-[40vw] max-w-[600px] max-h-[600px] rounded-full bg-fuchsia-500/20 dark:bg-fuchsia-600/20 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '14s', animationDelay: '2s' }} />
+        <div className="absolute -bottom-[20%] left-[20%] w-[60vw] h-[60vw] max-w-[900px] max-h-[900px] rounded-full bg-indigo-500/10 dark:bg-indigo-700/20 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '18s', animationDelay: '4s' }} />
+      </div>
 
-      {/* MAIN DASHBOARD SPLIT CONTAINER */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+      {/* Main Content Wrapper */}
+      <div className="relative z-10 flex flex-col min-h-screen pt-24">
+        {/* GLOBAL HEADER */}
+        <HeaderNav 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          userEmail={userEmail}
+          pendingCount={pendingItems.length}
+        />
+
+        {/* MAIN DASHBOARD SPLIT CONTAINER */}
+        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
         
         {/* DESKTOP SPLIT VIEW: Stats on Left, AI Chat on Right */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start h-[calc(100vh-6rem)] min-h-[650px]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start min-h-screen pb-12">
           
           {/* LEFT CONTENT AREA */}
-          <div className="lg:col-span-7 xl:col-span-8 overflow-y-auto pr-1 h-full space-y-6 scrollbar-thin">
+          <div className="lg:col-span-7 xl:col-span-8 pr-1 space-y-6">
             {activeTab === 'overview' && (
               <>
                 <PendingTable items={pendingItems} onDataChanged={fetchFinancials} onViewLog={(id) => setLogModalTxId(id)} />
@@ -195,7 +204,7 @@ export default function DashboardPage() {
           </div>
 
           {/* RIGHT SIDEBAR: Conversational AI Assistant Chat */}
-          <div className="hidden lg:block lg:col-span-5 xl:col-span-4 h-full sticky top-20">
+          <div className="hidden lg:block lg:col-span-5 xl:col-span-4 h-[calc(100vh-8rem)] sticky top-28 pb-4 z-20">
             <AiChatPanel
               chartOfAccounts={chartOfAccounts}
               onDataChanged={fetchFinancials}
@@ -232,6 +241,7 @@ export default function DashboardPage() {
       {logModalTxId && (
         <AiChatLogModal txId={logModalTxId} onClose={() => setLogModalTxId(null)} />
       )}
+      </div>
     </div>
   );
 }

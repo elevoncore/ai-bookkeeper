@@ -52,7 +52,7 @@ export default function PendingTable({ items, onDataChanged, onViewLog }: Pendin
   if (items.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-2xl shadow-xs border border-amber-200 overflow-hidden mb-6">
+    <div className="bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50 rounded-2xl shadow-xs border border-amber-200 overflow-hidden mb-6">
       <div className="p-4 border-b border-amber-100 bg-amber-50/50 flex items-center justify-between">
         <h2 className="font-bold text-amber-900 flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
@@ -63,7 +63,7 @@ export default function PendingTable({ items, onDataChanged, onViewLog }: Pendin
       
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-gray-600">
-          <thead className="bg-white text-gray-400 text-xs uppercase border-b border-gray-100">
+          <thead className="bg-white/70 dark:bg-slate-800/80 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm text-gray-400 text-xs uppercase border-b border-gray-100">
             <tr>
               <th className="px-6 py-3 font-semibold">Type</th>
               <th className="px-6 py-3 font-semibold">Date</th>

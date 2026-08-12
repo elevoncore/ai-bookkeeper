@@ -110,7 +110,7 @@ export default function BentoStatsPanel({
     <div className="space-y-6">
       
       {/* PERSONALIZED GREETING HEADER */}
-      <div className={`flex flex-col ${forceMobileView ? '' : forceDesktopView ? 'flex-row' : 'sm:flex-row'} justify-between items-start ${forceMobileView ? '' : forceDesktopView ? 'items-center' : 'sm:items-center'} gap-4 bg-white p-6 rounded-2xl shadow-xs border border-gray-100`}>
+      <div className={`flex flex-col ${forceMobileView ? '' : forceDesktopView ? 'flex-row' : 'sm:flex-row'} justify-between items-start ${forceMobileView ? '' : forceDesktopView ? 'items-center' : 'sm:items-center'} gap-4 bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50 p-6 rounded-2xl `}>
         <div>
           <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
             Welcome back, <span className="capitalize text-blue-600">{userName}</span>
@@ -136,7 +136,7 @@ export default function BentoStatsPanel({
         {/* BENTO TOP ROW: 3 KEY METRIC CARDS */}
         <div className={`grid grid-cols-1 ${forceMobileView ? '' : forceDesktopView ? 'grid-cols-3' : 'md:grid-cols-3'} gap-4`}>
           
-          <div className="bg-white p-5 rounded-2xl shadow-xs border border-gray-100 relative overflow-hidden group hover:border-blue-200 transition-all">
+          <div className="bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50 p-5 rounded-2xl  relative overflow-hidden group hover:border-blue-200 transition-all">
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
                 <Wallet className="w-5 h-5" />
@@ -162,7 +162,7 @@ export default function BentoStatsPanel({
             </p>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl shadow-xs border border-gray-100 relative overflow-hidden group hover:border-emerald-200 transition-all">
+          <div className="bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50 p-5 rounded-2xl  relative overflow-hidden group hover:border-emerald-200 transition-all">
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
                 <CheckCircle className="w-5 h-5" />
@@ -185,7 +185,7 @@ export default function BentoStatsPanel({
             </p>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl shadow-xs border border-gray-100 relative overflow-hidden group hover:border-purple-200 transition-all">
+          <div className="bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50 p-5 rounded-2xl  relative overflow-hidden group hover:border-purple-200 transition-all">
             <div className="flex items-center justify-between">
               <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
                 <Clock className="w-5 h-5" />
@@ -213,7 +213,7 @@ export default function BentoStatsPanel({
         {/* BENTO MIDDLE ROW: CHARTS */}
         <div className={`grid grid-cols-1 ${forceMobileView ? '' : forceDesktopView ? 'grid-cols-2' : 'lg:grid-cols-2'} gap-4`}>
           
-          <div className="bg-white p-6 rounded-2xl shadow-xs border border-gray-100 space-y-4">
+          <div className="bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50 p-6 rounded-2xl  space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-sm text-gray-900 flex items-center gap-2">
@@ -247,7 +247,7 @@ export default function BentoStatsPanel({
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-xs border border-gray-100 space-y-4">
+          <div className="bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50 p-6 rounded-2xl  space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-sm text-gray-900 flex items-center gap-2">

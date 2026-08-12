@@ -91,7 +91,7 @@ export default function TransactionsExplorer({ transactions }: TransactionsExplo
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-white/70 dark:bg-slate-800/80 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
       
       {/* Header & Controls */}
       <div className="p-6 border-b border-gray-100 space-y-4">
@@ -122,19 +122,19 @@ export default function TransactionsExplorer({ transactions }: TransactionsExplo
           <div className="flex bg-gray-100 p-1 rounded-lg w-full sm:w-auto">
             <button 
               onClick={() => { setStatusFilter('all'); setCurrentPage(1); }}
-              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${statusFilter === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${statusFilter === 'all' ? 'bg-white/70 dark:bg-slate-800/80 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm text-gray-900 shadow-sm' : 'text-gray-500'}`}
             >
               All
             </button>
             <button 
               onClick={() => { setStatusFilter('verified'); setCurrentPage(1); }}
-              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${statusFilter === 'verified' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${statusFilter === 'verified' ? 'bg-white/70 dark:bg-slate-800/80 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm text-gray-900 shadow-sm' : 'text-gray-500'}`}
             >
               Verified
             </button>
             <button 
               onClick={() => { setStatusFilter('pending'); setCurrentPage(1); }}
-              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${statusFilter === 'pending' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${statusFilter === 'pending' ? 'bg-white/70 dark:bg-slate-800/80 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm text-gray-900 shadow-sm' : 'text-gray-500'}`}
             >
               Pending
             </button>

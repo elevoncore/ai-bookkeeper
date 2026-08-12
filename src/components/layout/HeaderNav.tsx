@@ -51,9 +51,8 @@ export default function HeaderNav({
   const initials = userEmail ? userEmail.substring(0, 2).toUpperCase() : 'AI';
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-white/80 backdrop-blur-md border-b border-gray-100 shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+    <header className="fixed top-6 left-0 right-0 z-50 flex justify-center px-4 md:px-12 pointer-events-none">
+      <div className="pointer-events-auto flex items-center justify-between gap-4 md:gap-8 h-16 px-4 md:px-8 bg-white/40 dark:bg-slate-900/50 backdrop-blur-2xl border border-white/60 dark:border-slate-700/60 rounded-full shadow-2xl shadow-slate-200/50 dark:shadow-black/50 transition-all">
           
           {/* LEFT: Logo & Brand Badge */}
           <div className="flex items-center gap-3">
@@ -70,7 +69,7 @@ export default function HeaderNav({
           </div>
 
           {/* CENTER: Navigation Pills */}
-          <nav className="hidden md:flex items-center gap-1 bg-gray-100/80 p-1 rounded-full border border-gray-200/60">
+          <nav className="hidden md:flex items-center gap-1 bg-white/40 dark:bg-slate-900/40 backdrop-blur-md p-1 rounded-full border border-white/40 dark:border-slate-700/50">
             <button
               onClick={() => setActiveTab('overview')}
               className={`flex items-center gap-2 px-5 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer ${
@@ -125,14 +124,14 @@ export default function HeaderNav({
             </button>
           </nav>
 
-          {/* RIGHT: Notifications & User Profile Avatar */}
-          <div className="flex items-center gap-2">
+          {/* RIGHT: Notifications & User Profile */}
+          <div className="flex items-center gap-4 pl-4 border-l border-slate-200/50 dark:border-slate-700/50">
             
             {/* Notifications Bell */}
             <div className="relative">
               <button 
                 onClick={() => { setShowNotifications(!showNotifications); setShowUserDropdown(false); }}
-                className="p-2 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors relative cursor-pointer"
+                className="p-2 text-gray-500 dark:text-slate-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors relative cursor-pointer"
                 title="Notifications"
               >
                 <Bell className="w-5 h-5" />
@@ -227,7 +226,6 @@ export default function HeaderNav({
 
           </div>
         </div>
-      </div>
 
       {/* Mobile Drawer Navigation */}
       {mobileMenuOpen && (

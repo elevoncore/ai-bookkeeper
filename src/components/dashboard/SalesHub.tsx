@@ -321,7 +321,7 @@ export default function SalesHub() {
     <div className="space-y-6 relative">
       
       {/* HEADER & TABS */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-xs border border-gray-100">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50 p-6 rounded-2xl ">
         <div>
           <h1 className="text-xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
             Revenue & Invoices Hub
@@ -334,19 +334,19 @@ export default function SalesHub() {
         <div className="flex bg-gray-100 p-1 rounded-xl text-sm font-medium">
           <button
             onClick={() => setActiveTab('invoices')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'invoices' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'invoices' ? 'bg-white/70 dark:bg-slate-800/80 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <FileText className="w-4 h-4" /> Invoices
           </button>
           <button
             onClick={() => setActiveTab('customers')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'customers' ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'customers' ? 'bg-white/70 dark:bg-slate-800/80 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <Users className="w-4 h-4" /> Customers
           </button>
           <button
             onClick={() => setActiveTab('products')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'products' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'products' ? 'bg-white/70 dark:bg-slate-800/80 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <Package className="w-4 h-4" /> Products
           </button>
@@ -354,7 +354,7 @@ export default function SalesHub() {
       </div>
 
       {/* CONTENT AREA */}
-      <div className="bg-white rounded-2xl shadow-xs border border-gray-100 overflow-hidden min-h-[400px]">
+      <div className="bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50 rounded-2xl  overflow-hidden min-h-[400px]">
         
         {/* TOOLBAR */}
         <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -663,7 +663,7 @@ export default function SalesHub() {
       {/* LOG PAYMENT MODAL */}
       {isPaymentModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
               <h2 className="font-bold text-gray-900 flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-green-600" />
@@ -728,7 +728,7 @@ export default function SalesHub() {
       {/* EDIT PRODUCT MODAL */}
       {isProductModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white/30 dark:bg-slate-900/30 backdrop-blur-3xl shadow-2xl dark:shadow-black/60 border border-white/50 dark:border-slate-700/50 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
               <h2 className="font-bold text-gray-900 flex items-center gap-2">
                 <Package className="w-5 h-5 text-purple-600" />
