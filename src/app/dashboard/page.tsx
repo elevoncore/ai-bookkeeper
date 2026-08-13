@@ -63,6 +63,10 @@ export default function DashboardPage() {
       }
     }
 
+    if (currentUserId) {
+      await supabase.rpc('initialize_default_accounts', { p_user_id: currentUserId });
+    }
+
     // Fetch Accounts
     const { data: accounts, error: accError } = await supabase.from('accounts').select('*');
     if (accError) {

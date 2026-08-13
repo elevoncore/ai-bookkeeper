@@ -55,6 +55,9 @@ export async function signUpWithEmail(formData: FormData) {
     if (upsertError) {
       console.error("Failed to upsert user profile:", upsertError);
     }
+    
+    // Seed default chart of accounts
+    await supabase.rpc('initialize_default_accounts', { p_user_id: data.user.id });
   }
 
   return { success: true }
@@ -77,6 +80,9 @@ export async function signInWithEmail(formData: FormData) {
     if (upsertError) {
       console.error("Failed to sync user profile on signin:", upsertError);
     }
+
+    // Ensure chart of accounts is seeded
+    await supabase.rpc('initialize_default_accounts', { p_user_id: data.user.id });
   }
 
   return { success: true }
