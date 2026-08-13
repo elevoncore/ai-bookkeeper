@@ -54,11 +54,15 @@ export default function LoginPage() {
       const result = await signUpWithEmail(formData);
       if (result.error) {
         setError(result.error);
+      } else if (result.autoLoggedIn) {
+        router.push('/dashboard');
+        router.refresh();
+        return;
       } else if (result.requiresVerification) {
         setRegisteredEmail(emailInput || '');
         setVerificationSent(true);
       } else {
-        setMessage('Account registered successfully! Please sign in with your credentials.');
+        setMessage('Account created successfully! Please sign in with your credentials.');
         setIsSignUp(false);
       }
       setLoading(false);
@@ -100,11 +104,12 @@ export default function LoginPage() {
             <div className="space-y-1">
               <h3 className="text-base font-bold text-gray-900">Verification Link Sent</h3>
               <p className="text-xs text-gray-600 max-w-xs mx-auto leading-relaxed">
-                We sent an email verification link to <span className="font-semibold text-gray-900">{registeredEmail}</span>.
+                If custom SMTP is enabled in Supabase, a link was sent to <span className="font-semibold text-gray-900">{registeredEmail}</span>.
               </p>
             </div>
-            <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-100 text-xs text-blue-800">
-              Please click the link in your email to verify your account before logging in to your financial dashboard.
+            <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-100 text-xs text-blue-800 space-y-1 text-left">
+              <p className="font-semibold">Need to sign in immediately?</p>
+              <p className="text-[11px] text-blue-600">If your Supabase project auto-confirms signups (default), your account is already active. You can sign in directly with your email and password.</p>
             </div>
             <div className="pt-2">
               <button
@@ -112,7 +117,7 @@ export default function LoginPage() {
                 onClick={() => { setVerificationSent(false); setIsSignUp(false); setError(null); setMessage(null); }}
                 className="w-full py-2.5 rounded-lg bg-gray-900 text-white text-xs font-bold hover:bg-gray-800 transition-all cursor-pointer"
               >
-                Return to Sign In
+                Proceed to Sign In
               </button>
             </div>
           </div>

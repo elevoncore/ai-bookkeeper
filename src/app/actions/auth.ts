@@ -60,9 +60,10 @@ export async function signUpWithEmail(formData: FormData) {
     await supabase.rpc('initialize_default_accounts', { p_user_id: data.user.id });
   }
 
-  const requiresVerification = data?.user ? true : false;
+  const requiresVerification = Boolean(data?.user && !data?.session && !data?.user?.email_confirmed_at);
+  const autoLoggedIn = Boolean(data?.session);
 
-  return { success: true, requiresVerification, email }
+  return { success: true, requiresVerification, autoLoggedIn, email }
 }
 
 export async function signInWithEmail(formData: FormData) {
