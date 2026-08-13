@@ -52,10 +52,10 @@ export default function PendingTable({ items, onDataChanged, onViewLog }: Pendin
   if (items.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-2xl shadow-xs border border-amber-200 overflow-hidden mb-6">
-      <div className="p-4 border-b border-amber-100 bg-amber-50/50 flex items-center justify-between">
+    <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-2xl shadow-xs border border-amber-200 overflow-hidden mb-6">
+      <div className="p-4 border-b border-amber-100 bg-amber-50 flex items-center justify-between">
         <h2 className="font-bold text-amber-900 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+          <span className="w-2 h-2 rounded-full bg-amber-50 animate-pulse"></span>
           Pending AI Verifications ({items.length})
         </h2>
         <span className="text-xs text-amber-700 font-medium bg-amber-100 px-2 py-1 rounded-md">Action Required</span>
@@ -63,7 +63,7 @@ export default function PendingTable({ items, onDataChanged, onViewLog }: Pendin
       
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-gray-600">
-          <thead className="bg-white text-gray-400 text-xs uppercase border-b border-gray-100">
+          <thead className="bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-400 text-xs uppercase border-b border-gray-100">
             <tr>
               <th className="px-6 py-3 font-semibold">Type</th>
               <th className="px-6 py-3 font-semibold">Date</th>
@@ -74,7 +74,7 @@ export default function PendingTable({ items, onDataChanged, onViewLog }: Pendin
           </thead>
           <tbody className="divide-y divide-gray-50 bg-white">
             {items.map((t) => (
-              <tr key={t.id} className="hover:bg-amber-50/30 transition-colors">
+              <tr key={t.id} className="hover:bg-amber-50 transition-colors">
                 <td className="px-6 py-3">
                   {t.type === 'invoice' ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
@@ -115,3 +115,4 @@ export default function PendingTable({ items, onDataChanged, onViewLog }: Pendin
     </div>
   );
 }
+

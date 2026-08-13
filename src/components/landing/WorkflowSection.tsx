@@ -16,7 +16,7 @@ export default function WorkflowSection() {
               </span>
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-400 mb-12 leading-relaxed">
-              Inscribe AI is built on a destination architecture where AI assists but does not override. The system takes natural language and transforms it into structured bookkeeping data, which is then validated and securely stored in our double-entry ledger.
+              Inscribe AI is built on a Human-in-the-Loop Architecture where the AI drafts records and handles Entity Resolution, but you retain ultimate financial control to verify and commit.
             </p>
             
             <div className="space-y-8">
@@ -25,8 +25,8 @@ export default function WorkflowSection() {
                   <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">Natural Input</h4>
-                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed">You upload a receipt or type a quick request.</p>
+                  <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">Natural-Language Entry</h4>
+                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Convert conversational instructions or uploaded documents into structured financial records.</p>
                 </div>
               </div>
 
@@ -35,18 +35,8 @@ export default function WorkflowSection() {
                   <Cpu className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
                 </div>
                 <div>
-                  <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">Gemini AI Extraction</h4>
-                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed">AI structures the data accurately into accounting domains.</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-6 group">
-                <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-500/10 flex items-center justify-center shrink-0 transition-transform group-hover:scale-110">
-                  <Database className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <div>
-                  <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">Atomic Database Commit</h4>
-                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Safely written to PostgreSQL using strict RPC transactions.</p>
+                  <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">AI Entity Resolution & Audit</h4>
+                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Matches inputs to deterministic IDs (Products/Customers) and preserves reasoning via AI Audit Logging.</p>
                 </div>
               </div>
 
@@ -55,8 +45,18 @@ export default function WorkflowSection() {
                   <CheckSquare className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
-                  <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">Human Review</h4>
-                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed">You retain final approval to verify and finalize records.</p>
+                  <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">Human-in-the-Loop Review</h4>
+                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed">You manually review, edit, and override AI-generated financial records before they become permanent.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-6 group">
+                <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-500/10 flex items-center justify-center shrink-0 transition-transform group-hover:scale-110">
+                  <Database className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">Immutable Ledger Commit</h4>
+                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed">Strictly enforces Debits = Credits and prevents destructive deletion of verified records.</p>
                 </div>
               </div>
             </div>
@@ -70,7 +70,8 @@ export default function WorkflowSection() {
                 <div className="flex items-center gap-6 p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 group hover:-translate-y-1 transition-transform">
                   <div className="w-14 h-14 bg-blue-100 dark:bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xl shadow-inner">1</div>
                   <div className="flex-1">
-                    <p className="font-bold text-lg text-slate-900 dark:text-slate-100">Human UI / Chat</p>
+                    <p className="font-bold text-lg text-slate-900 dark:text-slate-100">AI Entity Resolution</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Natural Language to Deterministic IDs</p>
                   </div>
                 </div>
 
@@ -79,11 +80,11 @@ export default function WorkflowSection() {
                 </div>
 
                 {/* Flow Step 2 */}
-                <div className="flex items-center gap-6 p-6 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-500/20 group hover:-translate-y-1 transition-transform">
-                  <div className="w-14 h-14 bg-indigo-200 dark:bg-indigo-500/30 rounded-xl flex items-center justify-center text-indigo-700 dark:text-indigo-400 font-bold text-xl shadow-inner">2</div>
+                <div className="flex items-center gap-6 p-6 rounded-2xl bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-500/20 group hover:-translate-y-1 transition-transform">
+                  <div className="w-14 h-14 bg-purple-200 dark:bg-purple-500/30 rounded-xl flex items-center justify-center text-purple-700 dark:text-purple-400 font-bold text-xl shadow-inner">2</div>
                   <div className="flex-1">
-                    <p className="font-bold text-lg text-indigo-900 dark:text-indigo-300">Validation Layer</p>
-                    <p className="text-sm text-indigo-600/80 dark:text-indigo-400/80 mt-1">Entity Resolution & Precision</p>
+                    <p className="font-bold text-lg text-purple-900 dark:text-purple-300">Human Validation Layer</p>
+                    <p className="text-sm text-purple-600/80 dark:text-purple-400/80 mt-1">Manual Review & Override</p>
                   </div>
                 </div>
 
@@ -95,8 +96,8 @@ export default function WorkflowSection() {
                 <div className="flex items-center gap-6 p-6 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-500/20 group hover:-translate-y-1 transition-transform">
                   <div className="w-14 h-14 bg-emerald-200 dark:bg-emerald-500/30 rounded-xl flex items-center justify-center text-emerald-700 dark:text-emerald-400 font-bold text-xl shadow-inner">3</div>
                   <div className="flex-1">
-                    <p className="font-bold text-lg text-emerald-900 dark:text-emerald-300">Double-Entry Ledger</p>
-                    <p className="text-sm text-emerald-600/80 dark:text-emerald-400/80 mt-1">PostgreSQL / Supabase</p>
+                    <p className="font-bold text-lg text-emerald-900 dark:text-emerald-300">Immutable General Ledger</p>
+                    <p className="text-sm text-emerald-600/80 dark:text-emerald-400/80 mt-1">Strict Double-Entry Enforcement</p>
                   </div>
                 </div>
               </div>

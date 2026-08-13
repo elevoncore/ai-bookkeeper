@@ -2,7 +2,7 @@ import Navbar from '@/components/landing/Navbar';
 import HeroSection from '@/components/landing/HeroSection';
 import FeatureGrid from '@/components/landing/FeatureGrid';
 import WorkflowSection from '@/components/landing/WorkflowSection';
-import RoadmapSection from '@/components/landing/RoadmapSection';
+import DeepDiveSection from '@/components/landing/DeepDiveSection';
 import Footer from '@/components/landing/Footer';
 
 export default function Home() {
@@ -22,7 +22,7 @@ export default function Home() {
         <HeroSection />
         <FeatureGrid />
         <WorkflowSection />
-        <RoadmapSection />
+        <DeepDiveSection />
         <Footer />
       </div>
     </main>

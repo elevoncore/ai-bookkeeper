@@ -47,8 +47,8 @@ export default function VerifiedLedger({ transactions }: VerifiedLedgerProps) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="bg-white/70 backdrop-blur-md border border-white/50 shadow-sm rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="p-4 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="font-semibold text-gray-800">Verified Ledger</h2>
           <p className="text-sm text-gray-500">Your approved and committed records.</p>
@@ -68,7 +68,7 @@ export default function VerifiedLedger({ transactions }: VerifiedLedgerProps) {
           <button
             onClick={exportToCSV}
             disabled={transactions.length === 0}
-            className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-3 py-2 rounded-lg font-medium text-sm flex items-center gap-2 disabled:opacity-50 transition-colors shadow-sm"
+            className="bg-white/70 backdrop-blur-md border border-white/50 shadow-sm hover:bg-gray-50 text-gray-700 border border-gray-300 px-3 py-2 rounded-lg font-medium text-sm flex items-center gap-2 disabled:opacity-50 transition-colors shadow-sm"
             title="Export to CSV"
           >
             <Download className="w-4 h-4 text-gray-500" />
@@ -98,7 +98,7 @@ export default function VerifiedLedger({ transactions }: VerifiedLedgerProps) {
               </tr>
             ) : (
               transactions.map((t) => (
-                <tr key={t.id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                <tr key={t.id} className="border-b border-gray-50 hover:bg-gray-50">
                   <td className="px-4 py-3">{t.issue_date}</td>
                   <td className="px-4 py-3 font-medium text-gray-900">{t.contacts?.name || 'Unknown Contact'}</td>
                   <td className="px-4 py-3">
@@ -128,3 +128,4 @@ export default function VerifiedLedger({ transactions }: VerifiedLedgerProps) {
     </div>
   );
 }
+

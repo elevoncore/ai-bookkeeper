@@ -254,7 +254,7 @@ export default function PurchasesHub() {
     <div className="space-y-6 relative">
       
       {/* HEADER & TABS */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-xs border border-gray-100">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-6 rounded-2xl ">
         <div>
           <h1 className="text-xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
             Expenses & Bills Hub
@@ -267,13 +267,13 @@ export default function PurchasesHub() {
         <div className="flex bg-gray-100 p-1 rounded-xl text-sm font-medium">
           <button
             onClick={() => setActiveTab('bills')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'bills' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'bills' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <Receipt className="w-4 h-4" /> Bills
           </button>
           <button
             onClick={() => setActiveTab('suppliers')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'suppliers' ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'suppliers' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <Truck className="w-4 h-4" /> Suppliers
           </button>
@@ -281,7 +281,7 @@ export default function PurchasesHub() {
       </div>
 
       {/* CONTENT AREA */}
-      <div className="bg-white rounded-2xl shadow-xs border border-gray-100 overflow-hidden min-h-[400px]">
+      <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-2xl  overflow-hidden min-h-[400px]">
         
         {/* TOOLBAR */}
         <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -545,8 +545,8 @@ export default function PurchasesHub() {
       {/* LOG PAYMENT MODAL */}
       {isPaymentModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+          <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
               <h2 className="font-bold text-gray-900 flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-green-600" />
                 Log Payment Made
@@ -611,7 +611,7 @@ export default function PurchasesHub() {
       {isSupplierModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
               <h2 className="font-bold text-gray-900 flex items-center gap-2">
                 <Truck className="w-5 h-5 text-indigo-600" />
                 Add New Supplier
@@ -672,3 +672,4 @@ export default function PurchasesHub() {
     </div>
   );
 }
+

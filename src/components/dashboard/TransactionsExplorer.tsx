@@ -91,7 +91,7 @@ export default function TransactionsExplorer({ transactions }: TransactionsExplo
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-white/70 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
       
       {/* Header & Controls */}
       <div className="p-6 border-b border-gray-100 space-y-4">
@@ -122,19 +122,19 @@ export default function TransactionsExplorer({ transactions }: TransactionsExplo
           <div className="flex bg-gray-100 p-1 rounded-lg w-full sm:w-auto">
             <button 
               onClick={() => { setStatusFilter('all'); setCurrentPage(1); }}
-              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${statusFilter === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${statusFilter === 'all' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-900 shadow-sm' : 'text-gray-500'}`}
             >
               All
             </button>
             <button 
               onClick={() => { setStatusFilter('verified'); setCurrentPage(1); }}
-              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${statusFilter === 'verified' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${statusFilter === 'verified' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-900 shadow-sm' : 'text-gray-500'}`}
             >
               Verified
             </button>
             <button 
               onClick={() => { setStatusFilter('pending'); setCurrentPage(1); }}
-              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${statusFilter === 'pending' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${statusFilter === 'pending' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-900 shadow-sm' : 'text-gray-500'}`}
             >
               Pending
             </button>
@@ -145,7 +145,7 @@ export default function TransactionsExplorer({ transactions }: TransactionsExplo
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead className="bg-gray-50/80 text-gray-500 font-medium border-b border-gray-100">
+          <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
             <tr>
               <th className="px-6 py-3 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('issue_date')}>
                 <div className="flex items-center gap-1">Date <ArrowUpDown className="w-3 h-3" /></div>
@@ -170,7 +170,7 @@ export default function TransactionsExplorer({ transactions }: TransactionsExplo
           <tbody className="divide-y divide-gray-50">
             {currentData.length > 0 ? (
               currentData.map(tx => (
-                <tr key={tx.id} className="hover:bg-blue-50/30 transition-colors">
+                <tr key={tx.id} className="hover:bg-blue-50 transition-colors">
                   <td className="px-6 py-3.5 text-gray-500 flex items-center gap-2">
                     <Calendar className="w-3.5 h-3.5" />
                     {tx.issue_date}
@@ -234,3 +234,4 @@ export default function TransactionsExplorer({ transactions }: TransactionsExplo
     </div>
   );
 }
+

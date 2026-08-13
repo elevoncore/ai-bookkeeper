@@ -1,33 +1,47 @@
 'use client';
 
-import { Bot, Scale, Receipt, ShieldCheck } from 'lucide-react';
+import { Bot, Scale, Receipt, Box, LineChart, Users } from 'lucide-react';
 
 const features = [
   {
     icon: <Bot className="w-6 h-6" />,
-    title: 'AI-Powered Bookkeeping',
-    description: 'Turn natural-language chat into structured bookkeeping records seamlessly. The AI complements your workflow rather than replacing it.',
+    title: 'AI & Natural Language',
+    description: 'Convert conversational instructions into structured, double-entry records. Features AI Entity Resolution, Conversational Reporting, and full AI Audit Logging.',
     color: 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400',
     borderColor: 'group-hover:border-blue-200 dark:group-hover:border-blue-500/30'
   },
   {
     icon: <Scale className="w-6 h-6" />,
-    title: 'Double-Entry Foundation',
-    description: 'Strictly enforced Debits = Credits. Built on atomic financial operations to prevent partial writes and ensure perfect ledger balance.',
+    title: 'Core Ledger Engine',
+    description: 'Strictly enforced database-level rules where Debits = Credits. Immutable verified financial records with a comprehensive Chart of Accounts and Cash Book.',
     color: 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
     borderColor: 'group-hover:border-indigo-200 dark:group-hover:border-indigo-500/30'
   },
   {
     icon: <Receipt className="w-6 h-6" />,
-    title: 'Invoice & Bill Management',
-    description: 'Track receivables and payables easily. Automatically sync AI-verified states across your general ledger and outstanding balances.',
+    title: 'AP/AR & Settlement',
+    description: 'End-to-end management of customer invoices and supplier bills. Atomic settlement engine tracks historical payments and prevents negative balances.',
     color: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
     borderColor: 'group-hover:border-emerald-200 dark:group-hover:border-emerald-500/30'
   },
   {
-    icon: <ShieldCheck className="w-6 h-6" />,
-    title: 'Security & Integrity',
-    description: 'Ownership-based Row Level Security (RLS) protects your data. AI-verified records are immutable and protected against destructive manipulation.',
+    icon: <Box className="w-6 h-6" />,
+    title: 'Inventory & COGS',
+    description: 'Automated 4-line sales accounting for physical products. Features dynamic Weighted Average Cost (WAC) tracking and stocktake reconciliation workflows.',
+    color: 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400',
+    borderColor: 'group-hover:border-amber-200 dark:group-hover:border-amber-500/30'
+  },
+  {
+    icon: <LineChart className="w-6 h-6" />,
+    title: 'Financial Reporting',
+    description: 'Real-time financial visibility natively derived from the ledger. Features a complete General Ledger, live Trial Balance checking, and full Profit & Loss (P&L).',
+    color: 'bg-fuchsia-50 dark:bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400',
+    borderColor: 'group-hover:border-fuchsia-200 dark:group-hover:border-fuchsia-500/30'
+  },
+  {
+    icon: <Users className="w-6 h-6" />,
+    title: 'Human-in-the-Loop',
+    description: 'You retain ultimate control. Dedicated interfaces allow humans to manually create, review, and override AI-generated financial records and catalog data.',
     color: 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400',
     borderColor: 'group-hover:border-purple-200 dark:group-hover:border-purple-500/30'
   }
@@ -45,11 +59,11 @@ export default function FeatureGrid() {
             </span>
           </h2>
           <p className="text-lg text-slate-600 dark:text-slate-400 leading-relaxed">
-            Inscribe AI isn&apos;t just a pretty interface. Beneath the surface is a rigid, double-entry financial engine designed for precision and trust.
+            Inscribe AI is a massive, fully-featured ERP system in production. From Weighted Average Cost inventory to AI Entity Resolution, it handles everything.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((feature, index) => (
             <div 
               key={index}
