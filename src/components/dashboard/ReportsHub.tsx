@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import { FileSpreadsheet, Download, Loader2, DollarSign, Scale, FileText } from 'lucide-react';
+import { FileSpreadsheet, Download, Loader2, DollarSign, Scale, FileText, FolderTree } from 'lucide-react';
+import ChartOfAccountsManager from './ChartOfAccountsManager';
 
-type Tab = 'ledger' | 'pnl' | 'trial_balance';
+type Tab = 'chart_of_accounts' | 'ledger' | 'pnl' | 'trial_balance';
 
 export default function ReportsHub() {
-  const [activeTab, setActiveTab] = useState<Tab>('ledger');
+  const [activeTab, setActiveTab] = useState<Tab>('chart_of_accounts');
   const [journalEntries, setJournalEntries] = useState<any[]>([]);
   const [financials, setFinancials] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,10 +57,10 @@ export default function ReportsHub() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-6 rounded-2xl ">
         <div>
           <h1 className="text-xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
-            Financial Reports
+            Accounting & Financial Ledger
           </h1>
           <p className="text-xs text-gray-500 mt-1">
-            General Ledger and certified double-entry accounting records.
+            General Ledger, Chart of Accounts, and certified double-entry accounting records.
           </p>
         </div>
 
@@ -71,24 +72,35 @@ export default function ReportsHub() {
       {/* TABS */}
       <div className="flex flex-wrap gap-2">
         <button
+          onClick={() => setActiveTab('chart_of_accounts')}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'chart_of_accounts' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+        >
+          <FolderTree className="w-4 h-4" /> Chart of Accounts
+        </button>
+        <button
           onClick={() => setActiveTab('ledger')}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${activeTab === 'ledger' ? 'bg-gray-900 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'ledger' ? 'bg-gray-900 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
         >
           <FileSpreadsheet className="w-4 h-4" /> General Ledger
         </button>
         <button
           onClick={() => setActiveTab('pnl')}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${activeTab === 'pnl' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'pnl' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
         >
           <DollarSign className="w-4 h-4" /> Profit & Loss
         </button>
         <button
           onClick={() => setActiveTab('trial_balance')}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${activeTab === 'trial_balance' ? 'bg-emerald-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'trial_balance' ? 'bg-emerald-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
         >
           <Scale className="w-4 h-4" /> Trial Balance
         </button>
       </div>
+
+      {/* CONTENT FOR CHART OF ACCOUNTS */}
+      {activeTab === 'chart_of_accounts' && (
+        <ChartOfAccountsManager />
+      )}
 
       {/* CONTENT */}
       {isLoading ? (
