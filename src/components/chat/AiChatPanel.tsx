@@ -5,6 +5,7 @@ import { createBrowserClient } from '@supabase/ssr';
 import { Plus, ArrowUp, Loader2, X, CheckCircle2, Receipt, Bot, User, History } from 'lucide-react';
 import { Account, InvoiceStatus } from '@/types';
 import { parseToCents, formatFromCents } from '@/utils/currency';
+import { findBestAccountMatch } from '@/utils/fuzzyMatch';
 
 interface ChatMessage {
   id: string;
@@ -234,43 +235,32 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
         }
       }
 
-      // Helper function to resolve account with fallback to General Operating Expense
+      // Helper function to resolve account with fuzzy matching and fallback to General Operating Expense
       async function resolveAccountId(accName: string | null | undefined, intent: string) {
         const isBill = intent === 'LOG_BILL';
         const defaultFallback = isBill ? 'General Operating Expense' : 'Sales Revenue';
 
-        // Helper to find in chartOfAccounts or query DB
-        async function findAccountByName(name: string) {
-          if (!name) return null;
-          const searchLower = name.trim().toLowerCase();
-          
-          // 1. Memory chartOfAccounts search
-          const memoryMatch = chartOfAccounts?.find(c => {
-            const cNameLower = c.name.trim().toLowerCase();
-            return cNameLower === searchLower || cNameLower.includes(searchLower) || searchLower.includes(cNameLower);
-          });
-          if (memoryMatch) return memoryMatch.id;
+        // 1. Fetch user's complete active accounts list from DB
+        const { data: dbAccounts } = await supabase
+          .from('accounts')
+          .select('id, name, type')
+          .eq('user_id', user!.id);
 
-          // 2. Query database for matching account
-          const { data: dbMatch } = await supabase
-            .from('accounts')
-            .select('id')
-            .eq('user_id', user!.id)
-            .ilike('name', name.trim())
-            .maybeSingle();
-
-          if (dbMatch) return dbMatch.id;
-          return null;
-        }
+        const availableAccounts = dbAccounts && dbAccounts.length > 0 ? dbAccounts : (chartOfAccounts || []);
 
         if (accName) {
-          const resolvedId = await findAccountByName(accName);
-          if (resolvedId) return resolvedId;
+          // Perform fuzzy Levenshtein match across available accounts (55% similarity threshold)
+          const fuzzyMatch = findBestAccountMatch(accName, availableAccounts, 0.55);
+          if (fuzzyMatch) {
+            return fuzzyMatch.account.id;
+          }
         }
 
-        // Fallback to General Operating Expense for bills
-        const fallbackId = await findAccountByName(defaultFallback);
-        if (fallbackId) return fallbackId;
+        // Fallback to General Operating Expense for bills / Sales Revenue for invoices
+        const fallbackMatch = findBestAccountMatch(defaultFallback, availableAccounts, 0.50);
+        if (fallbackMatch) {
+          return fallbackMatch.account.id;
+        }
 
         // Ultimate safety net: Insert default account if not present
         const accType = isBill ? 'expense' : 'revenue';
