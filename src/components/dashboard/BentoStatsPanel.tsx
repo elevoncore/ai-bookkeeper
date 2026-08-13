@@ -23,6 +23,7 @@ import {
   Cell 
 } from 'recharts';
 import { parseToCents, formatFromCents } from '@/utils/currency';
+import CashbookWidget from '@/components/dashboard/CashbookWidget';
 
 type Invoice = {
   id: string; total_amount: number; balance_due: number; issue_date: string; status: string;
@@ -206,6 +207,9 @@ export default function BentoStatsPanel({
           </div>
 
         </div>
+
+        {/* CASHBOOK LIQUID BALANCES WIDGET */}
+        <CashbookWidget />
 
         {/* BENTO MIDDLE ROW: CHARTS */}
         <div className={`grid grid-cols-1 ${forceMobileView ? '' : forceDesktopView ? 'grid-cols-2' : 'lg:grid-cols-2'} gap-4`}>
