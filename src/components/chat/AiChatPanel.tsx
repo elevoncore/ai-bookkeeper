@@ -234,17 +234,53 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
         }
       }
 
-      // Helper function to resolve or create account
-      async function resolveAccountId(accName: string, intent: string) {
-        if (!accName) return null;
-        const extAccLower = accName.toLowerCase();
-        const matchedAccount = chartOfAccounts?.find(c => {
-          const cNameLower = c.name.toLowerCase();
-          return cNameLower === extAccLower || cNameLower.includes(extAccLower) || extAccLower.includes(cNameLower);
-        });
-        if (matchedAccount) return matchedAccount.id;
-        const accType = intent === 'LOG_BILL' ? 'expense' : 'revenue';
-        const { data: newAccount } = await supabase.from('accounts').insert({ user_id: user!.id, name: accName, type: accType }).select().single();
+      // Helper function to resolve account with fallback to General Operating Expense
+      async function resolveAccountId(accName: string | null | undefined, intent: string) {
+        const isBill = intent === 'LOG_BILL';
+        const defaultFallback = isBill ? 'General Operating Expense' : 'Sales Revenue';
+
+        // Helper to find in chartOfAccounts or query DB
+        async function findAccountByName(name: string) {
+          if (!name) return null;
+          const searchLower = name.trim().toLowerCase();
+          
+          // 1. Memory chartOfAccounts search
+          const memoryMatch = chartOfAccounts?.find(c => {
+            const cNameLower = c.name.trim().toLowerCase();
+            return cNameLower === searchLower || cNameLower.includes(searchLower) || searchLower.includes(cNameLower);
+          });
+          if (memoryMatch) return memoryMatch.id;
+
+          // 2. Query database for matching account
+          const { data: dbMatch } = await supabase
+            .from('accounts')
+            .select('id')
+            .eq('user_id', user!.id)
+            .ilike('name', name.trim())
+            .maybeSingle();
+
+          if (dbMatch) return dbMatch.id;
+          return null;
+        }
+
+        if (accName) {
+          const resolvedId = await findAccountByName(accName);
+          if (resolvedId) return resolvedId;
+        }
+
+        // Fallback to General Operating Expense for bills
+        const fallbackId = await findAccountByName(defaultFallback);
+        if (fallbackId) return fallbackId;
+
+        // Ultimate safety net: Insert default account if not present
+        const accType = isBill ? 'expense' : 'revenue';
+        const finalName = accName || defaultFallback;
+        const { data: newAccount } = await supabase
+          .from('accounts')
+          .insert({ user_id: user!.id, name: finalName, type: accType, is_system: true })
+          .select('id')
+          .single();
+
         return newAccount?.id;
       }
 
