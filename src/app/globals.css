@@ -31,14 +31,26 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   font-family: var(--font-heading);
 }
 
-/* Hide scrollbar utility for sleek, native-feeling touch & trackpad swiping */
-.hide-scrollbar::-webkit-scrollbar,
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
+/* Modern, sleek, thin horizontal scrollbar (macOS style) */
+.custom-scrollbar::-webkit-scrollbar { 
+  height: 8px; 
+  width: 8px;
 }
 
-.hide-scrollbar,
-.no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+.custom-scrollbar::-webkit-scrollbar-track { 
+  background: transparent; 
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb { 
+  background: #cbd5e1; 
+  border-radius: 10px; 
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { 
+  background: #94a3b8; 
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
 }

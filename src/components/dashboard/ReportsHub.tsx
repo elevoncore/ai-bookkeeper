@@ -112,7 +112,7 @@ export default function ReportsHub() {
           
           {/* LEDGER TAB */}
           {activeTab === 'ledger' && (
-            <div className="overflow-x-auto hide-scrollbar min-w-0">
+            <div className="overflow-x-auto custom-scrollbar min-w-0">
               <table className="w-full text-left text-sm whitespace-nowrap min-w-[650px]">
                 <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
                   <tr>
@@ -246,7 +246,7 @@ export default function ReportsHub() {
 
           {/* TRIAL BALANCE TAB */}
           {activeTab === 'trial_balance' && financials && (
-            <div className="overflow-x-auto hide-scrollbar min-w-0 p-0">
+            <div className="overflow-x-auto custom-scrollbar min-w-0 p-0">
               <table className="w-full text-left text-sm whitespace-nowrap min-w-[600px]">
                 <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
                   <tr>

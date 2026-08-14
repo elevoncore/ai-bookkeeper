@@ -680,7 +680,7 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
                         <span className="shrink-0">Total: <span className="font-extrabold text-purple-900">{msg.extractedDraft.amount.toLocaleString()} PKR</span></span>
                       </div>
 
-                      <div className="overflow-x-auto hide-scrollbar min-w-0 rounded-lg border border-gray-200 bg-white">
+                      <div className="overflow-x-auto custom-scrollbar min-w-0 rounded-lg border border-gray-200 bg-white">
                         <table className="w-full text-left text-[11px] whitespace-nowrap min-w-[280px]">
                           <thead className="bg-gray-50 text-gray-500 font-bold border-b border-gray-100">
                             <tr>

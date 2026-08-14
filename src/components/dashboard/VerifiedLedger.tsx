@@ -77,7 +77,7 @@ export default function VerifiedLedger({ transactions }: VerifiedLedgerProps) {
         </div>
       </div>
       
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto custom-scrollbar">
         <table className="w-full text-left text-sm text-gray-600">
           <thead className="bg-gray-50 text-gray-700 text-xs uppercase">
             <tr>

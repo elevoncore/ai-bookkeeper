@@ -261,7 +261,7 @@ export default function PurchasesHub() {
           </p>
         </div>
 
-        <div className="flex bg-gray-100 p-1 rounded-xl text-sm font-medium w-full sm:w-auto overflow-x-auto hide-scrollbar min-w-0">
+        <div className="flex bg-gray-100 p-1 rounded-xl text-sm font-medium w-full sm:w-auto overflow-x-auto custom-scrollbar min-w-0">
           <button
             onClick={() => setActiveTab('bills')}
             className={`flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-lg transition-all cursor-pointer whitespace-nowrap ${activeTab === 'bills' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-indigo-700 font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
@@ -310,7 +310,7 @@ export default function PurchasesHub() {
         </div>
 
         {/* LISTING */}
-        <div className="p-0 overflow-x-auto hide-scrollbar min-w-0">
+        <div className="p-0 overflow-x-auto custom-scrollbar min-w-0">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 text-indigo-600">
               <Loader2 className="w-8 h-8 animate-spin" />

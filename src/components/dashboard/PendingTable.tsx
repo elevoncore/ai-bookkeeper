@@ -61,7 +61,7 @@ export default function PendingTable({ items, onDataChanged, onViewLog }: Pendin
         <span className="text-xs text-amber-700 font-medium bg-amber-100 px-2.5 py-1 rounded-md shrink-0">Action Required</span>
       </div>
       
-      <div className="overflow-x-auto hide-scrollbar min-w-0">
+      <div className="overflow-x-auto custom-scrollbar min-w-0">
         <table className="w-full text-left text-sm text-gray-600 whitespace-nowrap min-w-[650px]">
           <thead className="bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-400 text-xs uppercase border-b border-gray-100">
             <tr>

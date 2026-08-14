@@ -143,7 +143,7 @@ export default function TransactionsExplorer({ transactions }: TransactionsExplo
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto custom-scrollbar">
         <table className="w-full text-left text-sm whitespace-nowrap">
           <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
             <tr>

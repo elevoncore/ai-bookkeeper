@@ -530,7 +530,7 @@ export default function ChartOfAccountsManager() {
                   </span>
                 </div>
 
-                <div className="overflow-x-auto hide-scrollbar min-w-0">
+                <div className="overflow-x-auto custom-scrollbar min-w-0">
                   <table className="w-full text-left text-sm whitespace-nowrap min-w-[650px]">
                     <thead className="bg-white/40 text-gray-500 text-xs uppercase font-semibold border-b border-gray-100">
                       <tr>
