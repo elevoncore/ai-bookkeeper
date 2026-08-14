@@ -54,12 +54,12 @@ export default function CashbookWidget() {
   const accounts = data?.accounts || [];
   const totalCash = data?.totalCashBalance ?? 0;
 
-  const cardStyles = [
-    { bg: 'bg-blue-50/50', border: 'border-blue-100', iconBg: 'bg-blue-600', icon: Building2 },
-    { bg: 'bg-emerald-50/50', border: 'border-emerald-100', iconBg: 'bg-emerald-600', icon: Coins },
-    { bg: 'bg-purple-50/50', border: 'border-purple-100', iconBg: 'bg-purple-600', icon: Wallet },
-    { bg: 'bg-indigo-50/50', border: 'border-indigo-100', iconBg: 'bg-indigo-600', icon: Landmark },
-    { bg: 'bg-amber-50/50', border: 'border-amber-100', iconBg: 'bg-amber-600', icon: Building2 }
+  const iconBadges = [
+    { iconBg: 'bg-blue-600 shadow-blue-600/20', icon: Building2 },
+    { iconBg: 'bg-emerald-600 shadow-emerald-600/20', icon: Coins },
+    { iconBg: 'bg-purple-600 shadow-purple-600/20', icon: Wallet },
+    { iconBg: 'bg-indigo-600 shadow-indigo-600/20', icon: Landmark },
+    { iconBg: 'bg-amber-600 shadow-amber-600/20', icon: Building2 }
   ];
 
   return (
@@ -89,26 +89,29 @@ export default function CashbookWidget() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 py-2">
-          <div className="h-20 bg-gray-100/60 animate-pulse rounded-xl" />
-          <div className="h-20 bg-gray-100/60 animate-pulse rounded-xl" />
-          <div className="h-20 bg-gray-100/60 animate-pulse rounded-xl" />
+        <div className="flex flex-wrap gap-4 py-2">
+          <div className="flex-1 min-w-[220px] h-20 bg-gray-100/60 animate-pulse rounded-xl" />
+          <div className="flex-1 min-w-[220px] h-20 bg-gray-100/60 animate-pulse rounded-xl" />
+          <div className="flex-1 min-w-[220px] h-20 bg-gray-100/60 animate-pulse rounded-xl" />
         </div>
       ) : (
         <div className="space-y-4 min-w-0">
           
-          {/* DYNAMIC CASH & BANK ACCOUNTS GRID */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 min-w-0">
+          {/* FLUID, AUTO-DISTRIBUTING FLEX LAYOUT */}
+          <div className="flex flex-wrap gap-4 min-w-0">
             {accounts.length === 0 ? (
-              <p className="text-xs text-gray-400 col-span-full py-4 text-center">No cash or bank accounts found.</p>
+              <p className="text-xs text-gray-400 w-full py-4 text-center">No cash or bank accounts found.</p>
             ) : (
               accounts.map((acc, index) => {
-                const style = cardStyles[index % cardStyles.length];
+                const style = iconBadges[index % iconBadges.length];
                 const IconComponent = style.icon;
                 return (
-                  <div key={acc.id || index} className={`p-4 rounded-xl border ${style.border} ${style.bg} flex items-center justify-between min-w-0 gap-3 shadow-2xs`}>
+                  <div 
+                    key={acc.id || index} 
+                    className="flex-1 min-w-[220px] sm:min-w-[240px] p-4 rounded-xl bg-white/70 backdrop-blur-md border border-gray-200/80 shadow-xs hover:shadow-md transition-all flex items-center justify-between min-w-0 gap-3"
+                  >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-9 h-9 rounded-xl ${style.iconBg} text-white flex items-center justify-center font-bold shrink-0 shadow-xs`}>
+                      <div className={`w-9 h-9 rounded-xl ${style.iconBg} text-white flex items-center justify-center font-bold shrink-0 shadow-sm`}>
                         <IconComponent className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
