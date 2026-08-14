@@ -60,7 +60,7 @@ export default function HeaderNav({
 
   return (
     <header className="fixed top-6 left-0 right-0 z-50 flex flex-col items-center px-4 md:px-12 pointer-events-none">
-      <div className="pointer-events-auto flex items-center justify-between gap-4 md:gap-8 h-16 px-4 md:px-8 bg-white/40 backdrop-blur-2xl border border-white/60 rounded-full shadow-2xl shadow-slate-200/50 transition-all w-full max-w-7xl">
+      <div className="pointer-events-auto flex items-center justify-between gap-4 md:gap-8 h-16 px-4 md:px-8 bg-white/40 backdrop-blur-2xl border border-white/60 rounded-full shadow-2xl shadow-slate-200/50 transition-all w-full max-w-[1700px]">
           
           {/* LEFT: Logo & Brand Badge */}
           <div className="flex items-center gap-3 shrink-0">

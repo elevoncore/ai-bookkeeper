@@ -180,7 +180,7 @@ export default function DashboardPage() {
         />
 
         {/* MAIN DASHBOARD SPLIT CONTAINER */}
-        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 w-full max-w-[1700px] mx-auto p-4 sm:p-6 lg:p-8">
         
         {/* DESKTOP SPLIT VIEW: Stats on Left, AI Chat on Right */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start min-h-screen pb-12">

@@ -61,7 +61,7 @@ export default function PendingTable({ items, onDataChanged, onViewLog }: Pendin
         <span className="text-xs text-amber-700 font-medium bg-amber-100 px-2.5 py-1 rounded-md shrink-0">Action Required</span>
       </div>
       
-      <div className="overflow-x-auto min-w-0">
+      <div className="overflow-x-auto hide-scrollbar min-w-0">
         <table className="w-full text-left text-sm text-gray-600 whitespace-nowrap min-w-[650px]">
           <thead className="bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-400 text-xs uppercase border-b border-gray-100">
             <tr>
@@ -97,7 +97,7 @@ export default function PendingTable({ items, onDataChanged, onViewLog }: Pendin
                   )}
                 </td>
                 <td className="px-6 py-3.5 text-gray-500">{t.date}</td>
-                <td className="px-6 py-3.5 font-semibold text-gray-900 max-w-[200px] truncate" title={t.entityName}>{t.entityName}</td>
+                <td className="px-6 py-3.5 font-semibold text-gray-900 truncate" title={t.entityName}>{t.entityName}</td>
                 <td className="px-6 py-3.5 font-bold text-gray-900 text-right">{t.amount.toLocaleString()} PKR</td>
                 <td className="px-6 py-3.5 text-right">
                   <div className="flex justify-end gap-2 items-center">
