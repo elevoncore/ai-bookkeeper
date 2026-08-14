@@ -185,6 +185,43 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
     return newAccount?.id;
   }
 
+  // Helper function to resolve or create product
+  async function resolveProductId(prodName: string, price: number, isInventoryTracked: boolean = false, passedProductId?: string | null) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    if (passedProductId) {
+      const { data: existingById } = await supabase.from('products').select('id').eq('id', passedProductId).eq('user_id', user.id).maybeSingle();
+      if (existingById) return existingById.id;
+    }
+    if (!prodName) return null;
+    const { data: existingProd } = await supabase
+      .from('products')
+      .select('id')
+      .eq('user_id', user.id)
+      .ilike('name', prodName)
+      .maybeSingle();
+    
+    if (existingProd) return existingProd.id;
+
+    let { data: newProd, error: newProdErr } = await supabase
+      .from('products')
+      .insert({ user_id: user.id, name: prodName, price, is_inventory_tracked: isInventoryTracked, created_by_source: 'AI' })
+      .select('id')
+      .single();
+
+    if (newProdErr) {
+      const fallback = await supabase
+        .from('products')
+        .insert({ user_id: user.id, name: prodName, price, is_inventory_tracked: isInventoryTracked })
+        .select('id')
+        .single();
+      newProd = fallback.data;
+    }
+
+    return newProd?.id;
+  }
+
   async function handleSendMessage(e: React.FormEvent) {
     e.preventDefault();
     if (!prompt.trim() && !imageBase64) return;
@@ -249,8 +286,6 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
         return;
       }
 
-
-
       if (!aiData.is_complete) {
         setMessages(prev => [...prev, {
           id: `ai-${Date.now()}`,
@@ -282,40 +317,6 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
         }
       }
 
-      // Helper function to resolve or create product
-      async function resolveProductId(prodName: string, price: number, isInventoryTracked: boolean = false, passedProductId?: string | null) {
-        if (passedProductId) {
-          const { data: existingById } = await supabase.from('products').select('id').eq('id', passedProductId).eq('user_id', user!.id).maybeSingle();
-          if (existingById) return existingById.id;
-        }
-        if (!prodName) return null;
-        const { data: existingProd } = await supabase
-          .from('products')
-          .select('id')
-          .eq('user_id', user!.id)
-          .ilike('name', prodName)
-          .maybeSingle();
-        
-        if (existingProd) return existingProd.id;
-
-        let { data: newProd, error: newProdErr } = await supabase
-          .from('products')
-          .insert({ user_id: user!.id, name: prodName, price, is_inventory_tracked: isInventoryTracked, created_by_source: 'AI' })
-          .select('id')
-          .single();
-
-        if (newProdErr) {
-          const fallback = await supabase
-            .from('products')
-            .insert({ user_id: user!.id, name: prodName, price, is_inventory_tracked: isInventoryTracked })
-            .select('id')
-            .single();
-          newProd = fallback.data;
-        }
-
-        return newProd?.id;
-      }
-
       if (ext.intent === 'LOG_BILL') {
         let supplierId = null;
         if (ext.supplier_name) {
@@ -343,7 +344,7 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
             description: item.description,
             quantity: item.quantity || 1,
             unit_price: parseToCents(item.unit_price || item.total || 0) / 100,
-            amount: parseToCents(item.total || 0) / 100 // RPC expects numeric string/float, we divide by 100 for NUMERIC(15,2)
+            amount: parseToCents(item.total || 0) / 100
           });
         }
 
@@ -352,7 +353,7 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
           p_supplier_id: supplierId,
           p_issue_date: ext.issue_date || new Date().toISOString().split('T')[0],
           p_due_date: ext.due_date || null,
-          p_status: 'open', // Always force open initially so payment RPC works
+          p_status: 'open',
           p_total_amount: safeAmountCents / 100,
           p_receipt_url: receiptUrl,
           p_line_items: resolvedLines,
@@ -365,7 +366,6 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
         insertedId = billId;
         try { await supabase.from('bills').update({ created_by_source: 'AI' }).eq('id', billId); } catch (_) {}
 
-        // If the AI detected it as already paid, execute the payment RPC to debit Cash
         if (ext.status === 'paid') {
            const { error: payError } = await supabase.rpc('log_payment_made_atomic', {
              p_bill_id: billId,
@@ -408,7 +408,7 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
           p_customer_id: customerId,
           p_issue_date: ext.issue_date || new Date().toISOString().split('T')[0],
           p_due_date: ext.due_date || null,
-          p_status: 'open', // Force open
+          p_status: 'open',
           p_total_amount: safeAmountCents / 100,
           p_receipt_url: receiptUrl,
           p_line_items: resolvedLines,
@@ -421,7 +421,6 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
         insertedId = invoiceId;
         try { await supabase.from('invoices').update({ created_by_source: 'AI' }).eq('id', invoiceId); } catch (_) {}
 
-        // If the AI detected it as already paid, execute the payment RPC to debit Cash
         if (ext.status === 'paid') {
            const { error: payError } = await supabase.rpc('log_payment_received_atomic', {
              p_invoice_id: invoiceId,
@@ -588,35 +587,35 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
   }
 
   return (
-    <div className="flex flex-col h-full w-full bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 md:bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 backdrop-blur-md md:rounded-2xl border-0 md:border md:border-gray-100 shadow-sm overflow-hidden relative">
-      <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-blue-50/30 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
+    <div className="flex flex-col h-full w-full bg-white/40 backdrop-blur-2xl border border-white/60 md:rounded-2xl shadow-xl overflow-hidden relative min-w-0">
+      <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-blue-50/30 flex items-center justify-between sticky top-0 z-10 min-w-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
             <Bot className="w-5 h-5" />
           </div>
-          <div>
-            <h3 className="font-bold text-sm text-gray-900 flex items-center gap-2">AI Bookkeeper</h3>
-            <p className="text-[11px] text-gray-500 font-medium">Double-Entry AI Assistant</p>
+          <div className="min-w-0">
+            <h3 className="font-bold text-sm text-gray-900 flex items-center gap-2 truncate">AI Bookkeeper</h3>
+            <p className="text-[11px] text-gray-500 font-medium truncate">Double-Entry AI Assistant</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={startNewChat} className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 rounded-full transition-colors shadow-sm whitespace-nowrap">
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={startNewChat} className="px-3.5 py-2 min-h-[44px] bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 rounded-full transition-colors shadow-sm whitespace-nowrap cursor-pointer flex items-center">
             New Chat
           </button>
-          <button onClick={toggleHistory} className="p-2 bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 rounded-full transition-colors shadow-sm shrink-0" title="Chat History">
+          <button onClick={toggleHistory} className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 rounded-full transition-colors shadow-sm shrink-0 cursor-pointer" title="Chat History" aria-label="Chat History">
             <History className="w-5 h-5" />
           </button>
           {onClose && (
-            <button onClick={onClose} className="md:hidden p-2 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors shrink-0"><X className="w-5 h-5" /></button>
+            <button onClick={onClose} className="md:hidden p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors shrink-0 cursor-pointer" aria-label="Close Chat"><X className="w-5 h-5" /></button>
           )}
         </div>
       </div>
 
       {isHistoryOpen && (
-        <div className="absolute inset-0 z-20 bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 flex flex-col pt-16 animate-in slide-in-from-right-full duration-300">
+        <div className="absolute inset-0 z-20 bg-white/95 backdrop-blur-2xl flex flex-col pt-16 animate-in slide-in-from-right-full duration-300">
           <div className="p-4 border-b border-gray-100 flex items-center justify-between">
             <h3 className="font-bold text-gray-900">Chat History</h3>
-            <button onClick={() => setIsHistoryOpen(false)} className="p-1 text-gray-400 hover:bg-gray-100 rounded-full"><X className="w-5 h-5" /></button>
+            <button onClick={() => setIsHistoryOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:bg-gray-100 rounded-full cursor-pointer"><X className="w-5 h-5" /></button>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
             {chatLogs.length === 0 ? (
@@ -626,9 +625,9 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
                 <button 
                   key={log.id} 
                   onClick={() => loadLog(log)}
-                  className="w-full text-left p-3 rounded-xl border border-gray-100 hover:bg-blue-50 transition-colors"
+                  className="w-full text-left p-3 rounded-xl border border-gray-100 hover:bg-blue-50 transition-colors cursor-pointer min-h-[44px]"
                 >
-                  <p className="font-semibold text-gray-800 text-sm">
+                  <p className="font-semibold text-gray-800 text-sm truncate">
                     {(() => {
                        const firstUserMsg = log.transcript?.find((m: any) => m.sender === 'user');
                        if (firstUserMsg && firstUserMsg.text) {
@@ -645,44 +644,44 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
         </div>
       )}
 
-      <div className="flex-1 p-4 overflow-y-auto min-h-0 flex flex-col space-y-4">
+      <div className="flex-1 p-4 overflow-y-auto min-h-0 flex flex-col space-y-4 min-w-0">
         {messages.map((msg) => (
-          <div key={msg.id} className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+          <div key={msg.id} className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} min-w-0`}>
             {msg.sender === 'ai' && <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0 mt-1">AI</div>}
             
-            <div className={`max-w-[85%] space-y-2 ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
+            <div className={`max-w-[85%] space-y-2 min-w-0 ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
               {msg.imagePreview && (
                 <div className="rounded-xl overflow-hidden border border-gray-200 shadow-xs max-w-xs mb-1">
                   <img src={msg.imagePreview} alt="Uploaded receipt" className="max-h-48 object-cover w-full" />
                 </div>
               )}
               
-              <div className={`p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-2xs break-words whitespace-pre-wrap ${msg.sender === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none border border-gray-200'}`}>
+              <div className={`p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-2xs break-words whitespace-pre-wrap min-w-0 ${msg.sender === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none border border-gray-200'}`}>
                 {msg.text}
               </div>
 
               {msg.extractedDraft && (
                 msg.extractedDraft.intent === 'LOG_JOURNAL_ENTRY' ? (
                   /* Journal Entry Verification Card */
-                  <div className="bg-white/90 backdrop-blur-md rounded-xl border border-purple-100 p-3.5 shadow-sm space-y-2.5 mt-2 animate-in fade-in duration-200">
-                    <div className="flex items-center justify-between border-b border-purple-100 pb-2">
-                      <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                        <BookOpen className="w-4 h-4 text-purple-600" />
+                  <div className="bg-white/90 backdrop-blur-md rounded-xl border border-purple-100 p-3.5 shadow-sm space-y-2.5 mt-2 animate-in fade-in duration-200 min-w-0">
+                    <div className="flex items-center justify-between border-b border-purple-100 pb-2 gap-2 min-w-0">
+                      <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5 truncate">
+                        <BookOpen className="w-4 h-4 text-purple-600 shrink-0" />
                         Journal Entry Verification
                       </span>
-                      <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                      <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 shrink-0">
                         JOURNAL ENTRY
                       </span>
                     </div>
 
-                    <div className="text-xs space-y-2">
-                      <div className="flex justify-between text-gray-600">
-                        <span>Date: <span className="font-semibold text-gray-900">{msg.extractedDraft.issue_date}</span></span>
-                        <span>Total: <span className="font-extrabold text-purple-900">{msg.extractedDraft.amount.toLocaleString()} PKR</span></span>
+                    <div className="text-xs space-y-2 min-w-0">
+                      <div className="flex justify-between text-gray-600 gap-2 min-w-0">
+                        <span className="truncate">Date: <span className="font-semibold text-gray-900">{msg.extractedDraft.issue_date}</span></span>
+                        <span className="shrink-0">Total: <span className="font-extrabold text-purple-900">{msg.extractedDraft.amount.toLocaleString()} PKR</span></span>
                       </div>
 
-                      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-                        <table className="w-full text-left text-[11px]">
+                      <div className="overflow-x-auto min-w-0 rounded-lg border border-gray-200 bg-white">
+                        <table className="w-full text-left text-[11px] whitespace-nowrap min-w-[280px]">
                           <thead className="bg-gray-50 text-gray-500 font-bold border-b border-gray-100">
                             <tr>
                               <th className="px-3 py-2">Account</th>
@@ -719,50 +718,50 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
                     {!msg.text.includes('✓ Journal Entry verified') && (
                       <button
                         onClick={() => handleVerifyDraft(msg.id, msg.extractedDraft?.transactionId, msg.extractedDraft?.intent)}
-                        className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-2 shadow-sm"
+                        className="w-full py-2.5 min-h-[44px] bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-2 shadow-sm"
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Approve into Ledger
+                        <CheckCircle2 className="w-4 h-4" /> Approve into Ledger
                       </button>
                     )}
                   </div>
                 ) : (
                   /* Standard Bill / Invoice Card */
-                  <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-xl border border-blue-100 p-3.5 shadow-sm space-y-2.5 mt-2 animate-in fade-in duration-200">
-                    <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                      <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                        <Receipt className="w-4 h-4 text-blue-600" />
+                  <div className="bg-white/90 backdrop-blur-md rounded-xl border border-blue-100 p-3.5 shadow-sm space-y-2.5 mt-2 animate-in fade-in duration-200 min-w-0">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-2 gap-2 min-w-0">
+                      <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5 truncate">
+                        <Receipt className="w-4 h-4 text-blue-600 shrink-0" />
                         {msg.extractedDraft.entity_name} 
                       </span>
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
                         PENDING VERIFICATION
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span className="text-gray-400 text-[10px]">Amount:</span>
-                        <p className="font-bold text-gray-900">{msg.extractedDraft.amount} PKR</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs min-w-0">
+                      <div className="min-w-0">
+                        <span className="text-gray-400 text-[10px] block">Amount:</span>
+                        <p className="font-bold text-gray-900 truncate">{msg.extractedDraft.amount} PKR</p>
                       </div>
-                      <div>
-                        <span className="text-gray-400 text-[10px]">Issue Date:</span>
-                        <p className="font-medium text-gray-700">{msg.extractedDraft.issue_date}</p>
+                      <div className="min-w-0">
+                        <span className="text-gray-400 text-[10px] block">Issue Date:</span>
+                        <p className="font-medium text-gray-700 truncate">{msg.extractedDraft.issue_date}</p>
                       </div>
                       {msg.extractedDraft.due_date && (
-                        <div>
-                          <span className="text-gray-400 text-[10px]">Due Date:</span>
-                          <p className="font-medium text-red-600">{msg.extractedDraft.due_date}</p>
+                        <div className="min-w-0">
+                          <span className="text-gray-400 text-[10px] block">Due Date:</span>
+                          <p className="font-medium text-red-600 truncate">{msg.extractedDraft.due_date}</p>
                         </div>
                       )}
-                      <div className="col-span-2">
-                        <span className="text-gray-400 text-[10px]">Line Items:</span>
-                        <ul className="text-gray-700 mt-1 space-y-1">
+                      <div className="col-span-2 min-w-0">
+                        <span className="text-gray-400 text-[10px] block">Line Items:</span>
+                        <ul className="text-gray-700 mt-1 space-y-1 min-w-0">
                           {msg.extractedDraft.line_items?.map((item, idx) => (
-                            <li key={idx} className="flex justify-between items-center text-[11px] bg-gray-50 p-1.5 rounded-lg border border-gray-100">
-                              <div>
-                                <p className="font-semibold text-gray-800">{item.description}</p>
-                                <p className="text-gray-500">{item.quantity} x {item.unit_price} PKR &middot; <span className="text-blue-600">{item.account_name}</span></p>
+                            <li key={idx} className="flex justify-between items-center text-[11px] bg-gray-50 p-2 rounded-lg border border-gray-100 min-w-0 gap-2">
+                              <div className="min-w-0">
+                                <p className="font-semibold text-gray-800 truncate">{item.description}</p>
+                                <p className="text-gray-500 truncate">{item.quantity} x {item.unit_price} PKR &middot; <span className="text-blue-600">{item.account_name}</span></p>
                               </div>
-                              <p className="font-bold">{item.total} PKR</p>
+                              <p className="font-bold shrink-0">{item.total} PKR</p>
                             </li>
                           ))}
                         </ul>
@@ -772,9 +771,9 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
                     {!msg.text.includes('✓ Verified') && (
                       <button
                         onClick={() => handleVerifyDraft(msg.id, msg.extractedDraft?.transactionId, msg.extractedDraft?.intent)}
-                        className="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-2"
+                        className="w-full py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-2 shadow-sm"
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Approve into Ledger
+                        <CheckCircle2 className="w-4 h-4" /> Approve into Ledger
                       </button>
                     )}
                   </div>
@@ -787,28 +786,69 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
         ))}
         {isExtracting && (
           <div className="flex gap-3 items-center text-xs text-blue-600 font-medium">
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin shrink-0" />
             <span>Analyzing receipt & extracting structured financial data...</span>
           </div>
         )}
         <div ref={chatBottomRef} />
       </div>
 
-      <div className="p-3 bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 border-t border-gray-100 sticky bottom-0 z-10">
-        {imageBase64 && (
-          <div className="mb-2 relative inline-block">
-            <img src={imageBase64} alt="Preview" className="h-16 w-16 object-cover rounded-xl border border-gray-300" />
-            <button onClick={clearImage} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5"><X className="w-3 h-3" /></button>
-          </div>
-        )}
-        <form onSubmit={handleSendMessage} className="relative flex items-center bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-full p-1.5 shadow-md pl-3 pr-2 border border-gray-200 focus-within:ring-2 focus-within:ring-blue-100">
-          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => e.target.files && handleFileSelect(e.target.files[0])} disabled={isViewingHistory} />
-          <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-400 hover:text-blue-600" disabled={isViewingHistory}><Plus className="w-5 h-5" /></button>
-          <input type="text" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={isViewingHistory ? "Viewing historical chat (Read-Only)" : "Ask or log bill/invoice..."} className="flex-1 bg-transparent border-none text-gray-900 text-xs sm:text-sm px-3 focus:outline-none" disabled={isExtracting || isViewingHistory} />
-          <button type="submit" disabled={isExtracting || isViewingHistory || (!prompt.trim() && !imageBase64)} className={`w-9 h-9 rounded-full flex items-center justify-center ${isViewingHistory ? 'bg-gray-300' : 'bg-blue-600'} text-white`}><ArrowUp className="w-5 h-5" /></button>
+      <div className="p-3 bg-white/40 backdrop-blur-2xl border-t border-gray-100 sticky bottom-0 z-10">
+        {imagePreview(imageBase64, clearImage)}
+        <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            accept="image/*" 
+            className="hidden" 
+            onChange={(e) => {
+              if (e.target.files?.[0]) handleFileSelect(e.target.files[0]);
+            }} 
+          />
+          <button 
+            type="button" 
+            onClick={() => fileInputRef.current?.click()} 
+            className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl transition-colors shrink-0 cursor-pointer"
+            title="Upload Receipt Image"
+            aria-label="Upload Receipt Image"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+          
+          <input 
+            type="text" 
+            value={prompt} 
+            onChange={(e) => setPrompt(e.target.value)} 
+            placeholder="Ask AI or describe transaction..." 
+            className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2.5 min-h-[44px] text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
+          />
+
+          <button 
+            type="submit" 
+            disabled={isExtracting || (!prompt.trim() && !imageBase64)} 
+            className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors shadow-md shadow-blue-500/20 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 cursor-pointer"
+            aria-label="Send Message"
+          >
+            {isExtracting ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowUp className="w-5 h-5" />}
+          </button>
         </form>
       </div>
     </div>
   );
 }
 
+function imagePreview(base64: string | null, onClear: () => void) {
+  if (!base64) return null;
+  return (
+    <div className="relative inline-block mb-2">
+      <img src={base64} alt="Receipt Preview" className="h-16 w-16 object-cover rounded-lg border border-blue-200 shadow-sm" />
+      <button 
+        type="button" 
+        onClick={onClear} 
+        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors cursor-pointer"
+      >
+        <X className="w-3 h-3" />
+      </button>
+    </div>
+  );
+}

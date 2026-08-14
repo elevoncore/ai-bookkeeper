@@ -147,7 +147,6 @@ export default function PurchasesHub() {
       fetchData();
 
     } else {
-      // Insert Bill using atomic RPC to safely create lines BEFORE it gets verified
       const { data: insertedId, error: createError } = await supabase.rpc('create_bill_with_lines_atomic', {
         p_user_id: user.id,
         p_supplier_id: newBill.supplier_id,
@@ -169,7 +168,6 @@ export default function PurchasesHub() {
       if (createError) {
         toast.error(`Error: ${createError.message}`, { id: toastId });
       } else {
-        // Trigger verification AFTER lines exist
         try { await supabase.from('bills').update({ is_ai_verified: true, created_by_source: 'MANUAL', is_manually_edited: false }).eq('id', insertedId); } catch (_) {}
         toast.success("Bill created and posted to ledger!", { id: toastId });
         closeModal();
@@ -231,7 +229,6 @@ export default function PurchasesHub() {
 
   async function openEditModal(bill: any) {
     setIsEditing(true);
-    // Fetch the bill line to get the account_id
     const { data: line } = await supabase.from('bill_lines').select('account_id').eq('bill_id', bill.id).limit(1).single();
     
     setNewBill({
@@ -251,10 +248,10 @@ export default function PurchasesHub() {
   }
 
   return (
-    <div className="space-y-6 relative">
+    <div className="space-y-6 relative min-w-0">
       
       {/* HEADER & TABS */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-6 rounded-2xl ">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-6 rounded-2xl min-w-0">
         <div>
           <h1 className="text-xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
             Expenses & Bills Hub
@@ -264,16 +261,16 @@ export default function PurchasesHub() {
           </p>
         </div>
 
-        <div className="flex bg-gray-100 p-1 rounded-xl text-sm font-medium">
+        <div className="flex bg-gray-100 p-1 rounded-xl text-sm font-medium w-full sm:w-auto overflow-x-auto min-w-0">
           <button
             onClick={() => setActiveTab('bills')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'bills' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-lg transition-all cursor-pointer whitespace-nowrap ${activeTab === 'bills' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-indigo-700 font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <Receipt className="w-4 h-4" /> Bills
           </button>
           <button
             onClick={() => setActiveTab('suppliers')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'suppliers' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-lg transition-all cursor-pointer whitespace-nowrap ${activeTab === 'suppliers' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-emerald-700 font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <Truck className="w-4 h-4" /> Suppliers
           </button>
@@ -281,7 +278,7 @@ export default function PurchasesHub() {
       </div>
 
       {/* CONTENT AREA */}
-      <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-2xl  overflow-hidden min-h-[400px]">
+      <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-2xl overflow-hidden min-h-[400px] min-w-0">
         
         {/* TOOLBAR */}
         <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -290,7 +287,7 @@ export default function PurchasesHub() {
             <input 
               type="text" 
               placeholder={`Search ${activeTab}...`} 
-              className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all"
+              className="w-full pl-9 pr-4 py-2.5 min-h-[44px] bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all"
             />
           </div>
 
@@ -305,7 +302,7 @@ export default function PurchasesHub() {
                 setIsSupplierModalOpen(true);
               }
             }}
-            className="w-full sm:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
+            className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4 font-bold" />
             New {activeTab === 'bills' ? 'Bill' : 'Supplier'}
@@ -313,13 +310,13 @@ export default function PurchasesHub() {
         </div>
 
         {/* LISTING */}
-        <div className="p-0 overflow-x-auto">
+        <div className="p-0 overflow-x-auto min-w-0">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 text-indigo-600">
               <Loader2 className="w-8 h-8 animate-spin" />
             </div>
           ) : (
-            <table className="w-full text-left text-sm whitespace-nowrap">
+            <table className="w-full text-left text-sm whitespace-nowrap min-w-[700px]">
               <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
                 {activeTab === 'bills' && (
                   <tr>
@@ -347,7 +344,7 @@ export default function PurchasesHub() {
                 {/* EMPTY STATES */}
                 {activeTab === 'bills' && bills.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-6 py-16 text-center">
+                    <td colSpan={8} className="px-6 py-16 text-center">
                       <div className="flex flex-col items-center justify-center space-y-3">
                         <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-500">
                           <Receipt className="w-6 h-6" />
@@ -386,7 +383,7 @@ export default function PurchasesHub() {
                         <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200">✏️ Edited</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 font-semibold text-indigo-700">
+                    <td className="px-6 py-4 font-semibold text-indigo-700 max-w-[150px] truncate" title={bill.suppliers?.name}>
                       {bill.suppliers?.name || 'Unknown'}
                     </td>
                     <td className="px-6 py-4 text-gray-700 truncate max-w-[200px]" title={bill.bill_lines?.map((l: any) => l.description).join(', ')}>
@@ -413,30 +410,43 @@ export default function PurchasesHub() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       {bill.is_ai_verified ? (
-                        <span className="text-emerald-500 text-xs font-semibold flex justify-center"><AlertCircle className="w-4 h-4 hidden" /> Yes</span>
+                        <span className="text-emerald-500 text-xs font-semibold flex justify-center">Yes</span>
                       ) : (
                         <span className="text-amber-500 text-xs font-semibold flex justify-center items-center gap-1"><AlertCircle className="w-4 h-4" /> Pending</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-right flex justify-end gap-2">
-                      {bill.balance_due > 0 && bill.status !== 'draft' && (
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2 items-center">
+                        {bill.balance_due > 0 && bill.status !== 'draft' && (
+                          <button 
+                            onClick={() => {
+                              setPaymentData(prev => ({ ...prev, bill_id: bill.id, amount: bill.balance_due.toString() }));
+                              setIsPaymentModalOpen(true);
+                            }}
+                            className="px-3 py-2 min-h-[44px] text-xs font-bold bg-green-50 text-green-700 hover:bg-green-100 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                            title="Log Payment"
+                            aria-label="Log Payment"
+                          >
+                            <DollarSign className="w-3.5 h-3.5" /> Pay
+                          </button>
+                        )}
                         <button 
-                          onClick={() => {
-                            setPaymentData(prev => ({ ...prev, bill_id: bill.id, amount: bill.balance_due.toString() }));
-                            setIsPaymentModalOpen(true);
-                          }}
-                          className="px-2 py-1 text-xs font-bold bg-green-50 text-green-700 hover:bg-green-100 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
-                          title="Log Payment"
+                          onClick={() => openEditModal(bill)} 
+                          className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-colors cursor-pointer"
+                          aria-label="Edit Bill"
+                          title="Edit Bill"
                         >
-                          <DollarSign className="w-3 h-3" /> Pay
+                          <Edit2 className="w-4 h-4" />
                         </button>
-                      )}
-                      <button onClick={() => openEditModal(bill)} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleDeleteBill(bill.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                        <button 
+                          onClick={() => handleDeleteBill(bill.id)} 
+                          className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
+                          aria-label="Delete Bill"
+                          title="Delete Bill"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -467,11 +477,11 @@ export default function PurchasesHub() {
 
       {/* SLIDE-OVER MODAL FOR NEW BILL */}
       {isBillModalOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white h-full shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/30 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white h-full max-h-screen shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <h2 className="text-lg font-bold text-gray-900">{isEditing ? 'Edit Bill' : 'Create New Bill'}</h2>
-              <button onClick={closeModal} className="p-2 text-gray-400 hover:text-gray-700 bg-white rounded-full shadow-xs cursor-pointer">
+              <button onClick={closeModal} className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 bg-white rounded-full shadow-xs cursor-pointer" aria-label="Close modal">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -480,7 +490,7 @@ export default function PurchasesHub() {
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Supplier</label>
                 <select 
-                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={newBill.supplier_id}
                   onChange={e => setNewBill({...newBill, supplier_id: e.target.value})}
                   required
@@ -494,7 +504,7 @@ export default function PurchasesHub() {
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Expense Account</label>
                 <select 
-                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={newBill.account_id}
                   onChange={e => setNewBill({...newBill, account_id: e.target.value})}
                   required
@@ -508,7 +518,7 @@ export default function PurchasesHub() {
                 <label className="block text-xs font-bold text-gray-700 mb-1">Issue Date</label>
                 <input 
                   type="date" 
-                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={newBill.issue_date}
                   onChange={e => setNewBill({...newBill, issue_date: e.target.value})}
                   required
@@ -521,7 +531,7 @@ export default function PurchasesHub() {
                   type="number" 
                   min="0"
                   step="0.01"
-                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={newBill.amount}
                   onChange={e => setNewBill({...newBill, amount: e.target.value})}
                   placeholder="0.00"
@@ -530,11 +540,11 @@ export default function PurchasesHub() {
               </div>
             </form>
 
-            <div className="p-6 border-t border-gray-100 bg-white flex gap-3">
-              <button type="button" onClick={closeModal} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors cursor-pointer">
+            <div className="p-6 border-t border-gray-100 bg-white flex gap-3 shrink-0">
+              <button type="button" onClick={closeModal} className="flex-1 px-4 py-3 min-h-[44px] border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors cursor-pointer">
                 Cancel
               </button>
-              <button onClick={handleCreateOrUpdateBill} className="flex-1 px-4 py-2.5 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-500/20 cursor-pointer">
+              <button onClick={handleCreateOrUpdateBill} className="flex-1 px-4 py-3 min-h-[44px] bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-500/20 cursor-pointer">
                 {isEditing ? 'Save Changes' : 'Create Bill'}
               </button>
             </div>
@@ -544,19 +554,19 @@ export default function PurchasesHub() {
 
       {/* LOG PAYMENT MODAL */}
       {isPaymentModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white/90 backdrop-blur-2xl rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-green-600" />
+                <DollarSign className="w-5 h-5 text-green-600 shrink-0" />
                 Log Payment Made
               </h2>
-              <button onClick={() => setIsPaymentModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
+              <button onClick={() => setIsPaymentModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors" aria-label="Close modal">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <form onSubmit={handleLogPayment} className="p-6 space-y-4">
+            <form onSubmit={handleLogPayment} className="flex-1 overflow-y-auto p-6 space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount Paid (PKR)</label>
                 <input 
@@ -565,7 +575,7 @@ export default function PurchasesHub() {
                   required
                   value={paymentData.amount}
                   onChange={e => setPaymentData({...paymentData, amount: e.target.value})}
-                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all font-medium"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all font-medium"
                 />
               </div>
 
@@ -576,7 +586,7 @@ export default function PurchasesHub() {
                   required
                   value={paymentData.date}
                   onChange={e => setPaymentData({...paymentData, date: e.target.value})}
-                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-gray-600"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-gray-600"
                 />
               </div>
               
@@ -585,7 +595,7 @@ export default function PurchasesHub() {
                 <select 
                   value={paymentData.method}
                   onChange={e => setPaymentData({...paymentData, method: e.target.value})}
-                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-gray-600"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-gray-600"
                 >
                   <option value="Bank Transfer">Bank Transfer</option>
                   <option value="Cash">Cash</option>
@@ -593,35 +603,35 @@ export default function PurchasesHub() {
                   <option value="Cheque">Cheque</option>
                 </select>
               </div>
-
-              <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setIsPaymentModalOpen(false)} disabled={isSubmitting} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold rounded-xl transition-colors cursor-pointer disabled:opacity-50">
-                  Cancel
-                </button>
-                <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-green-600/20 cursor-pointer disabled:opacity-50">
-                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Record Payment'}
-                </button>
-              </div>
             </form>
+
+            <div className="p-6 border-t border-gray-100 bg-white flex gap-3 shrink-0">
+              <button type="button" onClick={() => setIsPaymentModalOpen(false)} disabled={isSubmitting} className="flex-1 px-4 py-3 min-h-[44px] bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold rounded-xl transition-colors cursor-pointer disabled:opacity-50">
+                Cancel
+              </button>
+              <button type="submit" onClick={handleLogPayment} disabled={isSubmitting} className="flex-1 px-4 py-3 min-h-[44px] bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-green-600/20 cursor-pointer disabled:opacity-50 flex items-center justify-center">
+                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Record Payment'}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* NEW SUPPLIER MODAL */}
       {isSupplierModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                <Truck className="w-5 h-5 text-indigo-600" />
+                <Truck className="w-5 h-5 text-indigo-600 shrink-0" />
                 Add New Supplier
               </h2>
-              <button onClick={() => setIsSupplierModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
+              <button onClick={() => setIsSupplierModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer" aria-label="Close modal">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <form onSubmit={handleCreateSupplier} className="p-6 space-y-4">
+            <form onSubmit={handleCreateSupplier} className="flex-1 overflow-y-auto p-6 space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Supplier Name *</label>
                 <input 
@@ -630,7 +640,7 @@ export default function PurchasesHub() {
                   value={newSupplier.name}
                   onChange={e => setNewSupplier({...newSupplier, name: e.target.value})}
                   placeholder="e.g. Acme Supplies Inc"
-                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-sm"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-sm"
                 />
               </div>
 
@@ -641,7 +651,7 @@ export default function PurchasesHub() {
                   value={newSupplier.email}
                   onChange={e => setNewSupplier({...newSupplier, email: e.target.value})}
                   placeholder="supplier@example.com"
-                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-sm"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-sm"
                 />
               </div>
 
@@ -652,19 +662,19 @@ export default function PurchasesHub() {
                   value={newSupplier.phone}
                   onChange={e => setNewSupplier({...newSupplier, phone: e.target.value})}
                   placeholder="+1 555-0188"
-                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-sm"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-sm"
                 />
               </div>
-
-              <div className="pt-2 flex gap-3">
-                <button type="button" onClick={() => setIsSupplierModalOpen(false)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold rounded-xl transition-colors cursor-pointer">
-                  Cancel
-                </button>
-                <button type="submit" className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-indigo-600/20 cursor-pointer">
-                  Save Supplier
-                </button>
-              </div>
             </form>
+
+            <div className="p-6 border-t border-gray-100 bg-white flex gap-3 shrink-0">
+              <button type="button" onClick={() => setIsSupplierModalOpen(false)} className="flex-1 px-4 py-3 min-h-[44px] bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold rounded-xl transition-colors cursor-pointer">
+                Cancel
+              </button>
+              <button type="submit" onClick={handleCreateSupplier} className="flex-1 px-4 py-3 min-h-[44px] bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-indigo-600/20 cursor-pointer">
+                Save Supplier
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -672,4 +682,3 @@ export default function PurchasesHub() {
     </div>
   );
 }
-

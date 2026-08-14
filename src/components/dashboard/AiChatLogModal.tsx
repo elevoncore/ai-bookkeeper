@@ -33,19 +33,19 @@ export default function AiChatLogModal({ txId, onClose }: AiChatLogModalProps) {
   }, [txId, supabase]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white/70 backdrop-blur-md border border-white/50 shadow-sm rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-white/90 backdrop-blur-2xl border border-white/50 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
         
-        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
           <h2 className="font-bold text-gray-900 flex items-center gap-2">
-            <Bot className="w-5 h-5 text-blue-600" /> AI Audit Log
+            <Bot className="w-5 h-5 text-blue-600 shrink-0" /> AI Audit Log
           </h2>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-700 bg-white rounded-full shadow-sm hover:bg-gray-100 transition-colors">
-            <X className="w-4 h-4" />
+          <button onClick={onClose} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 bg-white rounded-full shadow-xs hover:bg-gray-100 transition-colors cursor-pointer" aria-label="Close modal">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-w-0">
           {isLoading ? (
             <div className="flex justify-center py-12 text-blue-600">
               <Loader2 className="w-8 h-8 animate-spin" />
@@ -56,17 +56,17 @@ export default function AiChatLogModal({ txId, onClose }: AiChatLogModalProps) {
             </div>
           ) : (
             log.transcript.map((msg: any, idx: number) => (
-              <div key={idx} className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div key={idx} className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} min-w-0`}>
                 {msg.sender === 'ai' && <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0 mt-1">AI</div>}
                 
-                <div className={`max-w-[85%] space-y-2 ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
+                <div className={`max-w-[85%] space-y-2 min-w-0 ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
                   {msg.imagePreview && (
                     <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm max-w-xs mb-1">
                       <img src={msg.imagePreview} alt="Uploaded receipt" className="max-h-32 object-cover w-full" />
                     </div>
                   )}
                   
-                  <div className={`p-3 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm break-words whitespace-pre-wrap ${msg.sender === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none border border-gray-200'}`}>
+                  <div className={`p-3 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm break-words whitespace-pre-wrap min-w-0 ${msg.sender === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none border border-gray-200'}`}>
                     {msg.text}
                   </div>
                 </div>
@@ -81,4 +81,3 @@ export default function AiChatLogModal({ txId, onClose }: AiChatLogModalProps) {
     </div>
   );
 }
-

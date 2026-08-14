@@ -318,10 +318,10 @@ export default function SalesHub() {
   }
 
   return (
-    <div className="space-y-6 relative">
+    <div className="space-y-6 relative min-w-0">
       
       {/* HEADER & TABS */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-6 rounded-2xl ">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-6 rounded-2xl min-w-0">
         <div>
           <h1 className="text-xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
             Revenue & Invoices Hub
@@ -331,22 +331,22 @@ export default function SalesHub() {
           </p>
         </div>
 
-        <div className="flex bg-gray-100 p-1 rounded-xl text-sm font-medium">
+        <div className="flex bg-gray-100 p-1 rounded-xl text-sm font-medium w-full sm:w-auto overflow-x-auto min-w-0">
           <button
             onClick={() => setActiveTab('invoices')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'invoices' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-lg transition-all cursor-pointer whitespace-nowrap ${activeTab === 'invoices' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-blue-700 font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <FileText className="w-4 h-4" /> Invoices
           </button>
           <button
             onClick={() => setActiveTab('customers')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'customers' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-lg transition-all cursor-pointer whitespace-nowrap ${activeTab === 'customers' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-emerald-700 font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <Users className="w-4 h-4" /> Customers
           </button>
           <button
             onClick={() => setActiveTab('products')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'products' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-lg transition-all cursor-pointer whitespace-nowrap ${activeTab === 'products' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-purple-700 font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <Package className="w-4 h-4" /> Products
           </button>
@@ -354,7 +354,7 @@ export default function SalesHub() {
       </div>
 
       {/* CONTENT AREA */}
-      <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-2xl  overflow-hidden min-h-[400px]">
+      <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-2xl overflow-hidden min-h-[400px] min-w-0">
         
         {/* TOOLBAR */}
         <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -363,7 +363,7 @@ export default function SalesHub() {
             <input 
               type="text" 
               placeholder={`Search ${activeTab}...`} 
-              className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all"
+              className="w-full pl-9 pr-4 py-2.5 min-h-[44px] bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all"
             />
           </div>
 
@@ -381,7 +381,7 @@ export default function SalesHub() {
                 setIsCustomerModalOpen(true);
               }
             }}
-            className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 transition-all cursor-pointer"
+            className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4 font-bold" />
             New {activeTab === 'invoices' ? 'Invoice' : activeTab === 'products' ? 'Product' : 'Customer'}
@@ -389,13 +389,13 @@ export default function SalesHub() {
         </div>
 
         {/* LISTING */}
-        <div className="p-0 overflow-x-auto">
+        <div className="p-0 overflow-x-auto min-w-0">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 text-blue-600">
               <Loader2 className="w-8 h-8 animate-spin" />
             </div>
           ) : (
-            <table className="w-full text-left text-sm whitespace-nowrap">
+            <table className="w-full text-left text-sm whitespace-nowrap min-w-[700px]">
               <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
                 {activeTab === 'invoices' && (
                   <tr>
@@ -434,7 +434,7 @@ export default function SalesHub() {
                 {/* EMPTY STATES */}
                 {activeTab === 'invoices' && invoices.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-6 py-16 text-center">
+                    <td colSpan={9} className="px-6 py-16 text-center">
                       <div className="flex flex-col items-center justify-center space-y-3">
                         <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-500">
                           <FileText className="w-6 h-6" />
@@ -481,7 +481,7 @@ export default function SalesHub() {
                         <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200">✏️ Edited</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 font-semibold text-blue-700">
+                    <td className="px-6 py-4 font-semibold text-blue-700 max-w-[150px] truncate" title={inv.customers?.name}>
                       {inv.customers?.name || 'Unknown'}
                     </td>
                     <td className="px-6 py-4 text-gray-700 truncate max-w-[200px]" title={inv.invoice_lines?.map((l: any) => l.description).join(', ')}>
@@ -511,30 +511,43 @@ export default function SalesHub() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       {inv.is_ai_verified ? (
-                        <span className="text-emerald-500 text-xs font-semibold flex justify-center"><AlertCircle className="w-4 h-4 hidden" /> Yes</span>
+                        <span className="text-emerald-500 text-xs font-semibold flex justify-center">Yes</span>
                       ) : (
                         <span className="text-amber-500 text-xs font-semibold flex justify-center items-center gap-1"><AlertCircle className="w-4 h-4" /> Pending</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-right flex justify-end gap-2">
-                      {inv.balance_due > 0 && inv.status !== 'draft' && (
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2 items-center">
+                        {inv.balance_due > 0 && inv.status !== 'draft' && (
+                          <button 
+                            onClick={() => {
+                              setPaymentData(prev => ({ ...prev, invoice_id: inv.id, amount: inv.balance_due.toString() }));
+                              setIsPaymentModalOpen(true);
+                            }}
+                            className="px-3 py-2 min-h-[44px] text-xs font-bold bg-green-50 text-green-700 hover:bg-green-100 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                            title="Log Payment"
+                            aria-label="Log Payment"
+                          >
+                            <DollarSign className="w-3.5 h-3.5" /> Pay
+                          </button>
+                        )}
                         <button 
-                          onClick={() => {
-                            setPaymentData(prev => ({ ...prev, invoice_id: inv.id, amount: inv.balance_due.toString() }));
-                            setIsPaymentModalOpen(true);
-                          }}
-                          className="px-2 py-1 text-xs font-bold bg-green-50 text-green-700 hover:bg-green-100 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
-                          title="Log Payment"
+                          onClick={() => openEditModal(inv)} 
+                          className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-colors cursor-pointer"
+                          aria-label="Edit Invoice"
+                          title="Edit Invoice"
                         >
-                          <DollarSign className="w-3 h-3" /> Pay
+                          <Edit2 className="w-4 h-4" />
                         </button>
-                      )}
-                      <button onClick={() => openEditModal(inv)} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleDeleteInvoice(inv.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                        <button 
+                          onClick={() => handleDeleteInvoice(inv.id)} 
+                          className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
+                          aria-label="Delete Invoice"
+                          title="Delete Invoice"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   );
@@ -583,7 +596,12 @@ export default function SalesHub() {
                       {p.is_inventory_tracked ? 'YES' : 'NO'}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button onClick={() => openEditProductModal(p)} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="Edit Product">
+                      <button 
+                        onClick={() => openEditProductModal(p)} 
+                        className="p-2.5 min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-colors cursor-pointer" 
+                        title="Edit Product"
+                        aria-label="Edit Product"
+                      >
                         <Edit2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -598,11 +616,11 @@ export default function SalesHub() {
 
       {/* SLIDE-OVER MODAL FOR NEW INVOICE */}
       {isInvoiceModalOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white h-full shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/30 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white h-full max-h-screen shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <h2 className="text-lg font-bold text-gray-900">{isEditing ? 'Edit Invoice' : 'Create New Invoice'}</h2>
-              <button onClick={closeModal} className="p-2 text-gray-400 hover:text-gray-700 bg-white rounded-full shadow-xs cursor-pointer">
+              <button onClick={closeModal} className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 bg-white rounded-full shadow-xs cursor-pointer" aria-label="Close modal">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -611,7 +629,7 @@ export default function SalesHub() {
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Customer</label>
                 <select 
-                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={newInvoice.customer_id}
                   onChange={e => setNewInvoice({...newInvoice, customer_id: e.target.value})}
                   required
@@ -626,7 +644,7 @@ export default function SalesHub() {
                 <label className="block text-xs font-bold text-gray-700 mb-1">Issue Date</label>
                 <input 
                   type="date" 
-                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={newInvoice.issue_date}
                   onChange={e => setNewInvoice({...newInvoice, issue_date: e.target.value})}
                   required
@@ -639,7 +657,7 @@ export default function SalesHub() {
                   type="number" 
                   min="0"
                   step="0.01"
-                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={newInvoice.amount}
                   onChange={e => setNewInvoice({...newInvoice, amount: e.target.value})}
                   placeholder="0.00"
@@ -648,11 +666,11 @@ export default function SalesHub() {
               </div>
             </form>
 
-            <div className="p-6 border-t border-gray-100 bg-white flex gap-3">
-              <button type="button" onClick={closeModal} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors cursor-pointer">
+            <div className="p-6 border-t border-gray-100 bg-white flex gap-3 shrink-0">
+              <button type="button" onClick={closeModal} className="flex-1 px-4 py-3 min-h-[44px] border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors cursor-pointer">
                 Cancel
               </button>
-              <button onClick={handleCreateOrUpdateInvoice} className="flex-1 px-4 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-500/20 cursor-pointer">
+              <button onClick={handleCreateOrUpdateInvoice} className="flex-1 px-4 py-3 min-h-[44px] bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-500/20 cursor-pointer">
                 {isEditing ? 'Save Changes' : 'Create Invoice'}
               </button>
             </div>
@@ -662,19 +680,19 @@ export default function SalesHub() {
 
       {/* LOG PAYMENT MODAL */}
       {isPaymentModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white/90 backdrop-blur-2xl rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-green-600" />
+                <DollarSign className="w-5 h-5 text-green-600 shrink-0" />
                 Log Received Payment
               </h2>
-              <button onClick={() => setIsPaymentModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
+              <button onClick={() => setIsPaymentModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer" aria-label="Close modal">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <form onSubmit={handleLogPayment} className="p-6 space-y-4">
+            <form onSubmit={handleLogPayment} className="flex-1 overflow-y-auto p-6 space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount Received (PKR)</label>
                 <input 
@@ -683,7 +701,7 @@ export default function SalesHub() {
                   required
                   value={paymentData.amount}
                   onChange={e => setPaymentData({...paymentData, amount: e.target.value})}
-                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all font-medium"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all font-medium"
                 />
               </div>
 
@@ -694,7 +712,7 @@ export default function SalesHub() {
                   required
                   value={paymentData.date}
                   onChange={e => setPaymentData({...paymentData, date: e.target.value})}
-                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-gray-600"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-gray-600"
                 />
               </div>
               
@@ -703,7 +721,7 @@ export default function SalesHub() {
                 <select 
                   value={paymentData.method}
                   onChange={e => setPaymentData({...paymentData, method: e.target.value})}
-                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-gray-600"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-gray-600"
                 >
                   <option value="Bank Transfer">Bank Transfer</option>
                   <option value="Cash">Cash</option>
@@ -711,35 +729,35 @@ export default function SalesHub() {
                   <option value="Cheque">Cheque</option>
                 </select>
               </div>
-
-              <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setIsPaymentModalOpen(false)} disabled={isSubmitting} className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold rounded-xl transition-colors cursor-pointer disabled:opacity-50">
-                  Cancel
-                </button>
-                <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-green-600/20 cursor-pointer disabled:opacity-50">
-                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Record Payment'}
-                </button>
-              </div>
             </form>
+
+            <div className="p-6 border-t border-gray-100 bg-white flex gap-3 shrink-0">
+              <button type="button" onClick={() => setIsPaymentModalOpen(false)} disabled={isSubmitting} className="flex-1 px-4 py-3 min-h-[44px] bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold rounded-xl transition-colors cursor-pointer disabled:opacity-50">
+                Cancel
+              </button>
+              <button type="submit" onClick={handleLogPayment} disabled={isSubmitting} className="flex-1 px-4 py-3 min-h-[44px] bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-green-600/20 cursor-pointer disabled:opacity-50 flex items-center justify-center">
+                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Record Payment'}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* EDIT PRODUCT MODAL */}
       {isProductModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white/90 backdrop-blur-2xl rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                <Package className="w-5 h-5 text-purple-600" />
+                <Package className="w-5 h-5 text-purple-600 shrink-0" />
                 Edit Product / Service Catalog
               </h2>
-              <button onClick={() => setIsProductModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
+              <button onClick={() => setIsProductModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer" aria-label="Close modal">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <form onSubmit={handleSaveProduct} className="p-6 space-y-4">
+            <form onSubmit={handleSaveProduct} className="flex-1 overflow-y-auto p-6 space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Product Name</label>
                 <input 
@@ -747,7 +765,7 @@ export default function SalesHub() {
                   required
                   value={editingProduct.name}
                   onChange={e => setEditingProduct({...editingProduct, name: e.target.value})}
-                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium"
                 />
               </div>
 
@@ -761,7 +779,7 @@ export default function SalesHub() {
                     required
                     value={editingProduct.price}
                     onChange={e => setEditingProduct({...editingProduct, price: e.target.value})}
-                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium"
+                    className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium"
                   />
                 </div>
 
@@ -774,18 +792,18 @@ export default function SalesHub() {
                     required
                     value={editingProduct.cost}
                     onChange={e => setEditingProduct({...editingProduct, cost: e.target.value})}
-                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium"
+                    className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium"
                   />
                 </div>
               </div>
 
               <div className="pt-2">
-                <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors">
+                <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors min-h-[44px]">
                   <input 
                     type="checkbox"
                     checked={editingProduct.is_inventory_tracked}
                     onChange={e => setEditingProduct({...editingProduct, is_inventory_tracked: e.target.checked})}
-                    className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                    className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500 shrink-0"
                   />
                   <div>
                     <span className="text-xs font-bold text-gray-900 block">Track Physical Inventory</span>
@@ -794,40 +812,39 @@ export default function SalesHub() {
                 </label>
               </div>
 
-              {/* Crucial UI Note */}
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] flex gap-2 items-start">
                 <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                 <span>Changes here only apply to future transactions. Past verified invoices and bills remain locked to preserve ledger integrity.</span>
               </div>
-
-              <div className="pt-2 flex gap-3">
-                <button type="button" onClick={() => setIsProductModalOpen(false)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold rounded-xl transition-colors cursor-pointer">
-                  Cancel
-                </button>
-                <button type="submit" className="flex-1 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-purple-600/20 cursor-pointer">
-                  Save Product
-                </button>
-              </div>
             </form>
+
+            <div className="p-6 border-t border-gray-100 bg-white flex gap-3 shrink-0">
+              <button type="button" onClick={() => setIsProductModalOpen(false)} className="flex-1 px-4 py-3 min-h-[44px] bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold rounded-xl transition-colors cursor-pointer">
+                Cancel
+              </button>
+              <button type="submit" onClick={handleSaveProduct} className="flex-1 px-4 py-3 min-h-[44px] bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-purple-600/20 cursor-pointer">
+                Save Product
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* NEW CUSTOMER MODAL */}
       {isCustomerModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-600" />
+                <Users className="w-5 h-5 text-blue-600 shrink-0" />
                 Add New Customer
               </h2>
-              <button onClick={() => setIsCustomerModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
+              <button onClick={() => setIsCustomerModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer" aria-label="Close modal">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <form onSubmit={handleCreateCustomer} className="p-6 space-y-4">
+            <form onSubmit={handleCreateCustomer} className="flex-1 overflow-y-auto p-6 space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer Name *</label>
                 <input 
@@ -836,7 +853,7 @@ export default function SalesHub() {
                   value={newCustomer.name}
                   onChange={e => setNewCustomer({...newCustomer, name: e.target.value})}
                   placeholder="e.g. Manual Audit Corp"
-                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-sm"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-sm"
                 />
               </div>
 
@@ -847,7 +864,7 @@ export default function SalesHub() {
                   value={newCustomer.email}
                   onChange={e => setNewCustomer({...newCustomer, email: e.target.value})}
                   placeholder="audit@example.com"
-                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-sm"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-sm"
                 />
               </div>
 
@@ -858,19 +875,19 @@ export default function SalesHub() {
                   value={newCustomer.phone}
                   onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})}
                   placeholder="+1 555-0199"
-                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-sm"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-sm"
                 />
               </div>
-
-              <div className="pt-2 flex gap-3">
-                <button type="button" onClick={() => setIsCustomerModalOpen(false)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold rounded-xl transition-colors cursor-pointer">
-                  Cancel
-                </button>
-                <button type="submit" className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-blue-600/20 cursor-pointer">
-                  Save Customer
-                </button>
-              </div>
             </form>
+
+            <div className="p-6 border-t border-gray-100 bg-white flex gap-3 shrink-0">
+              <button type="button" onClick={() => setIsCustomerModalOpen(false)} className="flex-1 px-4 py-3 min-h-[44px] bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold rounded-xl transition-colors cursor-pointer">
+                Cancel
+              </button>
+              <button type="submit" onClick={handleCreateCustomer} className="flex-1 px-4 py-3 min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-blue-600/20 cursor-pointer">
+                Save Customer
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -878,4 +895,3 @@ export default function SalesHub() {
     </div>
   );
 }
-

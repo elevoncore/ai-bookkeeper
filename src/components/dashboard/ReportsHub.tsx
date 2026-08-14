@@ -51,10 +51,10 @@ export default function ReportsHub() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-6 rounded-2xl ">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-6 rounded-2xl min-w-0">
         <div>
           <h1 className="text-xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
             Accounting & Financial Ledger
@@ -64,34 +64,34 @@ export default function ReportsHub() {
           </p>
         </div>
 
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-sm font-semibold transition-all cursor-pointer">
+        <button className="flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-sm font-semibold transition-all cursor-pointer shrink-0">
           <Download className="w-4 h-4" /> Export CSV
         </button>
       </div>
 
       {/* TABS */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 min-w-0">
         <button
           onClick={() => setActiveTab('chart_of_accounts')}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'chart_of_accounts' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+          className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'chart_of_accounts' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
         >
           <FolderTree className="w-4 h-4" /> Chart of Accounts
         </button>
         <button
           onClick={() => setActiveTab('ledger')}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'ledger' ? 'bg-gray-900 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+          className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'ledger' ? 'bg-gray-900 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
         >
           <FileSpreadsheet className="w-4 h-4" /> General Ledger
         </button>
         <button
           onClick={() => setActiveTab('pnl')}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'pnl' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+          className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'pnl' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
         >
           <DollarSign className="w-4 h-4" /> Profit & Loss
         </button>
         <button
           onClick={() => setActiveTab('trial_balance')}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'trial_balance' ? 'bg-emerald-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+          className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'trial_balance' ? 'bg-emerald-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
         >
           <Scale className="w-4 h-4" /> Trial Balance
         </button>
@@ -108,12 +108,12 @@ export default function ReportsHub() {
           <Loader2 className="w-8 h-8 animate-spin" />
         </div>
       ) : (
-        <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-2xl  overflow-hidden">
+        <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-2xl overflow-hidden min-w-0">
           
           {/* LEDGER TAB */}
           {activeTab === 'ledger' && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm whitespace-nowrap">
+            <div className="overflow-x-auto min-w-0">
+              <table className="w-full text-left text-sm whitespace-nowrap min-w-[650px]">
                 <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
                   <tr>
                     <th className="px-6 py-4 w-32">Date</th>
@@ -172,73 +172,73 @@ export default function ReportsHub() {
 
           {/* P&L TAB */}
           {activeTab === 'pnl' && financials && (
-            <div className="p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                <div className="bg-blue-50 border border-blue-100 p-6 rounded-2xl">
+            <div className="p-4 sm:p-8 min-w-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 min-w-0">
+                <div className="bg-blue-50 border border-blue-100 p-6 rounded-2xl min-w-0">
                   <p className="text-blue-600 text-sm font-semibold mb-1">Gross Profit</p>
-                  <h3 className="text-3xl font-extrabold text-blue-900">
+                  <h3 className="text-2xl sm:text-3xl font-extrabold text-blue-900 truncate">
                     {financials.profit_and_loss.gross_profit.toLocaleString()} <span className="text-lg font-medium">PKR</span>
                   </h3>
                 </div>
-                <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-2xl">
+                <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-2xl min-w-0">
                   <p className="text-emerald-600 text-sm font-semibold mb-1">Net Profit</p>
-                  <h3 className="text-3xl font-extrabold text-emerald-900">
+                  <h3 className="text-2xl sm:text-3xl font-extrabold text-emerald-900 truncate">
                     {financials.profit_and_loss.net_profit.toLocaleString()} <span className="text-lg font-medium">PKR</span>
                   </h3>
                 </div>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-6 min-w-0">
                 {/* Revenue */}
-                <div className="border border-gray-100 rounded-xl overflow-hidden">
-                  <div className="bg-gray-50 px-6 py-4 flex justify-between font-bold text-gray-900 border-b border-gray-100">
-                    <span>Revenue</span>
-                    <span>{financials.profit_and_loss.revenue.toLocaleString()}</span>
+                <div className="border border-gray-100 rounded-xl overflow-hidden min-w-0">
+                  <div className="bg-gray-50 px-6 py-4 flex justify-between font-bold text-gray-900 border-b border-gray-100 min-w-0 gap-2">
+                    <span className="truncate">Revenue</span>
+                    <span className="shrink-0">{financials.profit_and_loss.revenue.toLocaleString()}</span>
                   </div>
                   <div className="divide-y divide-gray-50">
                     {financials.profit_and_loss.revenue_accounts.map((acc: any) => (
-                      <div key={acc.name} className="px-6 py-3 flex justify-between text-sm text-gray-600 hover:bg-gray-50">
-                        <span>{acc.name}</span>
-                        <span>{acc.balance.toLocaleString()}</span>
+                      <div key={acc.name} className="px-6 py-3 flex justify-between text-sm text-gray-600 hover:bg-gray-50 min-w-0 gap-2">
+                        <span className="truncate">{acc.name}</span>
+                        <span className="shrink-0">{acc.balance.toLocaleString()}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 {/* COGS */}
-                <div className="border border-gray-100 rounded-xl overflow-hidden">
-                  <div className="bg-gray-50 px-6 py-4 flex justify-between font-bold text-gray-900 border-b border-gray-100">
-                    <span>Cost of Goods Sold</span>
-                    <span>{financials.profit_and_loss.cogs.toLocaleString()}</span>
+                <div className="border border-gray-100 rounded-xl overflow-hidden min-w-0">
+                  <div className="bg-gray-50 px-6 py-4 flex justify-between font-bold text-gray-900 border-b border-gray-100 min-w-0 gap-2">
+                    <span className="truncate">Cost of Goods Sold</span>
+                    <span className="shrink-0">{financials.profit_and_loss.cogs.toLocaleString()}</span>
                   </div>
                 </div>
 
                 {/* Gross Profit Subtotal */}
-                <div className="px-6 py-4 flex justify-between font-extrabold text-blue-900 text-lg">
-                  <span>Gross Profit</span>
-                  <span>{financials.profit_and_loss.gross_profit.toLocaleString()}</span>
+                <div className="px-6 py-4 flex justify-between font-extrabold text-blue-900 text-base sm:text-lg min-w-0 gap-2">
+                  <span className="truncate">Gross Profit</span>
+                  <span className="shrink-0">{financials.profit_and_loss.gross_profit.toLocaleString()}</span>
                 </div>
 
                 {/* Operating Expenses */}
-                <div className="border border-gray-100 rounded-xl overflow-hidden">
-                  <div className="bg-gray-50 px-6 py-4 flex justify-between font-bold text-gray-900 border-b border-gray-100">
-                    <span>Operating Expenses</span>
-                    <span>{financials.profit_and_loss.operating_expenses.toLocaleString()}</span>
+                <div className="border border-gray-100 rounded-xl overflow-hidden min-w-0">
+                  <div className="bg-gray-50 px-6 py-4 flex justify-between font-bold text-gray-900 border-b border-gray-100 min-w-0 gap-2">
+                    <span className="truncate">Operating Expenses</span>
+                    <span className="shrink-0">{financials.profit_and_loss.operating_expenses.toLocaleString()}</span>
                   </div>
                   <div className="divide-y divide-gray-50">
                     {financials.profit_and_loss.operating_expense_accounts.map((acc: any) => (
-                      <div key={acc.name} className="px-6 py-3 flex justify-between text-sm text-gray-600 hover:bg-gray-50">
-                        <span>{acc.name}</span>
-                        <span>{acc.balance.toLocaleString()}</span>
+                      <div key={acc.name} className="px-6 py-3 flex justify-between text-sm text-gray-600 hover:bg-gray-50 min-w-0 gap-2">
+                        <span className="truncate">{acc.name}</span>
+                        <span className="shrink-0">{acc.balance.toLocaleString()}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 {/* Net Profit Total */}
-                <div className="px-6 py-4 flex justify-between font-extrabold text-emerald-900 text-xl border-t-2 border-gray-900 mt-4">
-                  <span>Net Profit</span>
-                  <span>{financials.profit_and_loss.net_profit.toLocaleString()} PKR</span>
+                <div className="px-6 py-4 flex justify-between font-extrabold text-emerald-900 text-lg sm:text-xl border-t-2 border-gray-900 mt-4 min-w-0 gap-2">
+                  <span className="truncate">Net Profit</span>
+                  <span className="shrink-0">{financials.profit_and_loss.net_profit.toLocaleString()} PKR</span>
                 </div>
               </div>
             </div>
@@ -246,8 +246,8 @@ export default function ReportsHub() {
 
           {/* TRIAL BALANCE TAB */}
           {activeTab === 'trial_balance' && financials && (
-            <div className="overflow-x-auto p-0">
-              <table className="w-full text-left text-sm whitespace-nowrap">
+            <div className="overflow-x-auto min-w-0 p-0">
+              <table className="w-full text-left text-sm whitespace-nowrap min-w-[600px]">
                 <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
                   <tr>
                     <th className="px-6 py-4">Account</th>
@@ -275,12 +275,12 @@ export default function ReportsHub() {
               </table>
               <div className="p-6 bg-white border-t border-gray-100">
                 {financials.total_debits === financials.total_credits ? (
-                  <div className="flex items-center gap-2 text-emerald-600 font-bold bg-emerald-50 px-4 py-3 rounded-xl w-fit">
-                    <Scale className="w-5 h-5" /> Debits equal Credits. Books are balanced!
+                  <div className="flex items-center gap-2 text-emerald-600 font-bold bg-emerald-50 px-4 py-3 rounded-xl w-fit text-xs sm:text-sm">
+                    <Scale className="w-5 h-5 shrink-0" /> Debits equal Credits. Books are balanced!
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 text-red-600 font-bold bg-red-50 px-4 py-3 rounded-xl w-fit">
-                    <Scale className="w-5 h-5" /> Imbalance Detected! Difference: {Math.abs(financials.total_debits - financials.total_credits).toLocaleString()}
+                  <div className="flex items-center gap-2 text-red-600 font-bold bg-red-50 px-4 py-3 rounded-xl w-fit text-xs sm:text-sm">
+                    <Scale className="w-5 h-5 shrink-0" /> Imbalance Detected! Difference: {Math.abs(financials.total_debits - financials.total_credits).toLocaleString()}
                   </div>
                 )}
               </div>
@@ -293,4 +293,3 @@ export default function ReportsHub() {
     </div>
   );
 }
-

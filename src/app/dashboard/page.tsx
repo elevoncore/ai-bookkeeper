@@ -170,7 +170,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Content Wrapper */}
-      <div className="relative z-10 flex flex-col min-h-screen pt-24">
+      <div className="relative z-10 flex flex-col min-h-screen pt-24 sm:pt-28">
         {/* GLOBAL HEADER */}
         <HeaderNav 
           activeTab={activeTab} 
@@ -186,7 +186,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start min-h-screen pb-12">
           
           {/* LEFT CONTENT AREA */}
-          <div className="lg:col-span-7 xl:col-span-8 pr-1 space-y-6">
+          <div className="lg:col-span-7 xl:col-span-8 space-y-6 min-w-0">
             {activeTab === 'overview' && (
               <>
                 <PendingTable items={pendingItems} onDataChanged={fetchFinancials} onViewLog={(id) => setLogModalTxId(id)} />
@@ -233,7 +233,7 @@ export default function DashboardPage() {
       <div className="lg:hidden">
         <button
           onClick={() => setMobileChatOpen(!mobileChatOpen)}
-          className="fixed bottom-6 right-6 z-50 p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full shadow-2xl hover:scale-105 transition-all flex items-center gap-2 font-bold text-xs"
+          className="fixed bottom-6 right-6 z-50 px-4 py-3 min-h-[44px] bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full shadow-2xl hover:scale-105 transition-all flex items-center gap-2 font-bold text-xs cursor-pointer"
         >
           <MessageSquare className="w-5 h-5" />
           <span>AI Assistant</span>
@@ -241,7 +241,7 @@ export default function DashboardPage() {
 
         {mobileChatOpen && (
           <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex flex-col justify-end p-2 sm:p-4">
-            <div className="bg-white rounded-3xl h-[85vh] w-full max-w-lg mx-auto flex flex-col shadow-2xl overflow-hidden relative">
+            <div className="bg-white rounded-3xl h-[85dvh] max-h-[85dvh] w-full max-w-lg mx-auto flex flex-col shadow-2xl overflow-hidden relative">
               <AiChatPanel
                 chartOfAccounts={chartOfAccounts}
                 onDataChanged={fetchFinancials}
@@ -259,4 +259,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

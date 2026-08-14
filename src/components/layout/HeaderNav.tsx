@@ -59,14 +59,14 @@ export default function HeaderNav({
   const initials = userEmail ? userEmail.substring(0, 2).toUpperCase() : 'AI';
 
   return (
-    <header className="fixed top-6 left-0 right-0 z-50 flex justify-center px-4 md:px-12 pointer-events-none">
-      <div className="pointer-events-auto flex items-center justify-between gap-4 md:gap-8 h-16 px-4 md:px-8 bg-white/40 backdrop-blur-2xl border border-white/60 rounded-full shadow-2xl shadow-slate-200/50 transition-all">
+    <header className="fixed top-6 left-0 right-0 z-50 flex flex-col items-center px-4 md:px-12 pointer-events-none">
+      <div className="pointer-events-auto flex items-center justify-between gap-4 md:gap-8 h-16 px-4 md:px-8 bg-white/40 backdrop-blur-2xl border border-white/60 rounded-full shadow-2xl shadow-slate-200/50 transition-all w-full max-w-7xl">
           
           {/* LEFT: Logo & Brand Badge */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <div className="flex items-center gap-2">
               <div>
-                <span className="font-heading font-extrabold text-lg text-gray-900 tracking-tight flex items-center gap-1.5">
+                <span className="font-heading font-extrabold text-lg text-gray-900 tracking-tight flex items-center gap-1.5 truncate">
                   AI <span className="text-blue-600">BookKeeper</span>
                 </span>
               </div>
@@ -77,7 +77,7 @@ export default function HeaderNav({
           <nav className="hidden md:flex items-center gap-1 bg-white/40 backdrop-blur-md p-1 rounded-full border border-white/40">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`flex items-center gap-2 px-5 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-all cursor-pointer min-h-[44px] ${
                 activeTab === 'overview'
                   ? 'bg-white text-gray-900 shadow-sm border border-gray-200/80 font-semibold'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
@@ -89,7 +89,7 @@ export default function HeaderNav({
 
             <button
               onClick={() => setActiveTab('sales')}
-              className={`flex items-center gap-2 px-5 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-all cursor-pointer min-h-[44px] ${
                 activeTab === 'sales'
                   ? 'bg-white text-gray-900 shadow-sm border border-gray-200/80 font-semibold'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
@@ -106,7 +106,7 @@ export default function HeaderNav({
 
             <button
               onClick={() => setActiveTab('purchases')}
-              className={`flex items-center gap-2 px-5 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-all cursor-pointer min-h-[44px] ${
                 activeTab === 'purchases'
                   ? 'bg-white text-gray-900 shadow-sm border border-gray-200/80 font-semibold'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
@@ -118,7 +118,7 @@ export default function HeaderNav({
 
             <button
               onClick={() => setActiveTab('reports')}
-              className={`flex items-center gap-2 px-5 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-all cursor-pointer min-h-[44px] ${
                 activeTab === 'reports'
                   ? 'bg-white text-gray-900 shadow-sm border border-gray-200/80 font-semibold'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
@@ -132,18 +132,16 @@ export default function HeaderNav({
           {/* RIGHT: Notifications & User Profile */}
           <div className="flex items-center gap-2 sm:gap-4 pl-4 border-l border-slate-200/50">
             
-            {/* Theme Toggle Removed for Dashboard */}
-
             {/* Notifications Bell */}
             <div className="relative">
               <button 
                 onClick={() => { setShowNotifications(!showNotifications); setShowUserDropdown(false); }}
-                className="p-2 text-gray-500 hover:text-gray-800:text-white hover:bg-gray-100:bg-slate-800 rounded-full transition-colors relative cursor-pointer"
+                className="p-2.5 text-gray-500 hover:text-gray-800 rounded-full transition-colors relative cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
                 title="Notifications"
               >
                 <Bell className="w-5 h-5" />
                 {pendingCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-amber-500 rounded-full ring-2 ring-white animate-pulse" />
+                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-amber-500 rounded-full ring-2 ring-white animate-pulse" />
                 )}
               </button>
 
@@ -184,7 +182,7 @@ export default function HeaderNav({
             <div className="relative">
               <button
                 onClick={() => { setShowUserDropdown(!showUserDropdown); setShowNotifications(false); }}
-                className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 transition-colors cursor-pointer border border-gray-200"
+                className="flex items-center gap-2 p-1.5 rounded-full hover:bg-gray-100 transition-colors cursor-pointer border border-gray-200 min-h-[44px]"
               >
                 <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 text-white font-bold text-xs flex items-center justify-center shadow-xs">
                   {initials}
@@ -199,13 +197,13 @@ export default function HeaderNav({
                   <div className="py-1">
                     <button
                       onClick={() => { setActiveTab('overview'); setShowUserDropdown(false); }}
-                      className="w-full text-left px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer"
+                      className="w-full text-left px-4 py-2.5 min-h-[44px] text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer"
                     >
                       <UserIcon className="w-4 h-4 text-gray-400" /> My Account
                     </button>
                     <button
                       onClick={() => { setActiveTab('reports'); setShowUserDropdown(false); }}
-                      className="w-full text-left px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer"
+                      className="w-full text-left px-4 py-2.5 min-h-[44px] text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer"
                     >
                       <Settings className="w-4 h-4 text-gray-400" /> App Settings
                     </button>
@@ -214,7 +212,7 @@ export default function HeaderNav({
                   <div className="pt-1 border-t border-gray-100">
                     <button
                       onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer"
+                      className="w-full text-left px-4 py-2.5 min-h-[44px] text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer"
                     >
                       <LogOut className="w-4 h-4" /> Sign Out
                     </button>
@@ -226,7 +224,8 @@ export default function HeaderNav({
             {/* Mobile Hamburger Menu Toggle */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg md:hidden cursor-pointer"
+              className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-lg md:hidden cursor-pointer"
+              aria-label="Toggle Navigation Menu"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -236,10 +235,10 @@ export default function HeaderNav({
 
       {/* Mobile Drawer Navigation */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-gray-100 bg-white px-4 pt-2 pb-4 space-y-2">
+        <div className="pointer-events-auto md:hidden border border-gray-100 bg-white/95 backdrop-blur-2xl px-4 pt-3 pb-4 space-y-2 rounded-3xl shadow-2xl mt-2 w-full max-w-md mx-auto">
           <button
             onClick={() => { setActiveTab('overview'); setMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium ${
+            className={`w-full flex items-center gap-3 px-4 py-3 min-h-[44px] rounded-xl text-sm font-medium transition-colors cursor-pointer ${
               activeTab === 'overview' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-50'
             }`}
           >
@@ -248,7 +247,7 @@ export default function HeaderNav({
 
           <button
             onClick={() => { setActiveTab('sales'); setMobileMenuOpen(false); }}
-            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-medium ${
+            className={`w-full flex items-center justify-between px-4 py-3 min-h-[44px] rounded-xl text-sm font-medium transition-colors cursor-pointer ${
               activeTab === 'sales' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-50'
             }`}
           >
@@ -264,7 +263,7 @@ export default function HeaderNav({
 
           <button
             onClick={() => { setActiveTab('purchases'); setMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium ${
+            className={`w-full flex items-center gap-3 px-4 py-3 min-h-[44px] rounded-xl text-sm font-medium transition-colors cursor-pointer ${
               activeTab === 'purchases' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-50'
             }`}
           >
@@ -273,7 +272,7 @@ export default function HeaderNav({
 
           <button
             onClick={() => { setActiveTab('reports'); setMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium ${
+            className={`w-full flex items-center gap-3 px-4 py-3 min-h-[44px] rounded-xl text-sm font-medium transition-colors cursor-pointer ${
               activeTab === 'reports' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-50'
             }`}
           >
@@ -284,4 +283,3 @@ export default function HeaderNav({
     </header>
   );
 }
-
