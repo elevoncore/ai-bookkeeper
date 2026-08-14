@@ -187,20 +187,26 @@ export default function ChartOfAccountsManager() {
       return;
     }
 
-    // Try inserting with is_cash_account column
+    // Try inserting account
     let insertData: any = {
       user_id: user.id,
       name: newAccountName.trim(),
-      code: newAccountCode.trim() || null,
       type: newAccountType,
-      is_system: false,
-      is_cash_account: newAccountType === 'asset' ? isCashAccount : false
+      is_system: false
     };
+
+    if (newAccountCode.trim()) {
+      insertData.code = newAccountCode.trim();
+    }
+    if (newAccountType === 'asset' && isCashAccount) {
+      insertData.is_cash_account = true;
+    }
 
     let { error: insertError } = await supabase.from('accounts').insert(insertData);
 
-    // Fallback if is_cash_account or code column does not exist
-    if (insertError && insertError.message?.includes('is_cash_account')) {
+    // Fallback if optional schema columns (code, is_cash_account) do not exist in DB
+    if (insertError && (insertError.message?.includes('code') || insertError.message?.includes('is_cash_account'))) {
+      delete insertData.code;
       delete insertData.is_cash_account;
       const res = await supabase.from('accounts').insert(insertData);
       insertError = res.error;
@@ -241,17 +247,23 @@ export default function ChartOfAccountsManager() {
     setIsEditSubmitting(true);
     let updatePayload: any = {
       name: editName.trim(),
-      code: editCode.trim() || null,
-      type: editType,
-      is_cash_account: editType === 'asset' ? editIsCash : false
+      type: editType
     };
+
+    if (editCode.trim()) {
+      updatePayload.code = editCode.trim();
+    }
+    if (editType === 'asset' && editIsCash) {
+      updatePayload.is_cash_account = true;
+    }
 
     let { error: updateErr } = await supabase
       .from('accounts')
       .update(updatePayload)
       .eq('id', editingAccount.id);
 
-    if (updateErr && updateErr.message?.includes('is_cash_account')) {
+    if (updateErr && (updateErr.message?.includes('code') || updateErr.message?.includes('is_cash_account'))) {
+      delete updatePayload.code;
       delete updatePayload.is_cash_account;
       const res = await supabase.from('accounts').update(updatePayload).eq('id', editingAccount.id);
       updateErr = res.error;
