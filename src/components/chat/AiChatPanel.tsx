@@ -2,10 +2,11 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import { Plus, ArrowUp, Loader2, X, CheckCircle2, Receipt, Bot, User, History } from 'lucide-react';
+import { Plus, ArrowUp, Loader2, X, CheckCircle2, Receipt, Bot, User, History, BookOpen } from 'lucide-react';
 import { Account, InvoiceStatus } from '@/types';
 import { parseToCents, formatFromCents } from '@/utils/currency';
 import { findBestAccountMatch } from '@/utils/fuzzyMatch';
+import { createJournalEntryAtomic } from '@/utils/journalEntry';
 
 interface ChatMessage {
   id: string;
@@ -21,10 +22,14 @@ interface ChatMessage {
     due_date?: string | null;
     line_items?: Array<{
       description: string;
-      quantity: number;
-      unit_price: number;
-      total: number;
+      quantity?: number;
+      unit_price?: number;
+      total?: number;
+      amount?: number;
       account_name: string;
+      is_debit?: boolean;
+      debit?: number;
+      credit?: number;
     }>;
     transactionId?: string;
   } | null;
@@ -138,6 +143,48 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
+  // Helper function to resolve account with fuzzy matching and fallback to General Operating Expense
+  async function resolveAccountId(accName: string | null | undefined, intent: string) {
+    const isBill = intent === 'LOG_BILL';
+    const defaultFallback = isBill ? 'General Operating Expense' : 'Sales Revenue';
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    // 1. Fetch user's complete active accounts list from DB
+    const { data: dbAccounts } = await supabase
+      .from('accounts')
+      .select('id, name, type')
+      .eq('user_id', user.id);
+
+    const availableAccounts = dbAccounts && dbAccounts.length > 0 ? dbAccounts : (chartOfAccounts || []);
+
+    if (accName) {
+      // Perform fuzzy Levenshtein match across available accounts (55% similarity threshold)
+      const fuzzyMatch = findBestAccountMatch(accName, availableAccounts, 0.55);
+      if (fuzzyMatch) {
+        return fuzzyMatch.account.id;
+      }
+    }
+
+    // Fallback to General Operating Expense for bills / Sales Revenue for invoices
+    const fallbackMatch = findBestAccountMatch(defaultFallback, availableAccounts, 0.50);
+    if (fallbackMatch) {
+      return fallbackMatch.account.id;
+    }
+
+    // Ultimate safety net: Insert default account if not present
+    const accType = isBill ? 'expense' : 'revenue';
+    const finalName = accName || defaultFallback;
+    const { data: newAccount } = await supabase
+      .from('accounts')
+      .insert({ user_id: user.id, name: finalName, type: accType, is_system: true })
+      .select('id')
+      .single();
+
+    return newAccount?.id;
+  }
+
   async function handleSendMessage(e: React.FormEvent) {
     e.preventDefault();
     if (!prompt.trim() && !imageBase64) return;
@@ -233,45 +280,6 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
           const { data: publicUrlData } = supabase.storage.from('receipts').getPublicUrl(fileName);
           receiptUrl = publicUrlData.publicUrl;
         }
-      }
-
-      // Helper function to resolve account with fuzzy matching and fallback to General Operating Expense
-      async function resolveAccountId(accName: string | null | undefined, intent: string) {
-        const isBill = intent === 'LOG_BILL';
-        const defaultFallback = isBill ? 'General Operating Expense' : 'Sales Revenue';
-
-        // 1. Fetch user's complete active accounts list from DB
-        const { data: dbAccounts } = await supabase
-          .from('accounts')
-          .select('id, name, type')
-          .eq('user_id', user!.id);
-
-        const availableAccounts = dbAccounts && dbAccounts.length > 0 ? dbAccounts : (chartOfAccounts || []);
-
-        if (accName) {
-          // Perform fuzzy Levenshtein match across available accounts (55% similarity threshold)
-          const fuzzyMatch = findBestAccountMatch(accName, availableAccounts, 0.55);
-          if (fuzzyMatch) {
-            return fuzzyMatch.account.id;
-          }
-        }
-
-        // Fallback to General Operating Expense for bills / Sales Revenue for invoices
-        const fallbackMatch = findBestAccountMatch(defaultFallback, availableAccounts, 0.50);
-        if (fallbackMatch) {
-          return fallbackMatch.account.id;
-        }
-
-        // Ultimate safety net: Insert default account if not present
-        const accType = isBill ? 'expense' : 'revenue';
-        const finalName = accName || defaultFallback;
-        const { data: newAccount } = await supabase
-          .from('accounts')
-          .insert({ user_id: user!.id, name: finalName, type: accType, is_system: true })
-          .select('id')
-          .single();
-
-        return newAccount?.id;
       }
 
       // Helper function to resolve or create product
@@ -426,6 +434,30 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
         }
       }
 
+      if (ext.intent === 'LOG_JOURNAL_ENTRY') {
+        const finalAiMessage: ChatMessage = {
+          id: `ai-${Date.now()}`,
+          sender: 'ai',
+          text: ext.conversational_response || `I have staged your General Journal Entry for verification.`,
+          extractedDraft: {
+            intent: 'LOG_JOURNAL_ENTRY',
+            entity_name: 'General Journal Entry',
+            amount: safeAmountCents / 100,
+            status: 'open',
+            issue_date: ext.issue_date || new Date().toISOString().split('T')[0],
+            line_items: ext.line_items,
+            transactionId: `je-${Date.now()}`
+          },
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+
+        const completeTranscript = [...updatedMessages, finalAiMessage];
+        setMessages(completeTranscript);
+        onDataChanged();
+        setIsExtracting(false);
+        return;
+      }
+
       const finalAiMessage: ChatMessage = {
         id: `ai-${Date.now()}`,
         sender: 'ai',
@@ -475,9 +507,71 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
   }
 
   async function handleVerifyDraft(msgId: string, txId?: string, intent?: string) {
-    if (!txId || !intent) return;
+    if (!intent) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    if (intent === 'LOG_JOURNAL_ENTRY') {
+      const msg = messages.find(m => m.id === msgId);
+      if (!msg || !msg.extractedDraft?.line_items) return;
+
+      const journalLines = [];
+      let idx = 0;
+      for (const item of msg.extractedDraft.line_items) {
+        const accId = await resolveAccountId(item.account_name, 'LOG_JOURNAL_ENTRY');
+        if (!accId) {
+          alert(`Could not resolve account "${item.account_name}"`);
+          return;
+        }
+        let isDebit = false;
+        if (item.is_debit !== undefined) {
+          isDebit = Boolean(item.is_debit);
+        } else if (item.debit && item.debit > 0) {
+          isDebit = true;
+        } else if (item.credit && item.credit > 0) {
+          isDebit = false;
+        } else {
+          isDebit = idx === 0;
+        }
+        idx++;
+
+        const amount = item.total || item.amount || item.unit_price || 0;
+        journalLines.push({
+          account_id: accId,
+          debit: isDebit ? amount : 0,
+          credit: !isDebit ? amount : 0
+        });
+      }
+
+      const res = await createJournalEntryAtomic(supabase, {
+        user_id: user!.id,
+        date: msg.extractedDraft.issue_date || new Date().toISOString().split('T')[0],
+        description: msg.text || 'General Journal Entry',
+        lines: journalLines,
+        created_by_source: 'AI'
+      });
+
+      if (res.error) {
+        alert(`Journal Entry Failed: ${res.error}`);
+        return;
+      }
+
+      onDataChanged();
+      setMessages(prev => prev.map(m => {
+        if (m.id === msgId && m.extractedDraft) {
+          return {
+            ...m,
+            text: "✓ Journal Entry verified and posted to the General Ledger!",
+            extractedDraft: { ...m.extractedDraft, status: 'open' }
+          };
+        }
+        return m;
+      }));
+      return;
+    }
+
     const table = intent === 'LOG_BILL' ? 'bills' : 'invoices';
-    const { error } = await supabase.from(table).update({ is_ai_verified: true }).eq('id', txId);
+    const { error } = await supabase.from(table).update({ is_ai_verified: true }).eq('id', txId!);
     if (!error) {
       onDataChanged();
       setMessages(prev => prev.map(m => {
@@ -568,57 +662,123 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
               </div>
 
               {msg.extractedDraft && (
-                <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-xl border border-blue-100 p-3.5 shadow-sm space-y-2.5 mt-2 animate-in fade-in duration-200">
-                  <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                    <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                      <Receipt className="w-4 h-4 text-blue-600" />
-                      {msg.extractedDraft.entity_name} 
-                    </span>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                      PENDING VERIFICATION
-                    </span>
-                  </div>
+                msg.extractedDraft.intent === 'LOG_JOURNAL_ENTRY' ? (
+                  /* Journal Entry Verification Card */
+                  <div className="bg-white/90 backdrop-blur-md rounded-xl border border-purple-100 p-3.5 shadow-sm space-y-2.5 mt-2 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between border-b border-purple-100 pb-2">
+                      <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                        <BookOpen className="w-4 h-4 text-purple-600" />
+                        Journal Entry Verification
+                      </span>
+                      <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                        JOURNAL ENTRY
+                      </span>
+                    </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="text-gray-400 text-[10px]">Amount:</span>
-                      <p className="font-bold text-gray-900">{msg.extractedDraft.amount} PKR</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-400 text-[10px]">Issue Date:</span>
-                      <p className="font-medium text-gray-700">{msg.extractedDraft.issue_date}</p>
-                    </div>
-                    {msg.extractedDraft.due_date && (
-                      <div>
-                        <span className="text-gray-400 text-[10px]">Due Date:</span>
-                        <p className="font-medium text-red-600">{msg.extractedDraft.due_date}</p>
+                    <div className="text-xs space-y-2">
+                      <div className="flex justify-between text-gray-600">
+                        <span>Date: <span className="font-semibold text-gray-900">{msg.extractedDraft.issue_date}</span></span>
+                        <span>Total: <span className="font-extrabold text-purple-900">{msg.extractedDraft.amount.toLocaleString()} PKR</span></span>
                       </div>
-                    )}
-                    <div className="col-span-2">
-                      <span className="text-gray-400 text-[10px]">Line Items:</span>
-                      <ul className="text-gray-700 mt-1 space-y-1">
-                        {msg.extractedDraft.line_items?.map((item, idx) => (
-                          <li key={idx} className="flex justify-between items-center text-[11px] bg-gray-50 p-1.5 rounded-lg border border-gray-100">
-                            <div>
-                              <p className="font-semibold text-gray-800">{item.description}</p>
-                              <p className="text-gray-500">{item.quantity} x {item.unit_price} PKR &middot; <span className="text-blue-600">{item.account_name}</span></p>
-                            </div>
-                            <p className="font-bold">{item.total} PKR</p>
-                          </li>
-                        ))}
-                      </ul>
+
+                      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                        <table className="w-full text-left text-[11px]">
+                          <thead className="bg-gray-50 text-gray-500 font-bold border-b border-gray-100">
+                            <tr>
+                              <th className="px-3 py-2">Account</th>
+                              <th className="px-3 py-2 text-right w-20">Debit</th>
+                              <th className="px-3 py-2 text-right w-20">Credit</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {msg.extractedDraft.line_items?.map((item, idx) => {
+                              let isDebit = false;
+                              if (item.is_debit !== undefined) {
+                                isDebit = Boolean(item.is_debit);
+                              } else if (item.debit && item.debit > 0) {
+                                isDebit = true;
+                              } else if (item.credit && item.credit > 0) {
+                                isDebit = false;
+                              } else {
+                                isDebit = idx === 0;
+                              }
+                              const amt = item.total || item.amount || item.unit_price || 0;
+                              return (
+                                <tr key={idx} className="hover:bg-gray-50">
+                                  <td className="px-3 py-2 font-semibold text-gray-800">{item.account_name}</td>
+                                  <td className="px-3 py-2 text-right font-bold text-blue-600">{isDebit ? `${amt.toLocaleString()} PKR` : '-'}</td>
+                                  <td className="px-3 py-2 text-right font-bold text-purple-600">{!isDebit ? `${amt.toLocaleString()} PKR` : '-'}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
+                    
+                    {!msg.text.includes('✓ Journal Entry verified') && (
+                      <button
+                        onClick={() => handleVerifyDraft(msg.id, msg.extractedDraft?.transactionId, msg.extractedDraft?.intent)}
+                        className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-2 shadow-sm"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Approve into Ledger
+                      </button>
+                    )}
                   </div>
-                  
-                  {!msg.text.includes('✓ Verified') && (
-                    <button
-                      onClick={() => handleVerifyDraft(msg.id, msg.extractedDraft?.transactionId, msg.extractedDraft?.intent)}
-                      className="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-2"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Approve into Ledger
-                    </button>
-                  )}
-                </div>
+                ) : (
+                  /* Standard Bill / Invoice Card */
+                  <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-xl border border-blue-100 p-3.5 shadow-sm space-y-2.5 mt-2 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                      <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                        <Receipt className="w-4 h-4 text-blue-600" />
+                        {msg.extractedDraft.entity_name} 
+                      </span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                        PENDING VERIFICATION
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-gray-400 text-[10px]">Amount:</span>
+                        <p className="font-bold text-gray-900">{msg.extractedDraft.amount} PKR</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 text-[10px]">Issue Date:</span>
+                        <p className="font-medium text-gray-700">{msg.extractedDraft.issue_date}</p>
+                      </div>
+                      {msg.extractedDraft.due_date && (
+                        <div>
+                          <span className="text-gray-400 text-[10px]">Due Date:</span>
+                          <p className="font-medium text-red-600">{msg.extractedDraft.due_date}</p>
+                        </div>
+                      )}
+                      <div className="col-span-2">
+                        <span className="text-gray-400 text-[10px]">Line Items:</span>
+                        <ul className="text-gray-700 mt-1 space-y-1">
+                          {msg.extractedDraft.line_items?.map((item, idx) => (
+                            <li key={idx} className="flex justify-between items-center text-[11px] bg-gray-50 p-1.5 rounded-lg border border-gray-100">
+                              <div>
+                                <p className="font-semibold text-gray-800">{item.description}</p>
+                                <p className="text-gray-500">{item.quantity} x {item.unit_price} PKR &middot; <span className="text-blue-600">{item.account_name}</span></p>
+                              </div>
+                              <p className="font-bold">{item.total} PKR</p>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                    
+                    {!msg.text.includes('✓ Verified') && (
+                      <button
+                        onClick={() => handleVerifyDraft(msg.id, msg.extractedDraft?.transactionId, msg.extractedDraft?.intent)}
+                        className="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-2"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Approve into Ledger
+                      </button>
+                    )}
+                  </div>
+                )
               )}
             </div>
             

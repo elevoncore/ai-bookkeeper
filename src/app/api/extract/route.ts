@@ -112,6 +112,7 @@ export async function POST(request: Request) {
     - LOG_INVOICE: User sent an invoice, or received alternative income from a Customer/Client.
     - LOG_PAYMENT_MADE: User paid a bill.
     - LOG_PAYMENT_RECEIVED: User received a payment from a customer.
+    - LOG_JOURNAL_ENTRY: User is logging capital contributions, owner drawings, bank transfers, equity additions, or general adjustments (e.g., "investing 100,000 PKR into bank as capital", "transferred 5,000 from Bank to Petty Cash", "owner took 10,000 PKR out for personal use").
     - LOG_INVENTORY_ADJUSTMENT: User reports physical stock count discrepancy or stocktake adjustment (e.g., "I counted 10 items", "5 bananas spilled/spoiled", "Monthly stocktake").
     - UPDATE_TRANSACTION: User wants to update or modify an existing transaction.
     - QUERY_FINANCES: General cash flow or spending queries.
@@ -131,6 +132,17 @@ export async function POST(request: Request) {
        - Map ambiguous, general, snack, office supplies, or unmapped/out-of-scope expenses (e.g. equipment, vehicles, snacks, miscellaneous) to 'General Operating Expense'.
        - If a user prompt mentions multiple expenses (e.g. "rent and AWS bill together"), you MUST split them into separate line items in "line_items" and assign each item its specific account category.
        - You must place the exact account name in the "account_name" field of each line item.
+    5. Journal Entry Balancing (CRITICAL for LOG_JOURNAL_ENTRY): If intent is LOG_JOURNAL_ENTRY, you MUST output balanced debit and credit lines in "line_items" using exact Chart of Accounts names: ['Main Bank Account', 'Petty Cash', 'Accounts Receivable', 'Inventory Asset', 'Accounts Payable', 'Owners Equity', 'Sales Revenue', 'Service Revenue', 'Cost of Goods Sold', 'Rent Expense', 'Utilities', 'Software & Hosting', 'General Operating Expense'].
+       - Capital Investment e.g. "Investing 100,000 PKR into bank as owner capital":
+         - Line 1 (DEBIT): description: "Capital Investment", account_name: "Main Bank Account", total: 100000, is_debit: true
+         - Line 2 (CREDIT): description: "Owner Equity Contribution", account_name: "Owners Equity", total: 100000, is_debit: false
+         - CRITICAL: Increasing Cash/Bank MUST ALWAYS have "is_debit": true. Increasing Equity MUST ALWAYS have "is_debit": false.
+       - Bank Transfer e.g. "Transfer 5,000 from Bank to Petty Cash":
+         - Line 1 (DEBIT): description: "Transfer to Petty Cash", account_name: "Petty Cash", total: 5000, is_debit: true
+         - Line 2 (CREDIT): description: "Transfer from Main Bank", account_name: "Main Bank Account", total: 5000, is_debit: false
+       - Owner Drawings e.g. "Owner withdrew 10,000 for personal use":
+         - Line 1 (DEBIT): description: "Owner Drawings", account_name: "Owners Equity", total: 10000, is_debit: true
+         - Line 2 (CREDIT): description: "Withdrawal from Main Bank", account_name: "Main Bank Account", total: 10000, is_debit: false
     5. Product Deduplication (CRITICAL): You MUST map the extracted item to an existing product in the user's catalog if they are semantically identical (e.g., map '1kg mangoes', 'Mangoes', or 'fresh mango' to the existing product 'Mango'). Return the existing product's UUID in "product_id" and its exact catalog name in "product_name".
     6. Product Normalization (CRITICAL): If the product truly does not exist in the catalog and you must create a new one, you MUST normalize the string. Remove all quantities, adjectives, and units of measurement. Always use singular nouns (e.g., create 'Mango', never 'Mangoes' or 'Red Mangoes'). Set "product_id": null and "product_name": "Normalized Product Name".
     7. Quantities & Purchase Unit Costs: You must separate the quantity and unit of measurement from the product name. If the user says "50 kg banana for 4,567 PKR", the product_name is "Banana", the quantity is 50, total is 4567, and unit_price is 91.34 (4567 / 50). Do NOT include units ('kg', 'lbs', 'boxes', 'pcs', etc.) in the product name. For LOG_BILL and LOG_INVOICE of physical inventory items, you MUST ALWAYS extract a numeric quantity so the database can calculate unit cost = amount / quantity to update product inventory and unit cost.
