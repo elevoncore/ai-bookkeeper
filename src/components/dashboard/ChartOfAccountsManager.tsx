@@ -445,8 +445,15 @@ export default function ChartOfAccountsManager() {
   return (
     <div className="space-y-6">
       
-      {/* RELOCATED RICH CASHBOOK WIDGET */}
-      <CashbookWidget />
+      {/* RELOCATED RICH CASHBOOK WIDGET WITH DIRECT SHORTCUTS */}
+      <CashbookWidget 
+        onOpenAddAccount={() => {
+          setNewAccountType('asset');
+          setIsCashAccount(true);
+          setIsModalOpen(true);
+        }}
+        onOpenAdjustBalance={() => setIsJournalModalOpen(true)}
+      />
 
       {/* HEADER BAR */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-6 rounded-2xl">

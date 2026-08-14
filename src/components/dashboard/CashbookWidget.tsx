@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Building2, Coins, Landmark, RefreshCw, Wallet, ShieldCheck } from 'lucide-react';
+import { Building2, Coins, Landmark, RefreshCw, Wallet, ShieldCheck, Plus, BookOpen } from 'lucide-react';
 
 interface CashAccount {
   id: string | null;
@@ -21,7 +21,12 @@ interface CashbookData {
   accounts: CashAccount[];
 }
 
-export default function CashbookWidget() {
+interface CashbookWidgetProps {
+  onOpenAddAccount?: () => void;
+  onOpenAdjustBalance?: () => void;
+}
+
+export default function CashbookWidget({ onOpenAddAccount, onOpenAdjustBalance }: CashbookWidgetProps) {
   const [data, setData] = useState<CashbookData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -64,7 +69,7 @@ export default function CashbookWidget() {
 
   return (
     <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-6 rounded-2xl space-y-4 min-w-0">
-      <div className="flex items-center justify-between min-w-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between min-w-0 gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shrink-0 shadow-md shadow-blue-600/20">
             <Landmark className="w-5 h-5" />
@@ -77,15 +82,42 @@ export default function CashbookWidget() {
           </div>
         </div>
 
-        <button
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-white/70 hover:bg-white text-gray-500 hover:text-gray-900 border border-gray-200 transition-all cursor-pointer shrink-0 shadow-xs"
-          title="Refresh Cashbook"
-          aria-label="Refresh Cashbook"
-        >
-          <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-blue-600' : ''}`} />
-        </button>
+        {/* HEADER SHORTCUT BUTTONS */}
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+          {onOpenAddAccount && (
+            <button
+              onClick={onOpenAddAccount}
+              className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl bg-white/80 hover:bg-white text-blue-700 hover:text-blue-800 border border-blue-200/80 hover:border-blue-300 text-xs font-bold transition-all cursor-pointer shadow-xs"
+              title="Add Bank or Wallet Account"
+            >
+              <Plus className="w-4 h-4 text-blue-600" />
+              <span className="hidden sm:inline">+ Add Bank/Wallet</span>
+              <span className="sm:hidden">+ Bank/Wallet</span>
+            </button>
+          )}
+
+          {onOpenAdjustBalance && (
+            <button
+              onClick={onOpenAdjustBalance}
+              className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl bg-white/80 hover:bg-white text-purple-700 hover:text-purple-800 border border-purple-200/80 hover:border-purple-300 text-xs font-bold transition-all cursor-pointer shadow-xs"
+              title="Adjust Cash Balances / Record Transfer"
+            >
+              <BookOpen className="w-4 h-4 text-purple-600" />
+              <span className="hidden sm:inline">+ Adjust Balances</span>
+              <span className="sm:hidden">+ Adjust</span>
+            </button>
+          )}
+
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-white/70 hover:bg-white text-gray-500 hover:text-gray-900 border border-gray-200 transition-all cursor-pointer shrink-0 shadow-xs"
+            title="Refresh Cashbook"
+            aria-label="Refresh Cashbook"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-blue-600' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
