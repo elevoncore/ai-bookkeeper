@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { 
   Wallet, 
   Clock, 
@@ -56,7 +56,20 @@ export default function BentoStatsPanel({
   forceMobileView = false,
   forceDesktopView = false
 }: BentoStatsPanelProps) {
-  const [timeRange, setTimeRange] = useState<'Daily' | 'Monthly'>('Monthly');
+  const [totalLiquidCash, setTotalLiquidCash] = useState<number | null>(null);
+
+  useEffect(() => {
+    async function loadCash() {
+      try {
+        const res = await fetch('/api/reports/cashbook');
+        if (res.ok) {
+          const json = await res.json();
+          setTotalLiquidCash(json.totalCashBalance ?? 0);
+        }
+      } catch (e) {}
+    }
+    loadCash();
+  }, []);
 
   // Compute metrics securely using cents to avoid float drift
   const totalRevenue = useMemo(() => {
@@ -131,8 +144,8 @@ export default function BentoStatsPanel({
 
       <div className="space-y-6 min-w-0">
         
-        {/* BENTO TOP ROW: 3 KEY METRIC CARDS */}
-        <div className={`grid grid-cols-1 ${forceMobileView ? '' : forceDesktopView ? 'grid-cols-3' : 'md:grid-cols-3'} gap-4 min-w-0`}>
+        {/* BENTO TOP ROW: 4 KEY METRIC CARDS */}
+        <div className={`grid grid-cols-1 ${forceMobileView ? '' : forceDesktopView ? 'grid-cols-4' : 'sm:grid-cols-2 lg:grid-cols-4'} gap-4 min-w-0`}>
           
           <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-5 rounded-2xl relative overflow-hidden group hover:border-blue-200 transition-all min-w-0">
             <div className="flex items-center justify-between">
@@ -206,10 +219,31 @@ export default function BentoStatsPanel({
             </p>
           </div>
 
-        </div>
+          {/* TOTAL LIQUID CASH BENTO STAT CARD */}
+          <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-5 rounded-2xl relative overflow-hidden group hover:border-indigo-200 transition-all min-w-0">
+            <div className="flex items-center justify-between">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shrink-0">
+                <Wallet className="w-5 h-5 text-indigo-600" />
+              </div>
+              <button className="w-8 h-8 rounded-full bg-gray-50 text-gray-400 hover:text-gray-700 flex items-center justify-center cursor-pointer shrink-0" title="View Cashbook">
+                <ArrowUpRight className="w-4 h-4" />
+              </button>
+            </div>
 
-        {/* CASHBOOK LIQUID BALANCES WIDGET */}
-        <CashbookWidget />
+            <div className="mt-4 min-w-0">
+              <span className="text-xs font-medium text-gray-500 block truncate">Total Liquid Cash</span>
+              <div className="flex items-baseline gap-2 mt-1 min-w-0">
+                <span className="text-xl sm:text-2xl font-black text-emerald-600 truncate">
+                  {totalLiquidCash !== null ? totalLiquidCash.toLocaleString() : '...'} {primaryCurrency}
+                </span>
+              </div>
+            </div>
+            <p className="text-[11px] text-gray-400 mt-3 flex items-center gap-1 truncate">
+              <span>Aggregated Cash & Bank Accounts</span>
+            </p>
+          </div>
+
+        </div>
 
         {/* BENTO MIDDLE ROW: CHARTS */}
         <div className={`grid grid-cols-1 ${forceMobileView ? '' : forceDesktopView ? 'grid-cols-2' : 'lg:grid-cols-2'} gap-4 min-w-0`}>
