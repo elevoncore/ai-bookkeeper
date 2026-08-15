@@ -4,6 +4,10 @@ import { cookies } from "next/headers";
 
 export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const asOfDate = searchParams.get('asOfDate') || searchParams.get('date') || todayStr;
+
     const cookieStore = await cookies();
     let supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -67,11 +71,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Failed to fetch accounts" }, { status: 500 });
     }
 
-    // 2. Fetch Journal Lines for user
+    // 2. Fetch Journal Lines for user WHERE date <= asOfDate (Snapshot in time)
     const { data: journalLines, error: jlError } = await supabase
       .from('journal_lines')
-      .select('account_id, debit, credit, journal_entries!inner(user_id)')
-      .eq('journal_entries.user_id', user.id);
+      .select('account_id, debit, credit, journal_entries!inner(user_id, date)')
+      .eq('journal_entries.user_id', user.id)
+      .lte('journal_entries.date', asOfDate);
 
     if (jlError) {
       console.error("Journal lines error:", jlError);
@@ -168,7 +173,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       currency: "PKR",
-      as_of_date: new Date().toISOString().split('T')[0],
+      as_of_date: asOfDate,
       is_balanced: isBalanced,
       totals: {
         total_assets: totalAssetCents / 100,

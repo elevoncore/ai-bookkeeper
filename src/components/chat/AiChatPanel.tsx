@@ -12,6 +12,7 @@ interface ChatMessage {
   id: string;
   sender: 'user' | 'ai';
   text: string;
+  isApproved?: boolean;
   imagePreview?: string | null;
   extractedDraft?: {
     intent: string;
@@ -20,6 +21,8 @@ interface ChatMessage {
     status: InvoiceStatus;
     issue_date: string;
     due_date?: string | null;
+    draft_id?: string;
+    is_approved?: boolean;
     line_items?: Array<{
       description: string;
       quantity?: number;
@@ -55,6 +58,7 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
   const [chatLogs, setChatLogs] = useState<any[]>([]);
   const [prompt, setPrompt] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
+  const [processingDraftIds, setProcessingDraftIds] = useState<Set<string>>(new Set());
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -507,82 +511,100 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
 
   async function handleVerifyDraft(msgId: string, txId?: string, intent?: string) {
     if (!intent) return;
+    if (processingDraftIds.has(msgId)) return; // Immediate UI locking safeguard
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    if (intent === 'LOG_JOURNAL_ENTRY') {
-      const msg = messages.find(m => m.id === msgId);
-      if (!msg || !msg.extractedDraft?.line_items) return;
+    setProcessingDraftIds(prev => new Set(prev).add(msgId));
 
-      const journalLines = [];
-      let idx = 0;
-      for (const item of msg.extractedDraft.line_items) {
-        const accId = await resolveAccountId(item.account_name, 'LOG_JOURNAL_ENTRY');
-        if (!accId) {
-          alert(`Could not resolve account "${item.account_name}"`);
+    try {
+      if (intent === 'LOG_JOURNAL_ENTRY') {
+        const msg = messages.find(m => m.id === msgId);
+        if (!msg || !msg.extractedDraft?.line_items) return;
+
+        const journalLines = [];
+        let idx = 0;
+        for (const item of msg.extractedDraft.line_items) {
+          const accId = await resolveAccountId(item.account_name, 'LOG_JOURNAL_ENTRY');
+          if (!accId) {
+            alert(`Could not resolve account "${item.account_name}"`);
+            return;
+          }
+          let isDebit = false;
+          if (item.is_debit !== undefined) {
+            isDebit = Boolean(item.is_debit);
+          } else if (item.debit && item.debit > 0) {
+            isDebit = true;
+          } else if (item.credit && item.credit > 0) {
+            isDebit = false;
+          } else {
+            isDebit = idx === 0;
+          }
+          idx++;
+
+          const amount = item.total || item.amount || item.unit_price || 0;
+          journalLines.push({
+            account_id: accId,
+            debit: isDebit ? amount : 0,
+            credit: !isDebit ? amount : 0
+          });
+        }
+
+        const res = await createJournalEntryAtomic(supabase, {
+          user_id: user!.id,
+          date: msg.extractedDraft.issue_date || new Date().toISOString().split('T')[0],
+          description: msg.text || 'General Journal Entry',
+          lines: journalLines,
+          created_by_source: 'AI',
+          draft_id: msg.extractedDraft.draft_id || msgId
+        });
+
+        if (res.error) {
+          alert(`Journal Entry Failed: ${res.error}`);
           return;
         }
-        let isDebit = false;
-        if (item.is_debit !== undefined) {
-          isDebit = Boolean(item.is_debit);
-        } else if (item.debit && item.debit > 0) {
-          isDebit = true;
-        } else if (item.credit && item.credit > 0) {
-          isDebit = false;
-        } else {
-          isDebit = idx === 0;
-        }
-        idx++;
 
-        const amount = item.total || item.amount || item.unit_price || 0;
-        journalLines.push({
-          account_id: accId,
-          debit: isDebit ? amount : 0,
-          credit: !isDebit ? amount : 0
-        });
-      }
-
-      const res = await createJournalEntryAtomic(supabase, {
-        user_id: user!.id,
-        date: msg.extractedDraft.issue_date || new Date().toISOString().split('T')[0],
-        description: msg.text || 'General Journal Entry',
-        lines: journalLines,
-        created_by_source: 'AI'
-      });
-
-      if (res.error) {
-        alert(`Journal Entry Failed: ${res.error}`);
+        onDataChanged();
+        setMessages(prev => prev.map(m => {
+          if (m.id === msgId && m.extractedDraft) {
+            return {
+              ...m,
+              isApproved: true,
+              text: "✓ Journal Entry verified and posted to the General Ledger!",
+              extractedDraft: { ...m.extractedDraft, is_approved: true, status: 'open' }
+            };
+          }
+          return m;
+        }));
         return;
       }
 
-      onDataChanged();
-      setMessages(prev => prev.map(m => {
-        if (m.id === msgId && m.extractedDraft) {
-          return {
-            ...m,
-            text: "✓ Journal Entry verified and posted to the General Ledger!",
-            extractedDraft: { ...m.extractedDraft, status: 'open' }
-          };
-        }
-        return m;
-      }));
-      return;
-    }
-
-    const table = intent === 'LOG_BILL' ? 'bills' : 'invoices';
-    const { error } = await supabase.from(table).update({ is_ai_verified: true }).eq('id', txId!);
-    if (!error) {
-      onDataChanged();
-      setMessages(prev => prev.map(m => {
-        if (m.id === msgId && m.extractedDraft) {
-          return {
-            ...m,
-            text: "✓ Verified and posted to the General Ledger!",
-            extractedDraft: { ...m.extractedDraft, status: 'open' }
-          };
-        }
-        return m;
-      }));
+      const table = intent === 'LOG_BILL' ? 'bills' : 'invoices';
+      const { error } = await supabase.from(table).update({ is_ai_verified: true }).eq('id', txId!);
+      if (!error) {
+        onDataChanged();
+        setMessages(prev => prev.map(m => {
+          if (m.id === msgId && m.extractedDraft) {
+            return {
+              ...m,
+              isApproved: true,
+              text: "✓ Verified and posted to the General Ledger!",
+              extractedDraft: { ...m.extractedDraft, is_approved: true, status: 'open' }
+            };
+          }
+          return m;
+        }));
+      }
+    } catch (err: any) {
+      console.error("Verification failed:", err);
+      alert(`Approval error: ${err.message || 'Verification failed.'}`);
+    } finally {
+      setProcessingDraftIds(prev => {
+        const next = new Set(prev);
+        next.delete(msgId);
+        return next;
+      });
     }
   }
 
@@ -715,12 +737,25 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
                       </div>
                     </div>
                     
-                    {!msg.text.includes('✓ Journal Entry verified') && (
+                    {msg.isApproved || msg.extractedDraft?.is_approved || msg.text.includes('✓') ? (
+                      <div className="w-full py-2.5 px-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 mt-2 shadow-xs">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Approved into Ledger ✅
+                      </div>
+                    ) : (
                       <button
+                        disabled={processingDraftIds.has(msg.id)}
                         onClick={() => handleVerifyDraft(msg.id, msg.extractedDraft?.transactionId, msg.extractedDraft?.intent)}
-                        className="w-full py-2.5 min-h-[44px] bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-2 shadow-sm"
+                        className="w-full py-2.5 min-h-[44px] bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer mt-2 shadow-sm"
                       >
-                        <CheckCircle2 className="w-4 h-4" /> Approve into Ledger
+                        {processingDraftIds.has(msg.id) ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin text-white" /> Approving...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-4 h-4" /> Approve into Ledger
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
@@ -732,8 +767,8 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
                         <Receipt className="w-4 h-4 text-blue-600 shrink-0" />
                         {msg.extractedDraft.entity_name} 
                       </span>
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
-                        PENDING VERIFICATION
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${msg.isApproved || msg.extractedDraft?.is_approved ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                        {msg.isApproved || msg.extractedDraft?.is_approved ? 'VERIFIED' : 'PENDING VERIFICATION'}
                       </span>
                     </div>
 
@@ -768,12 +803,25 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
                       </div>
                     </div>
                     
-                    {!msg.text.includes('✓ Verified') && (
+                    {msg.isApproved || msg.extractedDraft?.is_approved || msg.text.includes('✓') ? (
+                      <div className="w-full py-2.5 px-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 mt-2 shadow-xs">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Approved into Ledger ✅
+                      </div>
+                    ) : (
                       <button
+                        disabled={processingDraftIds.has(msg.id)}
                         onClick={() => handleVerifyDraft(msg.id, msg.extractedDraft?.transactionId, msg.extractedDraft?.intent)}
-                        className="w-full py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-2 shadow-sm"
+                        className="w-full py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer mt-2 shadow-sm"
                       >
-                        <CheckCircle2 className="w-4 h-4" /> Approve into Ledger
+                        {processingDraftIds.has(msg.id) ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin text-white" /> Approving...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-4 h-4" /> Approve into Ledger
+                          </>
+                        )}
                       </button>
                     )}
                   </div>

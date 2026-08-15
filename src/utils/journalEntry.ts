@@ -15,20 +15,40 @@ export interface PostJournalEntryParams {
   description: string;
   lines: JournalLineItem[];
   created_by_source?: 'AI' | 'MANUAL';
+  draft_id?: string;
 }
 
 /**
- * Creates a balanced double-entry journal entry atomically.
+ * Creates a balanced double-entry journal entry atomically with Idempotency protection.
  * Tries RPC first; falls back to client atomic insert with strict balancing validation.
  */
 export async function createJournalEntryAtomic(
   supabase: SupabaseClient,
   params: PostJournalEntryParams
 ): Promise<{ success: boolean; id?: string; error?: string }> {
-  const { user_id, date, description, lines, created_by_source = 'AI' } = params;
+  const { user_id, date, description, lines, created_by_source = 'AI', draft_id } = params;
 
   if (!lines || lines.length === 0) {
     return { success: false, error: 'Journal entry must contain at least one line item.' };
+  }
+
+  // 0. Idempotency Check: Prevent duplicate submissions for the same draft_id
+  if (draft_id) {
+    try {
+      const { data: existing } = await supabase
+        .from('journal_entries')
+        .select('id')
+        .eq('user_id', user_id)
+        .eq('source_reference', draft_id)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        console.log(`[IDEMPOTENCY] Draft ${draft_id} already processed. Returning existing ID.`);
+        return { success: true, id: existing[0].id };
+      }
+    } catch (_) {
+      // Ignore if source_reference column is not yet deployed
+    }
   }
 
   // 1. Normalize line debits & credits into integer cents
@@ -88,6 +108,11 @@ export async function createJournalEntryAtomic(
     });
 
     if (!rpcErr && rpcData) {
+      if (draft_id) {
+        try {
+          await supabase.from('journal_entries').update({ source_reference: draft_id }).eq('id', rpcData);
+        } catch (_) {}
+      }
       return { success: true, id: rpcData };
     }
   } catch (e) {
@@ -95,17 +120,30 @@ export async function createJournalEntryAtomic(
   }
 
   // 4. Direct atomic insert fallback
-  const { data: parentEntry, error: parentError } = await supabase
+  const insertPayload: any = {
+    user_id,
+    date,
+    reference_type: 'JOURNAL',
+    reference_id: null,
+    description
+  };
+
+  if (draft_id) {
+    insertPayload.source_reference = draft_id;
+  }
+
+  let { data: parentEntry, error: parentError } = await supabase
     .from('journal_entries')
-    .insert({
-      user_id,
-      date,
-      reference_type: 'JOURNAL',
-      reference_id: null,
-      description
-    })
+    .insert(insertPayload)
     .select('id')
     .single();
+
+  if (parentError && parentError.message?.includes('source_reference')) {
+    delete insertPayload.source_reference;
+    const res = await supabase.from('journal_entries').insert(insertPayload).select('id').single();
+    parentEntry = res.data;
+    parentError = res.error;
+  }
 
   if (parentError || !parentEntry) {
     return { success: false, error: parentError?.message || 'Failed to create journal entry parent record.' };

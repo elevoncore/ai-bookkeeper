@@ -23,6 +23,25 @@ export default function ReportsHub() {
     fetchData();
   }, []);
 
+  const [asOfDate, setAsOfDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [isLoadingBs, setIsLoadingBs] = useState(false);
+
+  async function fetchBalanceSheet(targetDate?: string) {
+    const dateQuery = targetDate || asOfDate;
+    setIsLoadingBs(true);
+    try {
+      const resBs = await fetch(`/api/reports/balance-sheet?asOfDate=${dateQuery}`);
+      if (resBs.ok) {
+        const bsData = await resBs.json();
+        setBalanceSheet(bsData);
+      }
+    } catch (e) {
+      console.error("Failed to fetch balance sheet:", e);
+    } finally {
+      setIsLoadingBs(false);
+    }
+  }
+
   async function fetchData() {
     setIsLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -49,15 +68,7 @@ export default function ReportsHub() {
     }
 
     // Fetch Balance Sheet
-    try {
-      const resBs = await fetch('/api/reports/balance-sheet');
-      if (resBs.ok) {
-        const bsData = await resBs.json();
-        setBalanceSheet(bsData);
-      }
-    } catch (e) {
-      console.error("Failed to fetch balance sheet:", e);
-    }
+    await fetchBalanceSheet(asOfDate);
 
     setIsLoading(false);
   }
@@ -297,9 +308,23 @@ export default function ReportsHub() {
                   </h2>
                   <p className="text-xs text-gray-400 mt-1">Official Certified Double-Entry Balance Sheet</p>
                 </div>
-                <div className="text-left sm:text-right shrink-0">
-                  <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">AS OF DATE</span>
-                  <span className="text-sm font-extrabold text-purple-300">{balanceSheet.as_of_date}</span>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 bg-gray-800/90 border border-gray-700/80 px-3 py-1.5 rounded-xl shadow-inner">
+                    <label htmlFor="asOfDateInput" className="text-[11px] font-bold text-gray-300 uppercase tracking-wider shrink-0">As Of Date:</label>
+                    <input 
+                      id="asOfDateInput"
+                      type="date"
+                      value={asOfDate}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val) {
+                          setAsOfDate(val);
+                          fetchBalanceSheet(val);
+                        }
+                      }}
+                      className="bg-gray-900 text-purple-300 font-extrabold text-xs rounded-lg px-2.5 py-1 border border-purple-500/40 focus:outline-none focus:ring-2 focus:ring-purple-400 cursor-pointer"
+                    />
+                  </div>
                 </div>
               </div>
 
