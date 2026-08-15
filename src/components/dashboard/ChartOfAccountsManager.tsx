@@ -412,6 +412,18 @@ export default function ChartOfAccountsManager() {
   }, [accounts, searchTerm, selectedTypeFilter]);
 
   // Group accounts by type with clean plural labels
+  const [sortField, setSortField] = useState<'name' | 'type' | 'balance'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  function toggleSort(field: 'name' | 'type' | 'balance') {
+    if (sortField === field) {
+      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  }
+
   const groupedAccounts = useMemo(() => {
     const types: ('asset' | 'liability' | 'equity' | 'revenue' | 'expense')[] = [
       'asset', 'liability', 'equity', 'revenue', 'expense'
@@ -439,12 +451,22 @@ export default function ChartOfAccountsManager() {
       expense: 'Expenses'
     };
 
-    return types.map(t => ({
-      type: t,
-      label: labels[t] || (t.charAt(0).toUpperCase() + t.slice(1)),
-      items: groupMap[t]
-    }));
-  }, [filteredAccounts]);
+    return types.map(t => {
+      const items = [...groupMap[t]].sort((a, b) => {
+        let comp = 0;
+        if (sortField === 'name') comp = a.name.localeCompare(b.name);
+        else if (sortField === 'type') comp = a.type.localeCompare(b.type);
+        else if (sortField === 'balance') comp = (a.balance || 0) - (b.balance || 0);
+        return sortOrder === 'asc' ? comp : -comp;
+      });
+
+      return {
+        type: t,
+        label: labels[t] || (t.charAt(0).toUpperCase() + t.slice(1)),
+        items
+      };
+    });
+  }, [filteredAccounts, sortField, sortOrder]);
 
   const typeBadges: Record<string, string> = {
     asset: 'bg-blue-50 text-blue-700 border-blue-200',
@@ -553,11 +575,17 @@ export default function ChartOfAccountsManager() {
                   <table className="w-full text-left text-sm whitespace-nowrap min-w-[650px]">
                     <thead className="bg-white/40 text-gray-500 text-xs uppercase font-semibold border-b border-gray-100">
                       <tr>
-                        <th className="px-6 py-3">Account Name</th>
-                        <th className="px-6 py-3 w-32">Type</th>
+                        <th onClick={() => toggleSort('name')} className="px-6 py-3 cursor-pointer hover:bg-gray-100/60 transition-colors select-none">
+                          Account Name {sortField === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th onClick={() => toggleSort('type')} className="px-6 py-3 w-32 cursor-pointer hover:bg-gray-100/60 transition-colors select-none">
+                          Type {sortField === 'type' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
                         <th className="px-6 py-3 w-36">Bank / Cash</th>
                         <th className="px-6 py-3 w-36">System Protected</th>
-                        <th className="px-6 py-3 text-right w-44">Current Balance</th>
+                        <th onClick={() => toggleSort('balance')} className="px-6 py-3 text-right w-44 cursor-pointer hover:bg-gray-100/60 transition-colors select-none">
+                          Current Balance {sortField === 'balance' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
                         <th className="px-6 py-3 text-center w-28">Actions</th>
                       </tr>
                     </thead>

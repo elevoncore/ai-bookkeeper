@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { Plus, Search, FileText, Users, Package, Edit2, Trash2, Loader2, X, AlertCircle, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -300,6 +300,65 @@ export default function SalesHub() {
     }
   }
 
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'verified' | 'paid'>('all');
+  const [sortField, setSortField] = useState<'date' | 'amount' | 'customer' | 'id'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  function toggleSort(field: 'date' | 'amount' | 'customer' | 'id') {
+    if (sortField === field) {
+      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder('desc');
+    }
+  }
+
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter(inv => {
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = !searchTerm || 
+        inv.id?.toLowerCase().includes(searchLower) ||
+        inv.customers?.name?.toLowerCase().includes(searchLower) ||
+        inv.total_amount?.toString().includes(searchLower);
+
+      let matchesStatus = true;
+      if (statusFilter === 'pending') {
+        matchesStatus = !inv.is_ai_verified;
+      } else if (statusFilter === 'verified') {
+        matchesStatus = Boolean(inv.is_ai_verified);
+      } else if (statusFilter === 'paid') {
+        matchesStatus = inv.status === 'paid' || inv.status === 'PAID';
+      }
+
+      return matchesSearch && matchesStatus;
+    }).sort((a, b) => {
+      let comparison = 0;
+      if (sortField === 'date') {
+        comparison = new Date(a.issue_date).getTime() - new Date(b.issue_date).getTime();
+      } else if (sortField === 'amount') {
+        comparison = (a.total_amount || 0) - (b.total_amount || 0);
+      } else if (sortField === 'customer') {
+        comparison = (a.customers?.name || '').localeCompare(b.customers?.name || '');
+      } else if (sortField === 'id') {
+        comparison = (a.id || '').localeCompare(b.id || '');
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [invoices, searchTerm, statusFilter, sortField, sortOrder]);
+
+  const filteredCustomers = useMemo(() => {
+    if (!searchTerm) return customers;
+    const lower = searchTerm.toLowerCase();
+    return customers.filter(c => c.name?.toLowerCase().includes(lower) || c.email?.toLowerCase().includes(lower));
+  }, [customers, searchTerm]);
+
+  const filteredProducts = useMemo(() => {
+    if (!searchTerm) return products;
+    const lower = searchTerm.toLowerCase();
+    return products.filter(p => p.name?.toLowerCase().includes(lower));
+  }, [products, searchTerm]);
+
   function openEditModal(inv: any) {
     setIsEditing(true);
     setNewInvoice({
@@ -358,13 +417,29 @@ export default function SalesHub() {
         
         {/* TOOLBAR */}
         <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input 
-              type="text" 
-              placeholder={`Search ${activeTab}...`} 
-              className="w-full pl-9 pr-4 py-2.5 min-h-[44px] bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all"
-            />
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input 
+                type="text" 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={`Search ${activeTab}...`} 
+                className="w-full pl-9 pr-4 py-2.5 min-h-[44px] bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all"
+              />
+            </div>
+            {activeTab === 'invoices' && (
+              <select
+                value={statusFilter}
+                onChange={(e: any) => setStatusFilter(e.target.value)}
+                className="w-full sm:w-auto px-3 py-2.5 min-h-[44px] bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-100 cursor-pointer"
+              >
+                <option value="all">All Statuses</option>
+                <option value="pending">Pending Verification</option>
+                <option value="verified">AI Verified</option>
+                <option value="paid">Paid</option>
+              </select>
+            )}
           </div>
 
           <button 
@@ -399,11 +474,19 @@ export default function SalesHub() {
               <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
                 {activeTab === 'invoices' && (
                   <tr>
-                    <th className="px-6 py-4">Invoice ID</th>
-                    <th className="px-6 py-4">Customer</th>
+                    <th onClick={() => toggleSort('id')} className="px-6 py-4 cursor-pointer hover:bg-gray-100/60 transition-colors select-none">
+                      Invoice ID {sortField === 'id' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th onClick={() => toggleSort('customer')} className="px-6 py-4 cursor-pointer hover:bg-gray-100/60 transition-colors select-none">
+                      Customer {sortField === 'customer' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    </th>
                     <th className="px-6 py-4">Items</th>
-                    <th className="px-6 py-4">Issue Date</th>
-                    <th className="px-6 py-4 text-right">Amount</th>
+                    <th onClick={() => toggleSort('date')} className="px-6 py-4 cursor-pointer hover:bg-gray-100/60 transition-colors select-none">
+                      Issue Date {sortField === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th onClick={() => toggleSort('amount')} className="px-6 py-4 text-right cursor-pointer hover:bg-gray-100/60 transition-colors select-none">
+                      Amount {sortField === 'amount' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    </th>
                     <th className="px-6 py-4 text-right">Est. Margin</th>
                     <th className="px-6 py-4 text-center">Status</th>
                     <th className="px-6 py-4 text-center">AI Verified</th>
@@ -432,7 +515,7 @@ export default function SalesHub() {
               <tbody className="divide-y divide-gray-100 text-gray-700">
                 
                 {/* EMPTY STATES */}
-                {activeTab === 'invoices' && invoices.length === 0 && (
+                {activeTab === 'invoices' && filteredInvoices.length === 0 && (
                   <tr>
                     <td colSpan={9} className="px-6 py-16 text-center">
                       <div className="flex flex-col items-center justify-center space-y-3">
@@ -445,14 +528,14 @@ export default function SalesHub() {
                     </td>
                   </tr>
                 )}
-                {activeTab === 'customers' && customers.length === 0 && (
+                {activeTab === 'customers' && filteredCustomers.length === 0 && (
                   <tr>
                     <td colSpan={4} className="px-6 py-16 text-center">
                       <p className="text-gray-500 font-medium">No customers found</p>
                     </td>
                   </tr>
                 )}
-                {activeTab === 'products' && products.length === 0 && (
+                {activeTab === 'products' && filteredProducts.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-6 py-16 text-center">
                       <p className="text-gray-500 font-medium">No products found</p>
@@ -461,7 +544,7 @@ export default function SalesHub() {
                 )}
 
                 {/* DATA ROWS */}
-                {activeTab === 'invoices' && invoices.map((inv) => {
+                {activeTab === 'invoices' && filteredInvoices.map((inv) => {
                   const estMargin = inv.invoice_lines?.reduce((sum: number, l: any) => {
                     const cost = l.products?.cost || 0;
                     const margin = Number(l.total || 0) - (Number(l.quantity || 1) * Number(cost));
@@ -553,7 +636,7 @@ export default function SalesHub() {
                   );
                 })}
 
-                {activeTab === 'customers' && customers.map((c) => (
+                {activeTab === 'customers' && filteredCustomers.map((c) => (
                   <tr key={c.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 font-semibold text-gray-900 flex items-center gap-2">
                       <span>{c.name}</span>
@@ -572,7 +655,7 @@ export default function SalesHub() {
                   </tr>
                 ))}
 
-                {activeTab === 'products' && products.map((p) => (
+                {activeTab === 'products' && filteredProducts.map((p) => (
                   <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 font-semibold text-gray-900 flex items-center gap-2">
                       <span>{p.name}</span>
