@@ -104,7 +104,8 @@ export async function createJournalEntryAtomic(
       p_date: date,
       p_description: description,
       p_lines: normalizedLines,
-      p_created_by_source: created_by_source
+      p_created_by_source: created_by_source,
+      p_source_reference: draft_id
     });
 
     if (!rpcErr && rpcData) {

@@ -59,6 +59,7 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
   const [prompt, setPrompt] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
   const [processingDraftIds, setProcessingDraftIds] = useState<Set<string>>(new Set());
+  const processingRef = useRef<Set<string>>(new Set());
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -511,10 +512,14 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
 
   async function handleVerifyDraft(msgId: string, txId?: string, intent?: string) {
     if (!intent) return;
-    if (processingDraftIds.has(msgId)) return; // Immediate UI locking safeguard
+    if (processingRef.current.has(msgId) || processingDraftIds.has(msgId)) return; // 0ms micro-tick synchronous locking safeguard
+    processingRef.current.add(msgId);
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      processingRef.current.delete(msgId);
+      return;
+    }
 
     setProcessingDraftIds(prev => new Set(prev).add(msgId));
 
@@ -600,6 +605,7 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
       console.error("Verification failed:", err);
       alert(`Approval error: ${err.message || 'Verification failed.'}`);
     } finally {
+      processingRef.current.delete(msgId);
       setProcessingDraftIds(prev => {
         const next = new Set(prev);
         next.delete(msgId);
