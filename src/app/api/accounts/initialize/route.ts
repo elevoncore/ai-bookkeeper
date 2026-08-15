@@ -34,36 +34,35 @@ export async function POST(request: Request) {
       p_user_id: user.id
     });
 
-    if (rpcError) {
-      console.error("RPC initialize_default_accounts error:", rpcError.message);
-      // Fallback: manual insert if RPC is not deployed yet or schema cache is warming up
-      const accountsToSeed = [
-        { user_id: user.id, name: 'Main Bank Account', type: 'asset', is_system: true },
-        { user_id: user.id, name: 'Petty Cash', type: 'asset', is_system: true },
-        { user_id: user.id, name: 'Accounts Receivable', type: 'asset', is_system: true },
-        { user_id: user.id, name: 'Inventory Asset', type: 'asset', is_system: true },
-        { user_id: user.id, name: 'Accounts Payable', type: 'liability', is_system: true },
-        { user_id: user.id, name: 'Owners Equity', type: 'equity', is_system: true },
-        { user_id: user.id, name: 'Sales Revenue', type: 'revenue', is_system: true },
-        { user_id: user.id, name: 'Service Revenue', type: 'revenue', is_system: true },
-        { user_id: user.id, name: 'Cost of Goods Sold', type: 'expense', is_system: true },
-        { user_id: user.id, name: 'Rent Expense', type: 'expense', is_system: true },
-        { user_id: user.id, name: 'Utilities', type: 'expense', is_system: true },
-        { user_id: user.id, name: 'Software & Hosting', type: 'expense', is_system: true },
-        { user_id: user.id, name: 'General Operating Expense', type: 'expense', is_system: true }
-      ];
+    // Ensure all standard system accounts exist (including Loan Payable & Interest Expense)
+    const accountsToSeed = [
+      { user_id: user.id, name: 'Main Bank Account', type: 'asset', is_system: true },
+      { user_id: user.id, name: 'Petty Cash', type: 'asset', is_system: true },
+      { user_id: user.id, name: 'Accounts Receivable', type: 'asset', is_system: true },
+      { user_id: user.id, name: 'Inventory Asset', type: 'asset', is_system: true },
+      { user_id: user.id, name: 'Accounts Payable', type: 'liability', is_system: true },
+      { user_id: user.id, name: 'Loan Payable', type: 'liability', is_system: true },
+      { user_id: user.id, name: 'Owners Equity', type: 'equity', is_system: true },
+      { user_id: user.id, name: 'Sales Revenue', type: 'revenue', is_system: true },
+      { user_id: user.id, name: 'Service Revenue', type: 'revenue', is_system: true },
+      { user_id: user.id, name: 'Cost of Goods Sold', type: 'expense', is_system: true },
+      { user_id: user.id, name: 'Rent Expense', type: 'expense', is_system: true },
+      { user_id: user.id, name: 'Utilities', type: 'expense', is_system: true },
+      { user_id: user.id, name: 'Software & Hosting', type: 'expense', is_system: true },
+      { user_id: user.id, name: 'Interest Expense', type: 'expense', is_system: true },
+      { user_id: user.id, name: 'General Operating Expense', type: 'expense', is_system: true }
+    ];
 
-      for (const acc of accountsToSeed) {
-        const { data: existing } = await supabase
-          .from('accounts')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('name', acc.name)
-          .limit(1);
-          
-        if (!existing || existing.length === 0) {
-          await supabase.from('accounts').insert(acc);
-        }
+    for (const acc of accountsToSeed) {
+      const { data: existing } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('name', acc.name)
+        .limit(1);
+        
+      if (!existing || existing.length === 0) {
+        await supabase.from('accounts').insert(acc);
       }
     }
 

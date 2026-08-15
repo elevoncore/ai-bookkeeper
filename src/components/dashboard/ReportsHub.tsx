@@ -2,15 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import { FileSpreadsheet, Download, Loader2, DollarSign, Scale, FileText, FolderTree } from 'lucide-react';
+import { FileSpreadsheet, Download, Loader2, DollarSign, Scale, FolderTree, Landmark, CheckCircle2 } from 'lucide-react';
 import ChartOfAccountsManager from './ChartOfAccountsManager';
 
-type Tab = 'chart_of_accounts' | 'ledger' | 'pnl' | 'trial_balance';
+type Tab = 'chart_of_accounts' | 'ledger' | 'pnl' | 'trial_balance' | 'balance_sheet';
 
 export default function ReportsHub() {
   const [activeTab, setActiveTab] = useState<Tab>('chart_of_accounts');
   const [journalEntries, setJournalEntries] = useState<any[]>([]);
   const [financials, setFinancials] = useState<any>(null);
+  const [balanceSheet, setBalanceSheet] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const supabase = createBrowserClient(
@@ -36,7 +37,7 @@ export default function ReportsHub() {
 
     if (entries) setJournalEntries(entries);
 
-    // Fetch financials
+    // Fetch P&L & Trial Balance
     try {
       const res = await fetch('/api/reports/financials');
       if (res.ok) {
@@ -44,7 +45,18 @@ export default function ReportsHub() {
         setFinancials(data);
       }
     } catch (e) {
-      console.error(e);
+      console.error("Failed to fetch financials:", e);
+    }
+
+    // Fetch Balance Sheet
+    try {
+      const resBs = await fetch('/api/reports/balance-sheet');
+      if (resBs.ok) {
+        const bsData = await resBs.json();
+        setBalanceSheet(bsData);
+      }
+    } catch (e) {
+      console.error("Failed to fetch balance sheet:", e);
     }
 
     setIsLoading(false);
@@ -60,7 +72,7 @@ export default function ReportsHub() {
             Accounting & Financial Ledger
           </h1>
           <p className="text-xs text-gray-500 mt-1">
-            General Ledger, Chart of Accounts, and certified double-entry accounting records.
+            General Ledger, Chart of Accounts, P&L, and certified double-entry Balance Sheet.
           </p>
         </div>
 
@@ -90,6 +102,12 @@ export default function ReportsHub() {
           <DollarSign className="w-4 h-4" /> Profit & Loss
         </button>
         <button
+          onClick={() => setActiveTab('balance_sheet')}
+          className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'balance_sheet' ? 'bg-purple-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+        >
+          <Landmark className="w-4 h-4" /> Balance Sheet
+        </button>
+        <button
           onClick={() => setActiveTab('trial_balance')}
           className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'trial_balance' ? 'bg-emerald-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
         >
@@ -102,10 +120,10 @@ export default function ReportsHub() {
         <ChartOfAccountsManager />
       )}
 
-      {/* CONTENT */}
+      {/* MAIN REPORTS CONTENT AREA */}
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-          <Loader2 className="w-8 h-8 animate-spin" />
+          <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
         </div>
       ) : (
         <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-2xl overflow-hidden min-w-0">
@@ -127,7 +145,7 @@ export default function ReportsHub() {
                   {journalEntries.length === 0 && (
                     <tr>
                       <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
-                        No journal entries found. Wait for the automated triggers to fire upon invoice/bill creation.
+                        No journal entries found.
                       </td>
                     </tr>
                   )}
@@ -241,6 +259,157 @@ export default function ReportsHub() {
                   <span className="shrink-0">{financials.profit_and_loss.net_profit.toLocaleString()} PKR</span>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* BALANCE SHEET TAB */}
+          {activeTab === 'balance_sheet' && balanceSheet && (
+            <div className="p-4 sm:p-8 min-w-0 space-y-6">
+              
+              {/* BALANCING STATUS BANNER */}
+              {balanceSheet.is_balanced ? (
+                <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between text-emerald-900 gap-2 min-w-0 shadow-xs">
+                  <span className="flex items-center gap-2 font-bold text-xs sm:text-sm">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    Books are Balanced! Total Assets equal Total Liabilities + Equity.
+                  </span>
+                  <span className="font-extrabold text-xs sm:text-sm bg-emerald-100/90 px-3 py-1 rounded-lg text-emerald-950 shrink-0">
+                    Assets: {balanceSheet.totals.total_assets.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+                  </span>
+                </div>
+              ) : (
+                <div className="bg-red-50 border border-red-200 p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between text-red-900 gap-2 min-w-0 shadow-xs">
+                  <span className="flex items-center gap-2 font-bold text-xs sm:text-sm">
+                    <Scale className="w-5 h-5 text-red-600 shrink-0" />
+                    Imbalance Detected! Total Assets do not equal Total Liabilities + Equity.
+                  </span>
+                  <span className="font-extrabold text-xs sm:text-sm bg-red-100 px-3 py-1 rounded-lg text-red-950 shrink-0">
+                    Diff: {Math.abs(balanceSheet.totals.total_assets - balanceSheet.totals.total_liabilities_and_equity).toLocaleString()} PKR
+                  </span>
+                </div>
+              )}
+
+              {/* STATEMENT HEADER */}
+              <div className="bg-gray-900 text-white p-6 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 min-w-0 shadow-md">
+                <div>
+                  <h2 className="text-lg font-black tracking-tight flex items-center gap-2">
+                    <Landmark className="w-5 h-5 text-purple-400" /> Statement of Financial Position
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-1">Official Certified Double-Entry Balance Sheet</p>
+                </div>
+                <div className="text-left sm:text-right shrink-0">
+                  <span className="text-[10px] text-gray-400 block font-bold uppercase tracking-wider">AS OF DATE</span>
+                  <span className="text-sm font-extrabold text-purple-300">{balanceSheet.as_of_date}</span>
+                </div>
+              </div>
+
+              {/* THREE FINANCIAL SECTIONS */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0">
+                
+                {/* ASSETS SECTION */}
+                <div className="bg-white/80 backdrop-blur-md border border-blue-100 rounded-2xl p-5 shadow-xs space-y-4 flex flex-col justify-between min-w-0">
+                  <div>
+                    <div className="flex items-center justify-between pb-3 border-b border-blue-100 mb-3 min-w-0 gap-2">
+                      <h3 className="font-black text-base text-gray-900 flex items-center gap-2 truncate">
+                        <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0" /> ASSETS
+                      </h3>
+                      <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0">
+                        Debit
+                      </span>
+                    </div>
+                    <div className="divide-y divide-gray-100 text-xs sm:text-sm">
+                      {balanceSheet.assets.map((acc: any) => (
+                        <div key={acc.id} className="py-2.5 flex justify-between items-center text-gray-700 hover:bg-gray-50/80 px-1 rounded-lg min-w-0 gap-2">
+                          <span className="font-medium truncate">{acc.name}</span>
+                          <span className="font-bold text-gray-900 shrink-0">{acc.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t-2 border-blue-600 flex justify-between items-center font-black text-sm sm:text-base text-blue-950 min-w-0 gap-2 mt-4">
+                    <span className="truncate uppercase tracking-wider text-xs">TOTAL ASSETS</span>
+                    <span className="shrink-0">{balanceSheet.totals.total_assets.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</span>
+                  </div>
+                </div>
+
+                {/* LIABILITIES SECTION */}
+                <div className="bg-white/80 backdrop-blur-md border border-amber-100 rounded-2xl p-5 shadow-xs flex flex-col justify-between min-w-0">
+                  <div>
+                    <div className="flex items-center justify-between pb-3 border-b border-amber-100 mb-3 min-w-0 gap-2">
+                      <h3 className="font-black text-base text-gray-900 flex items-center gap-2 truncate">
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-600 shrink-0" /> LIABILITIES
+                      </h3>
+                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0">
+                        Credit
+                      </span>
+                    </div>
+                    <div className="divide-y divide-gray-100 text-xs sm:text-sm">
+                      {balanceSheet.liabilities.map((acc: any) => (
+                        <div key={acc.id} className="py-2.5 flex justify-between items-center text-gray-700 hover:bg-gray-50/80 px-1 rounded-lg min-w-0 gap-2">
+                          <span className="font-medium truncate">{acc.name}</span>
+                          <span className="font-bold text-gray-900 shrink-0">{acc.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t-2 border-amber-600 flex justify-between items-center font-black text-sm sm:text-base text-amber-950 min-w-0 gap-2 mt-4">
+                    <span className="truncate uppercase tracking-wider text-xs">TOTAL LIABILITIES</span>
+                    <span className="shrink-0">{balanceSheet.totals.total_liabilities.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</span>
+                  </div>
+                </div>
+
+                {/* EQUITY SECTION */}
+                <div className="bg-white/80 backdrop-blur-md border border-purple-100 rounded-2xl p-5 shadow-xs flex flex-col justify-between min-w-0">
+                  <div>
+                    <div className="flex items-center justify-between pb-3 border-b border-purple-100 mb-3 min-w-0 gap-2">
+                      <h3 className="font-black text-base text-gray-900 flex items-center gap-2 truncate">
+                        <span className="w-2.5 h-2.5 rounded-full bg-purple-600 shrink-0" /> EQUITY
+                      </h3>
+                      <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0">
+                        Capital + Retained
+                      </span>
+                    </div>
+                    <div className="divide-y divide-gray-100 text-xs sm:text-sm">
+                      {balanceSheet.equity.map((acc: any) => (
+                        <div 
+                          key={acc.id || acc.name} 
+                          className={`py-2.5 flex justify-between items-center px-2 rounded-lg min-w-0 gap-2 ${acc.is_net_income ? 'bg-emerald-50/90 border border-emerald-200 my-1' : 'hover:bg-gray-50/80 text-gray-700'}`}
+                        >
+                          <div className="min-w-0">
+                            <span className={`font-medium truncate block ${acc.is_net_income ? 'font-bold text-emerald-950' : ''}`}>{acc.name}</span>
+                            {acc.is_net_income && <span className="text-[10px] text-emerald-700 font-semibold block">Rolling Net Profit from P&L</span>}
+                          </div>
+                          <span className={`font-bold shrink-0 ${acc.is_net_income ? 'text-emerald-950 text-base' : 'text-gray-900'}`}>
+                            {acc.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t-2 border-purple-600 flex justify-between items-center font-black text-sm sm:text-base text-purple-950 min-w-0 gap-2 mt-4">
+                    <span className="truncate uppercase tracking-wider text-xs">TOTAL EQUITY</span>
+                    <span className="shrink-0">{balanceSheet.totals.total_equity.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</span>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* SUMMARY BAR: LIABILITIES + EQUITY VS ASSETS */}
+              <div className="p-5 rounded-2xl bg-gray-900 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-lg min-w-0">
+                <div>
+                  <span className="text-xs font-bold text-gray-400 block uppercase tracking-wider">TOTAL LIABILITIES & EQUITY</span>
+                  <span className="text-xl sm:text-2xl font-black text-purple-300">
+                    {balanceSheet.totals.total_liabilities_and_equity.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    Equal to Total Assets ({balanceSheet.totals.total_assets.toLocaleString()} PKR)
+                  </span>
+                </div>
+              </div>
+
             </div>
           )}
 

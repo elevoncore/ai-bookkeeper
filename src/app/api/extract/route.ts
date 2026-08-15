@@ -112,11 +112,11 @@ export async function POST(request: Request) {
     - LOG_INVOICE: User sent an invoice, or received alternative income from a Customer/Client.
     - LOG_PAYMENT_MADE: User paid a bill.
     - LOG_PAYMENT_RECEIVED: User received a payment from a customer.
-    - LOG_JOURNAL_ENTRY: User is logging capital contributions, owner drawings, bank transfers, equity additions, or general adjustments (e.g., "investing 100,000 PKR into bank as capital", "transferred 5,000 from Bank to Petty Cash", "owner took 10,000 PKR out for personal use").
+    - LOG_JOURNAL_ENTRY: User is logging capital contributions, owner drawings, bank transfers, loans received, loan repayments, equity additions, or general adjustments (e.g., "investing 100,000 PKR into bank as capital", "received a 500,000 PKR loan from the bank", "repaid 50,000 PKR loan principal and 5,000 PKR interest").
     - LOG_INVENTORY_ADJUSTMENT: User reports physical stock count discrepancy or stocktake adjustment (e.g., "I counted 10 items", "5 bananas spilled/spoiled", "Monthly stocktake").
     - UPDATE_TRANSACTION: User wants to update or modify an existing transaction.
     - QUERY_FINANCES: General cash flow or spending queries.
-    - QUERY_REPORT: Detailed financial reporting queries like "How much profit did I make this month?" or "Show me my P&L".
+    - QUERY_REPORT: Detailed financial reporting queries like "How much profit did I make this month?" or "Show me my P&L" or "Show me my Balance Sheet".
     - QUERY_DEBT: Queries about who owes money or who the user owes.
     - GENERAL_HELP: General chat or usage help.
     
@@ -124,19 +124,28 @@ export async function POST(request: Request) {
     1. Multi-Line Item Extraction: A single receipt/invoice can contain multiple items. You MUST return an array of line items in "line_items". For each item, extract its "description", "quantity", "unit_price", and "total". Never summarize them into a single line.
     2. Missing Data: For LOG_BILL and LOG_INVOICE, if critical fields (total_amount, line_items, customer/supplier name) are missing, DO NOT guess them. For Payments, line_items are NOT required, only amount and name. If data is missing, set "is_complete": false and ask a conversational "clarification_question".
     3. Entity Resolution: Extract the exact legal name of the vendor or client into 'supplier_name' (for bills/payments made) or 'customer_name' (for invoices/payments received), separating it from the line items.
-    4. Chart of Accounts Grounding & Expense Categorization (CRITICAL): You MUST categorize each line item using ONLY the exact account names provided: [${accountNames}]. When categorizing an expense or bill, you MUST select the most appropriate account from this exact list: ['Cost of Goods Sold', 'Rent Expense', 'Utilities', 'Software & Hosting', 'General Operating Expense']. 
+    4. Chart of Accounts Grounding & Expense Categorization (CRITICAL): You MUST categorize each line item using ONLY the exact account names provided: [${accountNames}]. When categorizing an expense or bill, you MUST select the most appropriate account from this exact list: ['Cost of Goods Sold', 'Rent Expense', 'Utilities', 'Software & Hosting', 'Interest Expense', 'General Operating Expense']. 
        - Map server/domain/cloud hosting/AWS costs to 'Software & Hosting'.
        - Map electricity/water/gas/internet/utility bills (even if misspelled like 'utilites') to 'Utilities'.
        - Map office space/building rent to 'Rent Expense'.
        - Map inventory/manufacturing costs to 'Cost of Goods Sold'.
+       - Map interest charges / loan interest payments to 'Interest Expense'.
        - Map ambiguous, general, snack, office supplies, or unmapped/out-of-scope expenses (e.g. equipment, vehicles, snacks, miscellaneous) to 'General Operating Expense'.
        - If a user prompt mentions multiple expenses (e.g. "rent and AWS bill together"), you MUST split them into separate line items in "line_items" and assign each item its specific account category.
        - You must place the exact account name in the "account_name" field of each line item.
-    5. Journal Entry Balancing (CRITICAL for LOG_JOURNAL_ENTRY): If intent is LOG_JOURNAL_ENTRY, you MUST output balanced debit and credit lines in "line_items" using exact Chart of Accounts names: ['Main Bank Account', 'Petty Cash', 'Accounts Receivable', 'Inventory Asset', 'Accounts Payable', 'Owners Equity', 'Sales Revenue', 'Service Revenue', 'Cost of Goods Sold', 'Rent Expense', 'Utilities', 'Software & Hosting', 'General Operating Expense'].
+    5. Journal Entry Balancing & Loan Workflows (CRITICAL for LOG_JOURNAL_ENTRY): If intent is LOG_JOURNAL_ENTRY, you MUST output balanced debit and credit lines in "line_items" using exact Chart of Accounts names: ['Main Bank Account', 'Petty Cash', 'Accounts Receivable', 'Inventory Asset', 'Accounts Payable', 'Loan Payable', 'Owners Equity', 'Sales Revenue', 'Service Revenue', 'Cost of Goods Sold', 'Rent Expense', 'Utilities', 'Software & Hosting', 'Interest Expense', 'General Operating Expense'].
        - Capital Investment e.g. "Investing 100,000 PKR into bank as owner capital":
          - Line 1 (DEBIT): description: "Capital Investment", account_name: "Main Bank Account", total: 100000, is_debit: true
          - Line 2 (CREDIT): description: "Owner Equity Contribution", account_name: "Owners Equity", total: 100000, is_debit: false
-         - CRITICAL: Increasing Cash/Bank MUST ALWAYS have "is_debit": true. Increasing Equity MUST ALWAYS have "is_debit": false.
+       - Receiving a Loan e.g. "I received a 500,000 PKR loan from the bank" or "Got a loan of 500,000 PKR":
+         - Line 1 (DEBIT): description: "Bank Loan Proceeds", account_name: "Main Bank Account", total: 500000, is_debit: true
+         - Line 2 (CREDIT): description: "Loan Principal Obligation", account_name: "Loan Payable", total: 500000, is_debit: false
+         - CRITICAL: Receiving a loan INCREASES Main Bank Account (DEBIT) and INCREASES Loan Payable (CREDIT).
+       - Repaying a Loan with Interest e.g. "Repaid 50,000 PKR loan principal and 5,000 PKR interest":
+         - Line 1 (DEBIT): description: "Loan Principal Repayment", account_name: "Loan Payable", total: 50000, is_debit: true
+         - Line 2 (DEBIT): description: "Interest Expense", account_name: "Interest Expense", total: 5000, is_debit: true
+         - Line 3 (CREDIT): description: "Cash Paid for Principal and Interest", account_name: "Main Bank Account", total: 55000, is_debit: false
+         - CRITICAL: Repaying a loan DECREASES Loan Payable (DEBIT), INVOICES Interest Expense (DEBIT), and DECREASES Main Bank Account (CREDIT for total cash paid = principal + interest). Total Debits MUST equal Total Credits.
        - Bank Transfer e.g. "Transfer 5,000 from Bank to Petty Cash":
          - Line 1 (DEBIT): description: "Transfer to Petty Cash", account_name: "Petty Cash", total: 5000, is_debit: true
          - Line 2 (CREDIT): description: "Transfer from Main Bank", account_name: "Main Bank Account", total: 5000, is_debit: false
