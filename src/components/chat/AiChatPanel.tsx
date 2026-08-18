@@ -211,14 +211,14 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
 
     let { data: newProd, error: newProdErr } = await supabase
       .from('products')
-      .insert({ user_id: user.id, name: prodName, price, is_inventory_tracked: isInventoryTracked, created_by_source: 'AI' })
+      .insert({ user_id: user.id, name: prodName, price, is_inventory_tracked: isInventoryTracked, inventory_count: 0, created_by_source: 'AI' })
       .select('id')
       .single();
 
     if (newProdErr) {
       const fallback = await supabase
         .from('products')
-        .insert({ user_id: user.id, name: prodName, price, is_inventory_tracked: isInventoryTracked })
+        .insert({ user_id: user.id, name: prodName, price, is_inventory_tracked: isInventoryTracked, inventory_count: 0 })
         .select('id')
         .single();
       newProd = fallback.data;
@@ -335,7 +335,8 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
 
         const resolvedLines = [];
         for (const item of ext.line_items || []) {
-          const targetAccountId = await resolveAccountId(item.account_name, ext.intent);
+          const accToResolve = (item.is_inventory_tracked || item.account_name === 'Inventory Asset') ? 'Inventory Asset' : item.account_name;
+          const targetAccountId = await resolveAccountId(accToResolve, ext.intent);
           if (!targetAccountId) throw new Error(`Account resolution failed for ${item.account_name}`);
           
           let productId = null;
