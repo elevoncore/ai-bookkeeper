@@ -697,18 +697,18 @@ export default function SalesHub() {
 
       </div>
 
-      {/* SLIDE-OVER MODAL FOR NEW INVOICE */}
+      {/* CENTERED POP-UP MODAL FOR NEW/EDIT INVOICE */}
       {isInvoiceModalOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/30 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white h-full max-h-screen shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+        <div className="fixed inset-0 z-[100] w-screen h-screen flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <h2 className="text-lg font-bold text-gray-900">{isEditing ? 'Edit Invoice' : 'Create New Invoice'}</h2>
-              <button onClick={closeModal} className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 bg-white rounded-full shadow-xs cursor-pointer" aria-label="Close modal">
+              <button onClick={closeModal} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors cursor-pointer" aria-label="Close modal">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <form onSubmit={handleCreateOrUpdateInvoice} className="flex-1 overflow-y-auto p-6 space-y-5">
+            <form id="invoiceForm" onSubmit={handleCreateOrUpdateInvoice} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium">
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Customer</label>
                 <select 
@@ -749,11 +749,11 @@ export default function SalesHub() {
               </div>
             </form>
 
-            <div className="p-6 border-t border-gray-100 bg-white flex gap-3 shrink-0">
-              <button type="button" onClick={closeModal} className="flex-1 px-4 py-3 min-h-[44px] border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors cursor-pointer">
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button type="button" onClick={closeModal} className="px-4 py-2.5 min-h-[44px] border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors cursor-pointer text-sm">
                 Cancel
               </button>
-              <button onClick={handleCreateOrUpdateInvoice} className="flex-1 px-4 py-3 min-h-[44px] bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-500/20 cursor-pointer">
+              <button type="submit" form="invoiceForm" className="px-5 py-2.5 min-h-[44px] bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-500/20 cursor-pointer text-sm">
                 {isEditing ? 'Save Changes' : 'Create Invoice'}
               </button>
             </div>
@@ -763,10 +763,10 @@ export default function SalesHub() {
 
       {/* LOG PAYMENT MODAL */}
       {isPaymentModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white/90 backdrop-blur-2xl rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-              <h2 className="font-bold text-gray-900 flex items-center gap-2">
+        <div className="fixed inset-0 z-[100] w-screen h-screen flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+              <h2 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-green-600 shrink-0" />
                 Log Received Payment
               </h2>
@@ -775,7 +775,7 @@ export default function SalesHub() {
               </button>
             </div>
             
-            <form onSubmit={handleLogPayment} className="flex-1 overflow-y-auto p-6 space-y-4">
+            <form id="paymentForm" onSubmit={handleLogPayment} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount Received (PKR)</label>
                 <input 
@@ -814,11 +814,11 @@ export default function SalesHub() {
               </div>
             </form>
 
-            <div className="p-6 border-t border-gray-100 bg-white flex gap-3 shrink-0">
-              <button type="button" onClick={() => setIsPaymentModalOpen(false)} disabled={isSubmitting} className="flex-1 px-4 py-3 min-h-[44px] bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold rounded-xl transition-colors cursor-pointer disabled:opacity-50">
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button type="button" onClick={() => setIsPaymentModalOpen(false)} disabled={isSubmitting} className="px-4 py-2.5 min-h-[44px] border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors cursor-pointer disabled:opacity-50">
                 Cancel
               </button>
-              <button type="submit" onClick={handleLogPayment} disabled={isSubmitting} className="flex-1 px-4 py-3 min-h-[44px] bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-green-600/20 cursor-pointer disabled:opacity-50 flex items-center justify-center">
+              <button type="submit" form="paymentForm" disabled={isSubmitting} className="px-5 py-2.5 min-h-[44px] bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-green-600/20 cursor-pointer disabled:opacity-50 flex items-center justify-center">
                 {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Record Payment'}
               </button>
             </div>
@@ -828,10 +828,10 @@ export default function SalesHub() {
 
       {/* EDIT PRODUCT MODAL */}
       {isProductModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white/90 backdrop-blur-2xl rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-              <h2 className="font-bold text-gray-900 flex items-center gap-2">
+        <div className="fixed inset-0 z-[100] w-screen h-screen flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+              <h2 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
                 <Package className="w-5 h-5 text-purple-600 shrink-0" />
                 Edit Product / Service Catalog
               </h2>
@@ -840,7 +840,7 @@ export default function SalesHub() {
               </button>
             </div>
             
-            <form onSubmit={handleSaveProduct} className="flex-1 overflow-y-auto p-6 space-y-4">
+            <form id="productForm" onSubmit={handleSaveProduct} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Product Name</label>
                 <input 
@@ -901,11 +901,11 @@ export default function SalesHub() {
               </div>
             </form>
 
-            <div className="p-6 border-t border-gray-100 bg-white flex gap-3 shrink-0">
-              <button type="button" onClick={() => setIsProductModalOpen(false)} className="flex-1 px-4 py-3 min-h-[44px] bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold rounded-xl transition-colors cursor-pointer">
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button type="button" onClick={() => setIsProductModalOpen(false)} className="px-4 py-2.5 min-h-[44px] border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors cursor-pointer">
                 Cancel
               </button>
-              <button type="submit" onClick={handleSaveProduct} className="flex-1 px-4 py-3 min-h-[44px] bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-purple-600/20 cursor-pointer">
+              <button type="submit" form="productForm" className="px-5 py-2.5 min-h-[44px] bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-purple-600/20 cursor-pointer">
                 Save Product
               </button>
             </div>
@@ -915,10 +915,10 @@ export default function SalesHub() {
 
       {/* NEW CUSTOMER MODAL */}
       {isCustomerModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-              <h2 className="font-bold text-gray-900 flex items-center gap-2">
+        <div className="fixed inset-0 z-[100] w-screen h-screen flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+              <h2 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
                 <Users className="w-5 h-5 text-blue-600 shrink-0" />
                 Add New Customer
               </h2>
@@ -927,7 +927,7 @@ export default function SalesHub() {
               </button>
             </div>
             
-            <form onSubmit={handleCreateCustomer} className="flex-1 overflow-y-auto p-6 space-y-4">
+            <form id="customerForm" onSubmit={handleCreateCustomer} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer Name *</label>
                 <input 
@@ -963,11 +963,11 @@ export default function SalesHub() {
               </div>
             </form>
 
-            <div className="p-6 border-t border-gray-100 bg-white flex gap-3 shrink-0">
-              <button type="button" onClick={() => setIsCustomerModalOpen(false)} className="flex-1 px-4 py-3 min-h-[44px] bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold rounded-xl transition-colors cursor-pointer">
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button type="button" onClick={() => setIsCustomerModalOpen(false)} className="px-4 py-2.5 min-h-[44px] border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors cursor-pointer">
                 Cancel
               </button>
-              <button type="submit" onClick={handleCreateCustomer} className="flex-1 px-4 py-3 min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-blue-600/20 cursor-pointer">
+              <button type="submit" form="customerForm" className="px-5 py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-blue-600/20 cursor-pointer">
                 Save Customer
               </button>
             </div>

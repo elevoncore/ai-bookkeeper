@@ -740,25 +740,22 @@ export default function ChartOfAccountsManager() {
 
       {/* CREATE ACCOUNT MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md p-6 space-y-5 relative max-h-[90vh] flex flex-col my-auto">
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="shrink-0">
+        <div className="fixed inset-0 z-[100] w-screen h-screen flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 <Plus className="w-5 h-5 text-blue-600" /> Create Ledger Account
               </h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Add a new account to your Chart of Accounts.
-              </p>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <form onSubmit={handleCreateAccount} className="space-y-4 flex-1 overflow-y-auto pr-1">
+            <form id="createAccountForm" onSubmit={handleCreateAccount} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium">
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
                   Account Name *
@@ -826,49 +823,47 @@ export default function ChartOfAccountsManager() {
                   />
                 </div>
               )}
-
-              <div className="flex gap-3 pt-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-all cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 py-2.5 min-h-[44px] rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 shadow-md shadow-blue-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
-                >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Account"}
-                </button>
-              </div>
             </form>
+
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="createAccountForm"
+                disabled={isSubmitting}
+                className="px-5 py-2.5 min-h-[44px] rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 shadow-md shadow-blue-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Account"}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* EDIT ACCOUNT MODAL */}
       {editingAccount && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md p-6 space-y-5 relative max-h-[90vh] flex flex-col my-auto">
-            <button
-              onClick={() => setEditingAccount(null)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="shrink-0">
+        <div className="fixed inset-0 z-[100] w-screen h-screen flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-blue-600" /> Edit Account
               </h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Modify account metadata for "{editingAccount.name}".
-              </p>
+              <button
+                onClick={() => setEditingAccount(null)}
+                className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <form onSubmit={handleUpdateAccount} className="space-y-4 flex-1 overflow-y-auto pr-1">
+            <form id="editAccountForm" onSubmit={handleUpdateAccount} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium">
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
                   Account Name *
@@ -933,49 +928,47 @@ export default function ChartOfAccountsManager() {
                   />
                 </div>
               )}
-
-              <div className="flex gap-3 pt-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setEditingAccount(null)}
-                  className="flex-1 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-all cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isEditSubmitting}
-                  className="flex-1 py-2.5 min-h-[44px] rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 shadow-md shadow-blue-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
-                >
-                  {isEditSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update Account"}
-                </button>
-              </div>
             </form>
+
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setEditingAccount(null)}
+                className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="editAccountForm"
+                disabled={isEditSubmitting}
+                className="px-5 py-2.5 min-h-[44px] rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 shadow-md shadow-blue-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
+              >
+                {isEditSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update Account"}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* MANUAL JOURNAL ENTRY MODAL */}
       {isJournalModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl p-6 space-y-5 relative max-h-[90vh] flex flex-col my-auto">
-            <button
-              onClick={() => setIsJournalModalOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="shrink-0">
+        <div className="fixed inset-0 z-[100] w-screen h-screen flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-purple-600" /> New General Journal Entry
               </h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Post balanced debit and credit lines directly to the General Ledger.
-              </p>
+              <button
+                onClick={() => setIsJournalModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <form onSubmit={handlePostJournalEntry} className="space-y-4 flex-1 overflow-y-auto pr-1">
+            <form id="journalForm" onSubmit={handlePostJournalEntry} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Date</label>
@@ -1093,41 +1086,34 @@ export default function ChartOfAccountsManager() {
                   <span>Credits: {(totalCreditCents / 100).toLocaleString()} PKR</span>
                 </div>
               </div>
-
-              <div className="flex gap-3 pt-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsJournalModalOpen(false)}
-                  className="flex-1 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-all cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!isJournalBalanced || isJournalSubmitting || journalLines.some(l => !l.account_id)}
-                  className="flex-1 py-2.5 min-h-[44px] rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-500 shadow-md shadow-purple-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-40"
-                >
-                  {isJournalSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Post Journal Entry"}
-                </button>
-              </div>
             </form>
+
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsJournalModalOpen(false)}
+                className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="journalForm"
+                disabled={!isJournalBalanced || isJournalSubmitting || journalLines.some(l => !l.account_id)}
+                className="px-5 py-2.5 min-h-[44px] rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-500 shadow-md shadow-purple-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-40"
+              >
+                {isJournalSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Post Journal Entry"}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* T-ACCOUNT DRILL-DOWN LEDGER MODAL */}
       {selectedTAccount && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-4xl p-6 space-y-5 relative max-h-[90vh] flex flex-col my-auto">
-            <button
-              onClick={() => setSelectedTAccount(null)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* HEADER */}
-            <div className="shrink-0 border-b border-gray-200 pb-3 flex justify-between items-center pr-10">
+        <div className="fixed inset-0 z-[100] w-screen h-screen flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-black uppercase text-purple-600 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">T-Account Ledger</span>
@@ -1139,16 +1125,23 @@ export default function ChartOfAccountsManager() {
                   {selectedTAccount.name} {selectedTAccount.code && <span className="text-sm font-mono text-gray-400">({selectedTAccount.code})</span>}
                 </h2>
               </div>
+              <button
+                onClick={() => setSelectedTAccount(null)}
+                className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             {/* T-ACCOUNT CONTAINER */}
             {isTAccountLoading ? (
-              <div className="flex flex-col items-center justify-center py-16 text-purple-600">
+              <div className="flex flex-col items-center justify-center py-16 text-purple-600 flex-1">
                 <Loader2 className="w-8 h-8 animate-spin" />
                 <span className="text-xs font-semibold text-gray-500 mt-2">Loading T-Account entries...</span>
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto space-y-4">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
                 
                 {/* CLASSIC T-BAR TABLE */}
                 <div className="border-2 border-gray-800 rounded-xl overflow-hidden shadow-sm bg-white">
@@ -1257,6 +1250,16 @@ export default function ChartOfAccountsManager() {
 
               </div>
             )}
+            
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setSelectedTAccount(null)}
+                className="px-5 py-2.5 min-h-[44px] bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition-all cursor-pointer"
+              >
+                Close Ledger
+              </button>
+            </div>
           </div>
         </div>
       )}

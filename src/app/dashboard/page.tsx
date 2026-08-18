@@ -240,7 +240,7 @@ export default function DashboardPage() {
         </button>
 
         {mobileChatOpen && (
-          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex flex-col justify-end p-2 sm:p-4">
+          <div className="fixed inset-0 z-[100] w-screen h-screen bg-black/50 backdrop-blur-sm flex flex-col justify-end p-2 sm:p-4 animate-in fade-in duration-200">
             <div className="bg-white rounded-3xl h-[85dvh] max-h-[85dvh] w-full max-w-lg mx-auto flex flex-col shadow-2xl overflow-hidden relative">
               <AiChatPanel
                 chartOfAccounts={chartOfAccounts}

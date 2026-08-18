@@ -33,11 +33,11 @@ export default function AiChatLogModal({ txId, onClose }: AiChatLogModalProps) {
   }, [txId, supabase]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white/90 backdrop-blur-2xl border border-white/50 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-[100] w-screen h-screen flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
         
-        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-          <h2 className="font-bold text-gray-900 flex items-center gap-2">
+        <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+          <h2 className="font-bold text-gray-900 flex items-center gap-2 text-base sm:text-lg">
             <Bot className="w-5 h-5 text-blue-600 shrink-0" /> AI Audit Log
           </h2>
           <button onClick={onClose} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 bg-white rounded-full shadow-xs hover:bg-gray-100 transition-colors cursor-pointer" aria-label="Close modal">
@@ -45,7 +45,7 @@ export default function AiChatLogModal({ txId, onClose }: AiChatLogModalProps) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-w-0">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 min-w-0 font-medium">
           {isLoading ? (
             <div className="flex justify-center py-12 text-blue-600">
               <Loader2 className="w-8 h-8 animate-spin" />
