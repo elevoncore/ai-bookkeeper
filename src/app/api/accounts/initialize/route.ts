@@ -36,21 +36,25 @@ export async function POST(request: Request) {
 
     // Ensure all standard system accounts exist (including Loan Payable & Interest Expense)
     const accountsToSeed = [
-      { user_id: user.id, name: 'Main Bank Account', type: 'asset', is_system: true },
-      { user_id: user.id, name: 'Petty Cash', type: 'asset', is_system: true },
-      { user_id: user.id, name: 'Accounts Receivable', type: 'asset', is_system: true },
-      { user_id: user.id, name: 'Inventory Asset', type: 'asset', is_system: true },
-      { user_id: user.id, name: 'Accounts Payable', type: 'liability', is_system: true },
-      { user_id: user.id, name: 'Loan Payable', type: 'liability', is_system: true },
-      { user_id: user.id, name: 'Owners Equity', type: 'equity', is_system: true },
-      { user_id: user.id, name: 'Sales Revenue', type: 'revenue', is_system: true },
-      { user_id: user.id, name: 'Service Revenue', type: 'revenue', is_system: true },
-      { user_id: user.id, name: 'Cost of Goods Sold', type: 'expense', is_system: true },
-      { user_id: user.id, name: 'Rent Expense', type: 'expense', is_system: true },
-      { user_id: user.id, name: 'Utilities', type: 'expense', is_system: true },
-      { user_id: user.id, name: 'Software & Hosting', type: 'expense', is_system: true },
-      { user_id: user.id, name: 'Interest Expense', type: 'expense', is_system: true },
-      { user_id: user.id, name: 'General Operating Expense', type: 'expense', is_system: true }
+      { user_id: user.id, name: 'Main Bank Account', type: 'asset', is_system: true, is_cash_account: true },
+      { user_id: user.id, name: 'Petty Cash', type: 'asset', is_system: true, is_cash_account: true },
+      { user_id: user.id, name: 'Accounts Receivable', type: 'asset', is_system: true, is_cash_account: false },
+      { user_id: user.id, name: 'Inventory Asset', type: 'asset', is_system: true, is_cash_account: false },
+      { user_id: user.id, name: 'Fixed Assets - Equipment/Furniture', type: 'asset', is_system: true, is_cash_account: false },
+      { user_id: user.id, name: 'Accounts Payable', type: 'liability', is_system: true, is_cash_account: false },
+      { user_id: user.id, name: 'Sales Tax Payable', type: 'liability', is_system: true, is_cash_account: false },
+      { user_id: user.id, name: 'Loan Payable', type: 'liability', is_system: true, is_cash_account: false },
+      { user_id: user.id, name: 'Owners Equity', type: 'equity', is_system: true, is_cash_account: false },
+      { user_id: user.id, name: 'Owner Drawings', type: 'equity', is_system: true, is_cash_account: false },
+      { user_id: user.id, name: 'Retained Earnings', type: 'equity', is_system: true, is_cash_account: false },
+      { user_id: user.id, name: 'Sales Revenue', type: 'revenue', is_system: true, is_cash_account: false },
+      { user_id: user.id, name: 'Service Revenue', type: 'revenue', is_system: true, is_cash_account: false },
+      { user_id: user.id, name: 'Cost of Goods Sold', type: 'expense', is_system: true, is_cash_account: false },
+      { user_id: user.id, name: 'Rent Expense', type: 'expense', is_system: true, is_cash_account: false },
+      { user_id: user.id, name: 'Utilities', type: 'expense', is_system: true, is_cash_account: false },
+      { user_id: user.id, name: 'Software & Hosting', type: 'expense', is_system: true, is_cash_account: false },
+      { user_id: user.id, name: 'Interest Expense', type: 'expense', is_system: true, is_cash_account: false },
+      { user_id: user.id, name: 'General Operating Expense', type: 'expense', is_system: true, is_cash_account: false }
     ];
 
     for (const acc of accountsToSeed) {
