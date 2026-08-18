@@ -75,6 +75,11 @@ export default function ChartOfAccountsManager() {
   ]);
   const [isJournalSubmitting, setIsJournalSubmitting] = useState(false);
 
+  // T-Account Drill-Down Modal State
+  const [selectedTAccount, setSelectedTAccount] = useState<AccountRow | null>(null);
+  const [tAccountLines, setTAccountLines] = useState<any[]>([]);
+  const [isTAccountLoading, setIsTAccountLoading] = useState(false);
+
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -83,6 +88,39 @@ export default function ChartOfAccountsManager() {
   useEffect(() => {
     fetchAccountsWithBalances();
   }, []);
+
+  // Lock background scroll when any modal is open
+  useEffect(() => {
+    if (isModalOpen || editingAccount || isJournalModalOpen || selectedTAccount) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isModalOpen, editingAccount, isJournalModalOpen, selectedTAccount]);
+
+  async function handleOpenTAccount(acc: AccountRow) {
+    setSelectedTAccount(acc);
+    setIsTAccountLoading(true);
+    try {
+      const { data: lines, error } = await supabase
+        .from('journal_lines')
+        .select('*, journal_entries(date, description, reference_type)')
+        .eq('account_id', acc.id);
+
+      if (error) {
+        console.error("Error fetching T-Account lines:", error);
+      } else {
+        setTAccountLines(lines || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch T-Account lines:", err);
+    } finally {
+      setIsTAccountLoading(false);
+    }
+  }
 
   async function fetchAccountsWithBalances() {
     setIsLoading(true);
@@ -600,8 +638,14 @@ export default function ChartOfAccountsManager() {
                         group.items.map(acc => (
                           <tr key={acc.id} className="hover:bg-white/60 transition-colors">
                             <td className="px-6 py-3.5 font-bold text-gray-900 text-xs">
-                              {acc.name}
-                              {acc.code && <span className="text-[10px] text-gray-400 ml-2 font-mono">({acc.code})</span>}
+                              <button
+                                onClick={() => handleOpenTAccount(acc)}
+                                className="hover:text-blue-600 hover:underline text-left cursor-pointer flex items-center gap-1.5 transition-colors group/name"
+                                title={`Click to open T-Account Ledger for ${acc.name}`}
+                              >
+                                <span>{acc.name}</span>
+                                {acc.code && <span className="text-[10px] text-gray-400 font-mono">({acc.code})</span>}
+                              </button>
                             </td>
                             <td className="px-6 py-3.5 text-xs">
                               <span className={`px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase border ${typeBadges[acc.type]}`}>
@@ -663,8 +707,8 @@ export default function ChartOfAccountsManager() {
 
       {/* CREATE ACCOUNT MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md p-6 space-y-5 relative max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md p-6 space-y-5 relative max-h-[90vh] flex flex-col my-auto">
             <button
               onClick={() => setIsModalOpen(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg cursor-pointer"
@@ -773,8 +817,8 @@ export default function ChartOfAccountsManager() {
 
       {/* EDIT ACCOUNT MODAL */}
       {editingAccount && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md p-6 space-y-5 relative max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md p-6 space-y-5 relative max-h-[90vh] flex flex-col my-auto">
             <button
               onClick={() => setEditingAccount(null)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg cursor-pointer"
@@ -880,8 +924,8 @@ export default function ChartOfAccountsManager() {
 
       {/* MANUAL JOURNAL ENTRY MODAL */}
       {isJournalModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl p-6 space-y-5 relative max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl p-6 space-y-5 relative max-h-[90vh] flex flex-col my-auto">
             <button
               onClick={() => setIsJournalModalOpen(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg cursor-pointer"
@@ -1034,6 +1078,152 @@ export default function ChartOfAccountsManager() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* T-ACCOUNT DRILL-DOWN LEDGER MODAL */}
+      {selectedTAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-4xl p-6 space-y-5 relative max-h-[90vh] flex flex-col my-auto">
+            <button
+              onClick={() => setSelectedTAccount(null)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* HEADER */}
+            <div className="shrink-0 border-b border-gray-200 pb-3 flex justify-between items-center pr-10">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase text-purple-600 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">T-Account Ledger</span>
+                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border ${typeBadges[selectedTAccount.type]}`}>
+                    {selectedTAccount.type}
+                  </span>
+                </div>
+                <h2 className="text-xl font-extrabold text-gray-900 mt-1">
+                  {selectedTAccount.name} {selectedTAccount.code && <span className="text-sm font-mono text-gray-400">({selectedTAccount.code})</span>}
+                </h2>
+              </div>
+            </div>
+
+            {/* T-ACCOUNT CONTAINER */}
+            {isTAccountLoading ? (
+              <div className="flex flex-col items-center justify-center py-16 text-purple-600">
+                <Loader2 className="w-8 h-8 animate-spin" />
+                <span className="text-xs font-semibold text-gray-500 mt-2">Loading T-Account entries...</span>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto space-y-4">
+                
+                {/* CLASSIC T-BAR TABLE */}
+                <div className="border-2 border-gray-800 rounded-xl overflow-hidden shadow-sm bg-white">
+                  
+                  {/* T-ACCOUNT TOP TITLE BAR */}
+                  <div className="bg-gray-900 text-white px-4 py-2 flex justify-between items-center text-xs font-black tracking-wider uppercase border-b-2 border-gray-800">
+                    <span className="text-emerald-400">DR. (DEBITS)</span>
+                    <span className="text-white tracking-widest">{selectedTAccount.name}</span>
+                    <span className="text-rose-400">CR. (CREDITS)</span>
+                  </div>
+
+                  {/* 2-COLUMN SPLIT GRID */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x-2 divide-gray-800 text-xs">
+                    
+                    {/* LEFT COLUMN: DEBITS (DR) */}
+                    <div className="p-3 space-y-2 flex flex-col justify-between min-h-[220px]">
+                      <div>
+                        <div className="flex justify-between items-center font-bold text-gray-700 uppercase pb-2 border-b border-gray-200">
+                          <span>Date & Entry</span>
+                          <span>Debit Amount</span>
+                        </div>
+                        <div className="divide-y divide-gray-100">
+                          {tAccountLines.filter(l => Number(l.debit) > 0).length === 0 ? (
+                            <p className="text-gray-400 italic text-[11px] py-4 text-center">No Debit entries recorded.</p>
+                          ) : (
+                            tAccountLines.filter(l => Number(l.debit) > 0).map((l, i) => (
+                              <div key={i} className="py-2 flex justify-between items-center gap-2">
+                                <div>
+                                  <span className="font-semibold text-gray-900 block">{l.journal_entries?.description || 'Journal Entry'}</span>
+                                  <span className="text-[10px] text-gray-400">{l.journal_entries?.date} &middot; {l.journal_entries?.reference_type}</span>
+                                </div>
+                                <span className="font-extrabold text-emerald-700 shrink-0">
+                                  {Number(l.debit).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t-2 border-gray-800 flex justify-between items-center font-black text-gray-900 text-sm">
+                        <span>TOTAL DEBITS (DR)</span>
+                        <span className="text-emerald-700">
+                          {tAccountLines.reduce((s, l) => s + Number(l.debit || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* RIGHT COLUMN: CREDITS (CR) */}
+                    <div className="p-3 space-y-2 flex flex-col justify-between min-h-[220px]">
+                      <div>
+                        <div className="flex justify-between items-center font-bold text-gray-700 uppercase pb-2 border-b border-gray-200">
+                          <span>Date & Entry</span>
+                          <span>Credit Amount</span>
+                        </div>
+                        <div className="divide-y divide-gray-100">
+                          {tAccountLines.filter(l => Number(l.credit) > 0).length === 0 ? (
+                            <p className="text-gray-400 italic text-[11px] py-4 text-center">No Credit entries recorded.</p>
+                          ) : (
+                            tAccountLines.filter(l => Number(l.credit) > 0).map((l, i) => (
+                              <div key={i} className="py-2 flex justify-between items-center gap-2">
+                                <div>
+                                  <span className="font-semibold text-gray-900 block">{l.journal_entries?.description || 'Journal Entry'}</span>
+                                  <span className="text-[10px] text-gray-400">{l.journal_entries?.date} &middot; {l.journal_entries?.reference_type}</span>
+                                </div>
+                                <span className="font-extrabold text-rose-700 shrink-0">
+                                  {Number(l.credit).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t-2 border-gray-800 flex justify-between items-center font-black text-gray-900 text-sm">
+                        <span>TOTAL CREDITS (CR)</span>
+                        <span className="text-rose-700">
+                          {tAccountLines.reduce((s, l) => s + Number(l.credit || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+                        </span>
+                      </div>
+                    </div>
+
+                  </div>
+
+                </div>
+
+                {/* NET ENDING BALANCE SUMMARY BAR */}
+                {(() => {
+                  const totDr = tAccountLines.reduce((s, l) => s + Number(l.debit || 0), 0);
+                  const totCr = tAccountLines.reduce((s, l) => s + Number(l.credit || 0), 0);
+                  const netVal = Math.abs(totDr - totCr);
+                  const balanceType = totDr >= totCr ? 'Debit Balance (DR)' : 'Credit Balance (CR)';
+
+                  return (
+                    <div className="bg-purple-950 text-white p-4 rounded-xl flex justify-between items-center shadow-md">
+                      <div>
+                        <span className="text-[10px] font-bold text-purple-300 uppercase tracking-wider block">ACCOUNT ENDING BALANCE</span>
+                        <span className="text-sm font-extrabold text-purple-200">{balanceType}</span>
+                      </div>
+                      <span className="text-lg font-black text-purple-300">
+                        {netVal.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+                      </span>
+                    </div>
+                  );
+                })()}
+
+              </div>
+            )}
           </div>
         </div>
       )}

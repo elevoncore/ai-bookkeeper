@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { 
   FileSpreadsheet, 
@@ -15,7 +15,8 @@ import {
   TrendingUp, 
   BarChart3, 
   Calendar,
-  Layers
+  Layers,
+  Wallet
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -29,7 +30,7 @@ import {
 } from 'recharts';
 import ChartOfAccountsManager from './ChartOfAccountsManager';
 
-type Tab = 'chart_of_accounts' | 'ledger' | 'pnl' | 'trial_balance' | 'balance_sheet';
+type Tab = 'chart_of_accounts' | 'cashbook' | 'pnl' | 'balance_sheet' | 'trial_balance' | 'ledger';
 
 export default function ReportsHub() {
   const [activeTab, setActiveTab] = useState<Tab>('chart_of_accounts');
@@ -52,6 +53,12 @@ export default function ReportsHub() {
   const [insights, setInsights] = useState<string[] | null>(null);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
 
+  // Cashbook View State
+  const [cashbookSummary, setCashbookSummary] = useState<any>(null);
+  const [cashbookEntries, setCashbookEntries] = useState<any[]>([]);
+  const [cashAccountFilter, setCashAccountFilter] = useState<string>('all');
+  const [isLoadingCashbook, setIsLoadingCashbook] = useState(false);
+
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -64,6 +71,12 @@ export default function ReportsHub() {
   useEffect(() => {
     fetchTimeSeries(timeframe, timeRange);
   }, [timeframe, timeRange]);
+
+  useEffect(() => {
+    if (activeTab === 'cashbook') {
+      fetchCashbookData();
+    }
+  }, [activeTab]);
 
   async function fetchBalanceSheet(targetDate?: string) {
     const dateQuery = targetDate || asOfDate;
@@ -80,6 +93,68 @@ export default function ReportsHub() {
       setIsLoadingBs(false);
     }
   }
+
+  async function fetchCashbookData() {
+    setIsLoadingCashbook(true);
+    try {
+      const res = await fetch('/api/reports/cashbook');
+      if (res.ok) {
+        const summaryData = await res.json();
+        setCashbookSummary(summaryData);
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: accounts } = await supabase
+        .from('accounts')
+        .select('id, name, is_cash_account, type')
+        .eq('user_id', user.id);
+
+      const cashAccountIds = (accounts || []).filter(a => {
+        if (a.type !== 'asset') return false;
+        if (a.is_cash_account) return true;
+        const lower = a.name.toLowerCase();
+        return lower === 'main bank account' || lower === 'petty cash' || lower.includes('bank') || lower.includes('cash') || lower.includes('wallet') || lower.includes('paypal') || lower.includes('easypaisa');
+      }).map(a => a.id);
+
+      if (cashAccountIds.length > 0) {
+        const { data: lines } = await supabase
+          .from('journal_lines')
+          .select('*, journal_entries(date, description, reference_type), accounts(name)')
+          .in('account_id', cashAccountIds)
+          .order('created_at', { ascending: true });
+
+        setCashbookEntries(lines || []);
+      } else {
+        setCashbookEntries([]);
+      }
+    } catch (e) {
+      console.error("Failed to fetch cashbook details:", e);
+    } finally {
+      setIsLoadingCashbook(false);
+    }
+  }
+
+  const processedCashbookEntries = useMemo(() => {
+    let filtered = cashbookEntries;
+    if (cashAccountFilter !== 'all') {
+      filtered = cashbookEntries.filter(l => l.account_id === cashAccountFilter);
+    }
+
+    let currentBalance = 0;
+    const withBalance = filtered.map(line => {
+      const debit = Number(line.debit || 0);
+      const credit = Number(line.credit || 0);
+      currentBalance += (debit - credit);
+      return {
+        ...line,
+        running_balance: currentBalance
+      };
+    });
+
+    return [...withBalance].reverse();
+  }, [cashbookEntries, cashAccountFilter]);
 
   async function fetchTimeSeries(tf: 'daily' | 'weekly' | 'monthly', range: '7d' | '30d' | 'ytd' | 'all') {
     setIsLoadingTimeSeries(true);
@@ -143,6 +218,9 @@ export default function ReportsHub() {
     // Fetch Balance Sheet
     await fetchBalanceSheet(asOfDate);
 
+    // Fetch Cashbook Summary
+    await fetchCashbookData();
+
     // Fetch Initial Insights
     fetchInsights();
 
@@ -159,7 +237,7 @@ export default function ReportsHub() {
             Accounting & Financial Ledger
           </h1>
           <p className="text-xs text-gray-500 mt-1">
-            General Ledger, Chart of Accounts, P&L, time-series trends, and certified Balance Sheet.
+            General Ledger, Chart of Accounts, Cash Book, P&L, time-series trends, and certified Balance Sheet.
           </p>
         </div>
 
@@ -236,6 +314,12 @@ export default function ReportsHub() {
           <FolderTree className="w-4 h-4" /> Chart of Accounts
         </button>
         <button
+          onClick={() => setActiveTab('cashbook')}
+          className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'cashbook' ? 'bg-emerald-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+        >
+          <Wallet className="w-4 h-4" /> Dedicated Cash Book
+        </button>
+        <button
           onClick={() => setActiveTab('pnl')}
           className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'pnl' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
         >
@@ -275,6 +359,126 @@ export default function ReportsHub() {
             {activeTab === 'chart_of_accounts' && (
               <div className="p-4 sm:p-6 min-w-0">
                 <ChartOfAccountsManager />
+              </div>
+            )}
+
+            {/* DEDICATED CASH BOOK TAB */}
+            {activeTab === 'cashbook' && (
+              <div className="p-4 sm:p-6 space-y-6 min-w-0">
+                
+                {/* CASHBOOK SUMMARY CARDS */}
+                {cashbookSummary && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 min-w-0">
+                    <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-2xl min-w-0">
+                      <p className="text-emerald-700 text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                        <Wallet className="w-4 h-4" /> Total Liquid Cash Available
+                      </p>
+                      <h3 className="text-2xl font-black text-emerald-950 truncate">
+                        {cashbookSummary.totalCashBalance?.toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-xs font-bold text-emerald-700">PKR</span>
+                      </h3>
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-100 p-5 rounded-2xl min-w-0">
+                      <p className="text-blue-700 text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                        <TrendingUp className="w-4 h-4" /> Total Cash In (Debits)
+                      </p>
+                      <h3 className="text-2xl font-black text-blue-950 truncate">
+                        {cashbookEntries.reduce((s, l) => s + Number(l.debit || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-xs font-bold text-blue-700">PKR</span>
+                      </h3>
+                    </div>
+
+                    <div className="bg-rose-50 border border-rose-100 p-5 rounded-2xl min-w-0">
+                      <p className="text-rose-700 text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                        <DollarSign className="w-4 h-4" /> Total Cash Out (Credits)
+                      </p>
+                      <h3 className="text-2xl font-black text-rose-950 truncate">
+                        {cashbookEntries.reduce((s, l) => s + Number(l.credit || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-xs font-bold text-rose-700">PKR</span>
+                      </h3>
+                    </div>
+                  </div>
+                )}
+
+                {/* ACCOUNT FILTER BAR */}
+                <div className="bg-white/70 backdrop-blur-md border border-gray-200 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-gray-900 flex items-center gap-2">
+                      <Wallet className="w-4 h-4 text-emerald-600" /> Cash Book Money Flow Register
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-0.5">Chronological record of all liquid money movements into and out of cash & bank accounts.</p>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <label className="text-xs font-bold text-gray-700 whitespace-nowrap">Filter Account:</label>
+                    <select
+                      value={cashAccountFilter}
+                      onChange={(e) => setCashAccountFilter(e.target.value)}
+                      className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer w-full sm:w-auto"
+                    >
+                      <option value="all">All Cash & Bank Accounts</option>
+                      {cashbookSummary?.accounts?.map((acc: any) => (
+                        <option key={acc.id} value={acc.id}>{acc.name} ({acc.balance.toLocaleString()} PKR)</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* CASH BOOK TABLE */}
+                <div className="overflow-x-auto custom-scrollbar min-w-0 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-xs">
+                  {isLoadingCashbook ? (
+                    <div className="flex flex-col items-center justify-center py-16 text-emerald-600">
+                      <Loader2 className="w-8 h-8 animate-spin" />
+                      <span className="text-xs font-semibold text-gray-500 mt-2">Loading Cash Book Register...</span>
+                    </div>
+                  ) : (
+                    <table className="w-full text-left text-sm whitespace-nowrap min-w-[750px]">
+                      <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-semibold border-b border-gray-200">
+                        <tr>
+                          <th className="px-6 py-3.5">Date</th>
+                          <th className="px-6 py-3.5">Account</th>
+                          <th className="px-6 py-3.5">Description / Particulars</th>
+                          <th className="px-6 py-3.5">Reference</th>
+                          <th className="px-6 py-3.5 text-right">Cash In (Debit)</th>
+                          <th className="px-6 py-3.5 text-right">Cash Out (Credit)</th>
+                          <th className="px-6 py-3.5 text-right">Running Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 text-gray-700 text-xs">
+                        {processedCashbookEntries.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
+                              No cash or bank transactions found for the selected account.
+                            </td>
+                          </tr>
+                        ) : (
+                          processedCashbookEntries.map((entry, idx) => (
+                            <tr key={idx} className="hover:bg-gray-50/80 transition-colors">
+                              <td className="px-6 py-3.5 font-medium text-gray-500">{entry.journal_entries?.date}</td>
+                              <td className="px-6 py-3.5 font-bold text-gray-900">
+                                <span className="px-2 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-[11px]">
+                                  {entry.accounts?.name}
+                                </span>
+                              </td>
+                              <td className="px-6 py-3.5 font-semibold text-gray-800 max-w-xs truncate" title={entry.journal_entries?.description}>
+                                {entry.journal_entries?.description || 'Cash Transaction'}
+                              </td>
+                              <td className="px-6 py-3.5 text-gray-400 font-mono text-[11px]">{entry.journal_entries?.reference_type}</td>
+                              <td className="px-6 py-3.5 text-right font-extrabold text-emerald-600">
+                                {Number(entry.debit) > 0 ? `+${Number(entry.debit).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR` : '-'}
+                              </td>
+                              <td className="px-6 py-3.5 text-right font-extrabold text-rose-600">
+                                {Number(entry.credit) > 0 ? `-${Number(entry.credit).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR` : '-'}
+                              </td>
+                              <td className="px-6 py-3.5 text-right font-black text-gray-900 text-sm">
+                                {entry.running_balance.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
               </div>
             )}
 
