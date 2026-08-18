@@ -7,16 +7,19 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  fallback: ["sans-serif"]
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  fallback: ["monospace"]
 });
 
 const outfit = Outfit({
   variable: "--font-outfit",
   subsets: ["latin"],
+  fallback: ["sans-serif"]
 });
 
 export const metadata: Metadata = {
