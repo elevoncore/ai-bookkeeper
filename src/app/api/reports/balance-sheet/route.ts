@@ -71,12 +71,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Failed to fetch accounts" }, { status: 500 });
     }
 
-    // 2. Fetch Journal Lines for user WHERE date <= asOfDate (Snapshot in time)
+    // Format cutoff date to include full end-of-day (23:59:59.999) for timestamp fields
+    const cutoffDate = asOfDate.includes('T') ? asOfDate : `${asOfDate} 23:59:59.999`;
+
+    // 2. Fetch Journal Lines for user WHERE date <= cutoffDate (Snapshot in time)
     const { data: journalLines, error: jlError } = await supabase
       .from('journal_lines')
       .select('account_id, debit, credit, journal_entries!inner(user_id, date)')
       .eq('journal_entries.user_id', user.id)
-      .lte('journal_entries.date', asOfDate);
+      .lte('journal_entries.date', cutoffDate);
 
     if (jlError) {
       console.error("Journal lines error:", jlError);
