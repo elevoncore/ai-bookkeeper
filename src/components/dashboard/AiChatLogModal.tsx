@@ -42,13 +42,13 @@ export default function AiChatLogModal({ txId, onClose }: AiChatLogModalProps) {
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-gray-100 dark:border-slate-800 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
         
-        <div className="p-4 sm:p-6 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-800/50 shrink-0">
-          <h2 className="font-bold text-gray-900 dark:text-white flex items-center gap-2 text-base sm:text-lg">
+        <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+          <h2 className="font-bold text-gray-900 flex items-center gap-2 text-base sm:text-lg">
             <Bot className="w-5 h-5 text-blue-600 shrink-0" /> AI Audit Log
           </h2>
-          <button onClick={onClose} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 bg-white dark:bg-slate-800 rounded-full shadow-xs hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors cursor-pointer" aria-label="Close modal">
+          <button onClick={onClose} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 bg-white rounded-full shadow-xs hover:bg-gray-100 transition-colors cursor-pointer" aria-label="Close modal">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -74,7 +74,7 @@ export default function AiChatLogModal({ txId, onClose }: AiChatLogModalProps) {
                     </div>
                   )}
                   
-                  <div className={`p-3 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm break-words whitespace-pre-wrap min-w-0 ${msg.sender === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-100 dark:bg-slate-800 text-gray-800 dark:text-gray-200 rounded-bl-none border border-gray-200 dark:border-slate-700'}`}>
+                  <div className={`p-3 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm break-words whitespace-pre-wrap min-w-0 ${msg.sender === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none border border-gray-200'}`}>
                     {msg.text}
                   </div>
                 </div>
