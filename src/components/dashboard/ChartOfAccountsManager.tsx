@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { createBrowserClient } from '@supabase/ssr';
 import { 
   BookOpen, 
@@ -44,10 +45,15 @@ interface ManualJournalLineInput {
 }
 
 export default function ChartOfAccountsManager() {
+  const [mounted, setMounted] = useState(false);
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   // New Account Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -739,16 +745,16 @@ export default function ChartOfAccountsManager() {
       )}
 
       {/* CREATE ACCOUNT MODAL */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[100] w-screen h-screen flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+      {mounted && isModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-800/50 shrink-0">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <Plus className="w-5 h-5 text-blue-600" /> Create Ledger Account
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 aria-label="Close modal"
               >
                 <X className="w-5 h-5" />
@@ -757,7 +763,7 @@ export default function ChartOfAccountsManager() {
 
             <form id="createAccountForm" onSubmit={handleCreateAccount} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium">
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase mb-1">
                   Account Name *
                 </label>
                 <input
@@ -766,12 +772,12 @@ export default function ChartOfAccountsManager() {
                   value={newAccountName}
                   onChange={(e) => setNewAccountName(e.target.value)}
                   placeholder="e.g. Secondary Digital Bank, Office Equipment"
-                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none"
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-600 outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase mb-1">
                   Account Code (Optional)
                 </label>
                 <input
@@ -779,12 +785,12 @@ export default function ChartOfAccountsManager() {
                   value={newAccountCode}
                   onChange={(e) => setNewAccountCode(e.target.value)}
                   placeholder="e.g. 1020, 5050"
-                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none font-mono"
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-600 outline-none font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase mb-1">
                   Account Type *
                 </label>
                 <select
@@ -794,7 +800,7 @@ export default function ChartOfAccountsManager() {
                     setNewAccountType(t);
                     if (t !== 'asset') setIsCashAccount(false);
                   }}
-                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none bg-white cursor-pointer"
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-600 outline-none cursor-pointer"
                 >
                   <option value="asset">Asset (e.g. Bank, Cash, Equipment)</option>
                   <option value="liability">Liability (e.g. Credit Card, Loans)</option>
@@ -806,12 +812,12 @@ export default function ChartOfAccountsManager() {
 
               {/* DYNAMIC BANK OR CASH ACCOUNT TOGGLE */}
               {newAccountType === 'asset' && (
-                <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-100 flex items-center justify-between min-h-[44px]">
+                <div className="p-3.5 rounded-xl bg-blue-50/70 dark:bg-slate-800/80 border border-blue-100 dark:border-slate-700 flex items-center justify-between min-h-[44px]">
                   <div className="space-y-0.5">
-                    <span className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
                       <Landmark className="w-4 h-4 text-blue-600" /> Is this a Bank or Cash account?
                     </span>
-                    <p className="text-[11px] text-gray-500">
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">
                       Bank/Cash accounts automatically appear in the liquid Cashbook widget.
                     </p>
                   </div>
@@ -825,11 +831,11 @@ export default function ChartOfAccountsManager() {
               )}
             </form>
 
-            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+            <div className="p-4 sm:p-6 border-t border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50 flex justify-end gap-3 shrink-0">
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
+                className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 dark:border-slate-700 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
               >
                 Cancel
               </button>
@@ -843,20 +849,21 @@ export default function ChartOfAccountsManager() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* EDIT ACCOUNT MODAL */}
-      {editingAccount && (
-        <div className="fixed inset-0 z-[100] w-screen h-screen flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+      {mounted && editingAccount && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-800/50 shrink-0">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-blue-600" /> Edit Account
               </h3>
               <button
                 onClick={() => setEditingAccount(null)}
-                className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 aria-label="Close modal"
               >
                 <X className="w-5 h-5" />
@@ -865,7 +872,7 @@ export default function ChartOfAccountsManager() {
 
             <form id="editAccountForm" onSubmit={handleUpdateAccount} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium">
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase mb-1">
                   Account Name *
                 </label>
                 <input
@@ -873,24 +880,24 @@ export default function ChartOfAccountsManager() {
                   required
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none"
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-600 outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase mb-1">
                   Account Code (Optional)
                 </label>
                 <input
                   type="text"
                   value={editCode}
                   onChange={(e) => setEditCode(e.target.value)}
-                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none font-mono"
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-600 outline-none font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase mb-1">
                   Account Type *
                 </label>
                 <select
@@ -900,7 +907,7 @@ export default function ChartOfAccountsManager() {
                     setEditType(t);
                     if (t !== 'asset') setEditIsCash(false);
                   }}
-                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none bg-white cursor-pointer"
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-600 outline-none cursor-pointer"
                 >
                   <option value="asset">Asset (e.g. Bank, Cash, Equipment)</option>
                   <option value="liability">Liability (e.g. Credit Card, Loans)</option>
@@ -911,12 +918,12 @@ export default function ChartOfAccountsManager() {
               </div>
 
               {editType === 'asset' && (
-                <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-100 flex items-center justify-between min-h-[44px]">
+                <div className="p-3.5 rounded-xl bg-blue-50/70 dark:bg-slate-800/80 border border-blue-100 dark:border-slate-700 flex items-center justify-between min-h-[44px]">
                   <div className="space-y-0.5">
-                    <span className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
                       <Landmark className="w-4 h-4 text-blue-600" /> Is this a Bank or Cash account?
                     </span>
-                    <p className="text-[11px] text-gray-500">
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">
                       Bank/Cash accounts appear in the liquid Cashbook widget.
                     </p>
                   </div>
@@ -930,11 +937,11 @@ export default function ChartOfAccountsManager() {
               )}
             </form>
 
-            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+            <div className="p-4 sm:p-6 border-t border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50 flex justify-end gap-3 shrink-0">
               <button
                 type="button"
                 onClick={() => setEditingAccount(null)}
-                className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
+                className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 dark:border-slate-700 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
               >
                 Cancel
               </button>
@@ -948,20 +955,21 @@ export default function ChartOfAccountsManager() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* MANUAL JOURNAL ENTRY MODAL */}
-      {isJournalModalOpen && (
-        <div className="fixed inset-0 z-[100] w-screen h-screen flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+      {mounted && isJournalModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-800/50 shrink-0">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-purple-600" /> New General Journal Entry
               </h3>
               <button
                 onClick={() => setIsJournalModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 aria-label="Close modal"
               >
                 <X className="w-5 h-5" />
@@ -971,24 +979,24 @@ export default function ChartOfAccountsManager() {
             <form id="journalForm" onSubmit={handlePostJournalEntry} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Date</label>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase mb-1">Date</label>
                   <input
                     type="date"
                     required
                     value={journalDate}
                     onChange={(e) => setJournalDate(e.target.value)}
-                    className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-purple-600"
+                    className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-purple-600"
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Description / Reference</label>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase mb-1">Description / Reference</label>
                   <input
                     type="text"
                     required
                     value={journalDescription}
                     onChange={(e) => setJournalDescription(e.target.value)}
                     placeholder="e.g. Owner capital investment, Bank to Petty Cash transfer"
-                    className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-purple-600"
+                    className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-purple-600"
                   />
                 </div>
               </div>
@@ -996,11 +1004,11 @@ export default function ChartOfAccountsManager() {
               {/* DYNAMIC JOURNAL LINES TABLE */}
               <div className="space-y-2 pt-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-gray-800 uppercase">Journal Lines</span>
+                  <span className="text-xs font-bold text-gray-800 dark:text-gray-200 uppercase">Journal Lines</span>
                   <button
                     type="button"
                     onClick={handleAddJournalLine}
-                    className="text-xs font-bold text-purple-600 hover:text-purple-700 flex items-center gap-1 cursor-pointer min-h-[44px] px-2"
+                    className="text-xs font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400 flex items-center gap-1 cursor-pointer min-h-[44px] px-2"
                   >
                     <Plus className="w-3.5 h-3.5" /> Add Line
                   </button>
@@ -1008,13 +1016,13 @@ export default function ChartOfAccountsManager() {
 
                 <div className="space-y-2">
                   {journalLines.map((line, idx) => (
-                    <div key={idx} className="flex gap-2 items-center bg-gray-50 p-2.5 rounded-xl border border-gray-200">
+                    <div key={idx} className="flex gap-2 items-center bg-gray-50 dark:bg-slate-800/80 p-2.5 rounded-xl border border-gray-200 dark:border-slate-700">
                       <div className="flex-1">
                         <select
                           required
                           value={line.account_id}
                           onChange={(e) => handleJournalLineChange(idx, 'account_id', e.target.value)}
-                          className="w-full px-2.5 py-2 min-h-[44px] rounded-lg border border-gray-300 text-xs text-gray-900 outline-none bg-white cursor-pointer"
+                          className="w-full px-2.5 py-2 min-h-[44px] rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-gray-900 dark:text-white outline-none cursor-pointer"
                         >
                           <option value="">-- Select Account --</option>
                           {accounts.map(acc => (
@@ -1033,7 +1041,7 @@ export default function ChartOfAccountsManager() {
                           placeholder="Debit PKR"
                           value={line.debit}
                           onChange={(e) => handleJournalLineChange(idx, 'debit', e.target.value)}
-                          className="w-full px-2.5 py-2 min-h-[44px] rounded-lg border border-gray-300 text-xs text-gray-900 outline-none text-right font-semibold"
+                          className="w-full px-2.5 py-2 min-h-[44px] rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-gray-900 dark:text-white outline-none text-right font-semibold"
                         />
                       </div>
 
@@ -1045,7 +1053,7 @@ export default function ChartOfAccountsManager() {
                           placeholder="Credit PKR"
                           value={line.credit}
                           onChange={(e) => handleJournalLineChange(idx, 'credit', e.target.value)}
-                          className="w-full px-2.5 py-2 min-h-[44px] rounded-lg border border-gray-300 text-xs text-gray-900 outline-none text-right font-semibold"
+                          className="w-full px-2.5 py-2 min-h-[44px] rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-gray-900 dark:text-white outline-none text-right font-semibold"
                         />
                       </div>
 
@@ -1065,18 +1073,18 @@ export default function ChartOfAccountsManager() {
               {/* LIVE BALANCING SUMMARY */}
               <div className={`p-3 rounded-xl border text-xs flex justify-between items-center ${
                 isJournalBalanced 
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
-                  : 'bg-amber-50 border-amber-200 text-amber-800'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300' 
+                  : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300'
               }`}>
                 <div className="flex items-center gap-1.5 font-bold">
                   {isJournalBalanced ? (
                     <>
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       <span>Balanced! Total Debits equal Total Credits.</span>
                     </>
                   ) : (
                     <>
-                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                      <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                       <span>Unbalanced Journal Entry (Debits must equal Credits).</span>
                     </>
                   )}
@@ -1088,11 +1096,11 @@ export default function ChartOfAccountsManager() {
               </div>
             </form>
 
-            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+            <div className="p-4 sm:p-6 border-t border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50 flex justify-end gap-3 shrink-0">
               <button
                 type="button"
                 onClick={() => setIsJournalModalOpen(false)}
-                className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
+                className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 dark:border-slate-700 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
               >
                 Cancel
               </button>
@@ -1106,28 +1114,29 @@ export default function ChartOfAccountsManager() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* T-ACCOUNT DRILL-DOWN LEDGER MODAL */}
-      {selectedTAccount && (
-        <div className="fixed inset-0 z-[100] w-screen h-screen flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+      {mounted && selectedTAccount && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-gray-100 dark:border-slate-800 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-800/50 shrink-0">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-black uppercase text-purple-600 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">T-Account Ledger</span>
+                  <span className="text-xs font-black uppercase text-purple-600 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800">T-Account Ledger</span>
                   <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border ${typeBadges[selectedTAccount.type]}`}>
                     {selectedTAccount.type}
                   </span>
                 </div>
-                <h2 className="text-xl font-extrabold text-gray-900 mt-1">
+                <h2 className="text-xl font-extrabold text-gray-900 dark:text-white mt-1">
                   {selectedTAccount.name} {selectedTAccount.code && <span className="text-sm font-mono text-gray-400">({selectedTAccount.code})</span>}
                 </h2>
               </div>
               <button
                 onClick={() => setSelectedTAccount(null)}
-                className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 aria-label="Close modal"
               >
                 <X className="w-5 h-5" />
@@ -1144,36 +1153,36 @@ export default function ChartOfAccountsManager() {
               <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
                 
                 {/* CLASSIC T-BAR TABLE */}
-                <div className="border-2 border-gray-800 rounded-xl overflow-hidden shadow-sm bg-white">
+                <div className="border-2 border-gray-800 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm bg-white dark:bg-slate-900">
                   
                   {/* T-ACCOUNT TOP TITLE BAR */}
-                  <div className="bg-gray-900 text-white px-4 py-2 flex justify-between items-center text-xs font-black tracking-wider uppercase border-b-2 border-gray-800">
+                  <div className="bg-gray-900 dark:bg-slate-950 text-white px-4 py-2 flex justify-between items-center text-xs font-black tracking-wider uppercase border-b-2 border-gray-800 dark:border-slate-700">
                     <span className="text-emerald-400">DR. (DEBITS)</span>
                     <span className="text-white tracking-widest">{selectedTAccount.name}</span>
                     <span className="text-rose-400">CR. (CREDITS)</span>
                   </div>
 
                   {/* 2-COLUMN SPLIT GRID */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x-2 divide-gray-800 text-xs">
+                  <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x-2 divide-gray-800 dark:divide-slate-700 text-xs">
                     
                     {/* LEFT COLUMN: DEBITS (DR) */}
                     <div className="p-3 space-y-2 flex flex-col justify-between min-h-[220px]">
                       <div>
-                        <div className="flex justify-between items-center font-bold text-gray-700 uppercase pb-2 border-b border-gray-200">
+                        <div className="flex justify-between items-center font-bold text-gray-700 dark:text-gray-300 uppercase pb-2 border-b border-gray-200 dark:border-slate-800">
                           <span>Date & Entry</span>
                           <span>Debit Amount</span>
                         </div>
-                        <div className="divide-y divide-gray-100">
+                        <div className="divide-y divide-gray-100 dark:divide-slate-800">
                           {tAccountLines.filter(l => Number(l.debit) > 0).length === 0 ? (
                             <p className="text-gray-400 italic text-[11px] py-4 text-center">No Debit entries recorded.</p>
                           ) : (
                             tAccountLines.filter(l => Number(l.debit) > 0).map((l, i) => (
                               <div key={i} className="py-2 flex justify-between items-center gap-2">
                                 <div>
-                                  <span className="font-semibold text-gray-900 block">{l.journal_entries?.description || 'Journal Entry'}</span>
+                                  <span className="font-semibold text-gray-900 dark:text-white block">{l.journal_entries?.description || 'Journal Entry'}</span>
                                   <span className="text-[10px] text-gray-400">{l.journal_entries?.date} &middot; {l.journal_entries?.reference_type}</span>
                                 </div>
-                                <span className="font-extrabold text-emerald-700 shrink-0">
+                                <span className="font-extrabold text-emerald-700 dark:text-emerald-400 shrink-0">
                                   {Number(l.debit).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
                                 </span>
                               </div>
@@ -1182,9 +1191,9 @@ export default function ChartOfAccountsManager() {
                         </div>
                       </div>
 
-                      <div className="pt-2 border-t-2 border-gray-800 flex justify-between items-center font-black text-gray-900 text-sm">
+                      <div className="pt-2 border-t-2 border-gray-800 dark:border-slate-700 flex justify-between items-center font-black text-gray-900 dark:text-white text-sm">
                         <span>TOTAL DEBITS (DR)</span>
-                        <span className="text-emerald-700">
+                        <span className="text-emerald-700 dark:text-emerald-400">
                           {tAccountLines.reduce((s, l) => s + Number(l.debit || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
                         </span>
                       </div>
@@ -1193,21 +1202,21 @@ export default function ChartOfAccountsManager() {
                     {/* RIGHT COLUMN: CREDITS (CR) */}
                     <div className="p-3 space-y-2 flex flex-col justify-between min-h-[220px]">
                       <div>
-                        <div className="flex justify-between items-center font-bold text-gray-700 uppercase pb-2 border-b border-gray-200">
+                        <div className="flex justify-between items-center font-bold text-gray-700 dark:text-gray-300 uppercase pb-2 border-b border-gray-200 dark:border-slate-800">
                           <span>Date & Entry</span>
                           <span>Credit Amount</span>
                         </div>
-                        <div className="divide-y divide-gray-100">
+                        <div className="divide-y divide-gray-100 dark:divide-slate-800">
                           {tAccountLines.filter(l => Number(l.credit) > 0).length === 0 ? (
                             <p className="text-gray-400 italic text-[11px] py-4 text-center">No Credit entries recorded.</p>
                           ) : (
                             tAccountLines.filter(l => Number(l.credit) > 0).map((l, i) => (
                               <div key={i} className="py-2 flex justify-between items-center gap-2">
                                 <div>
-                                  <span className="font-semibold text-gray-900 block">{l.journal_entries?.description || 'Journal Entry'}</span>
+                                  <span className="font-semibold text-gray-900 dark:text-white block">{l.journal_entries?.description || 'Journal Entry'}</span>
                                   <span className="text-[10px] text-gray-400">{l.journal_entries?.date} &middot; {l.journal_entries?.reference_type}</span>
                                 </div>
-                                <span className="font-extrabold text-rose-700 shrink-0">
+                                <span className="font-extrabold text-rose-700 dark:text-rose-400 shrink-0">
                                   {Number(l.credit).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
                                 </span>
                               </div>
@@ -1216,9 +1225,9 @@ export default function ChartOfAccountsManager() {
                         </div>
                       </div>
 
-                      <div className="pt-2 border-t-2 border-gray-800 flex justify-between items-center font-black text-gray-900 text-sm">
+                      <div className="pt-2 border-t-2 border-gray-800 dark:border-slate-700 flex justify-between items-center font-black text-gray-900 dark:text-white text-sm">
                         <span>TOTAL CREDITS (CR)</span>
-                        <span className="text-rose-700">
+                        <span className="text-rose-700 dark:text-rose-400">
                           {tAccountLines.reduce((s, l) => s + Number(l.credit || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
                         </span>
                       </div>
@@ -1251,17 +1260,18 @@ export default function ChartOfAccountsManager() {
               </div>
             )}
             
-            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+            <div className="p-4 sm:p-6 border-t border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50 flex justify-end gap-3 shrink-0">
               <button
                 type="button"
                 onClick={() => setSelectedTAccount(null)}
-                className="px-5 py-2.5 min-h-[44px] bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition-all cursor-pointer"
+                className="px-5 py-2.5 min-h-[44px] bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
               >
                 Close Ledger
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

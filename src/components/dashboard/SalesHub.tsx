@@ -1,17 +1,23 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { createBrowserClient } from '@supabase/ssr';
 import { Plus, Search, FileText, Users, Package, Edit2, Trash2, Loader2, X, AlertCircle, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { parseToCents } from '@/utils/currency';
 
 export default function SalesHub() {
+  const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<'invoices' | 'customers' | 'products'>('invoices');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [newInvoice, setNewInvoice] = useState({ id: '', customer_id: '', issue_date: '', amount: '' });
@@ -698,21 +704,21 @@ export default function SalesHub() {
       </div>
 
       {/* CENTERED POP-UP MODAL FOR NEW/EDIT INVOICE */}
-      {isInvoiceModalOpen && (
-        <div className="fixed inset-0 z-[100] w-screen h-screen flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-              <h2 className="text-lg font-bold text-gray-900">{isEditing ? 'Edit Invoice' : 'Create New Invoice'}</h2>
-              <button onClick={closeModal} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors cursor-pointer" aria-label="Close modal">
+      {mounted && isInvoiceModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-800/50 shrink-0">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">{isEditing ? 'Edit Invoice' : 'Create New Invoice'}</h2>
+              <button onClick={closeModal} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer" aria-label="Close modal">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
             <form id="invoiceForm" onSubmit={handleCreateOrUpdateInvoice} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium">
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Customer</label>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Customer</label>
                 <select 
-                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={newInvoice.customer_id}
                   onChange={e => setNewInvoice({...newInvoice, customer_id: e.target.value})}
                   required
@@ -724,10 +730,10 @@ export default function SalesHub() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Issue Date</label>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Issue Date</label>
                 <input 
                   type="date" 
-                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={newInvoice.issue_date}
                   onChange={e => setNewInvoice({...newInvoice, issue_date: e.target.value})}
                   required
@@ -735,12 +741,12 @@ export default function SalesHub() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Total Amount (PKR)</label>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Total Amount (PKR)</label>
                 <input 
                   type="number" 
                   min="0"
                   step="0.01"
-                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={newInvoice.amount}
                   onChange={e => setNewInvoice({...newInvoice, amount: e.target.value})}
                   placeholder="0.00"
@@ -749,8 +755,8 @@ export default function SalesHub() {
               </div>
             </form>
 
-            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
-              <button type="button" onClick={closeModal} className="px-4 py-2.5 min-h-[44px] border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors cursor-pointer text-sm">
+            <div className="p-4 sm:p-6 border-t border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50 flex justify-end gap-3 shrink-0">
+              <button type="button" onClick={closeModal} className="px-4 py-2.5 min-h-[44px] border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-200 font-semibold rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-sm">
                 Cancel
               </button>
               <button type="submit" form="invoiceForm" className="px-5 py-2.5 min-h-[44px] bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-500/20 cursor-pointer text-sm">
@@ -758,19 +764,20 @@ export default function SalesHub() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* LOG PAYMENT MODAL */}
-      {isPaymentModalOpen && (
-        <div className="fixed inset-0 z-[100] w-screen h-screen flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-              <h2 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
+      {mounted && isPaymentModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-800/50 shrink-0">
+              <h2 className="font-bold text-gray-900 dark:text-white text-base sm:text-lg flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-green-600 shrink-0" />
                 Log Received Payment
               </h2>
-              <button onClick={() => setIsPaymentModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer" aria-label="Close modal">
+              <button onClick={() => setIsPaymentModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer" aria-label="Close modal">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -784,7 +791,7 @@ export default function SalesHub() {
                   required
                   value={paymentData.amount}
                   onChange={e => setPaymentData({...paymentData, amount: e.target.value})}
-                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all font-medium"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all font-medium"
                 />
               </div>
 
@@ -795,7 +802,7 @@ export default function SalesHub() {
                   required
                   value={paymentData.date}
                   onChange={e => setPaymentData({...paymentData, date: e.target.value})}
-                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-gray-600"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-gray-900 dark:text-white"
                 />
               </div>
               
@@ -804,7 +811,7 @@ export default function SalesHub() {
                 <select 
                   value={paymentData.method}
                   onChange={e => setPaymentData({...paymentData, method: e.target.value})}
-                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-gray-600"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-gray-900 dark:text-white"
                 >
                   <option value="Bank Transfer">Bank Transfer</option>
                   <option value="Cash">Cash</option>
@@ -814,8 +821,8 @@ export default function SalesHub() {
               </div>
             </form>
 
-            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
-              <button type="button" onClick={() => setIsPaymentModalOpen(false)} disabled={isSubmitting} className="px-4 py-2.5 min-h-[44px] border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors cursor-pointer disabled:opacity-50">
+            <div className="p-4 sm:p-6 border-t border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50 flex justify-end gap-3 shrink-0">
+              <button type="button" onClick={() => setIsPaymentModalOpen(false)} disabled={isSubmitting} className="px-4 py-2.5 min-h-[44px] border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-200 font-semibold rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50">
                 Cancel
               </button>
               <button type="submit" form="paymentForm" disabled={isSubmitting} className="px-5 py-2.5 min-h-[44px] bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-green-600/20 cursor-pointer disabled:opacity-50 flex items-center justify-center">
@@ -823,19 +830,20 @@ export default function SalesHub() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* EDIT PRODUCT MODAL */}
-      {isProductModalOpen && (
-        <div className="fixed inset-0 z-[100] w-screen h-screen flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-              <h2 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
+      {mounted && isProductModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-800/50 shrink-0">
+              <h2 className="font-bold text-gray-900 dark:text-white text-base sm:text-lg flex items-center gap-2">
                 <Package className="w-5 h-5 text-purple-600 shrink-0" />
                 Edit Product / Service Catalog
               </h2>
-              <button onClick={() => setIsProductModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer" aria-label="Close modal">
+              <button onClick={() => setIsProductModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer" aria-label="Close modal">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -848,7 +856,7 @@ export default function SalesHub() {
                   required
                   value={editingProduct.name}
                   onChange={e => setEditingProduct({...editingProduct, name: e.target.value})}
-                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium"
                 />
               </div>
 
@@ -862,7 +870,7 @@ export default function SalesHub() {
                     required
                     value={editingProduct.price}
                     onChange={e => setEditingProduct({...editingProduct, price: e.target.value})}
-                    className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium"
+                    className="w-full px-3 py-2.5 min-h-[44px] bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium"
                   />
                 </div>
 
@@ -875,13 +883,13 @@ export default function SalesHub() {
                     required
                     value={editingProduct.cost}
                     onChange={e => setEditingProduct({...editingProduct, cost: e.target.value})}
-                    className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium"
+                    className="w-full px-3 py-2.5 min-h-[44px] bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium"
                   />
                 </div>
               </div>
 
               <div className="pt-2">
-                <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors min-h-[44px]">
+                <label className="flex items-center gap-3 p-3 border border-gray-200 dark:border-slate-700 rounded-xl bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-750 cursor-pointer transition-colors min-h-[44px]">
                   <input 
                     type="checkbox"
                     checked={editingProduct.is_inventory_tracked}
@@ -889,20 +897,20 @@ export default function SalesHub() {
                     className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500 shrink-0"
                   />
                   <div>
-                    <span className="text-xs font-bold text-gray-900 block">Track Physical Inventory</span>
-                    <span className="text-[11px] text-gray-500 block">Enable to track stock counts and post 4-line COGS entries. Leave unchecked for services.</span>
+                    <span className="text-xs font-bold text-gray-900 dark:text-white block">Track Physical Inventory</span>
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400 block">Enable to track stock counts and post 4-line COGS entries. Leave unchecked for services.</span>
                   </div>
                 </label>
               </div>
 
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] flex gap-2 items-start">
-                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-800 dark:text-amber-300 text-[11px] flex gap-2 items-start">
+                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <span>Changes here only apply to future transactions. Past verified invoices and bills remain locked to preserve ledger integrity.</span>
               </div>
             </form>
 
-            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
-              <button type="button" onClick={() => setIsProductModalOpen(false)} className="px-4 py-2.5 min-h-[44px] border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors cursor-pointer">
+            <div className="p-4 sm:p-6 border-t border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50 flex justify-end gap-3 shrink-0">
+              <button type="button" onClick={() => setIsProductModalOpen(false)} className="px-4 py-2.5 min-h-[44px] border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-200 font-semibold rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">
                 Cancel
               </button>
               <button type="submit" form="productForm" className="px-5 py-2.5 min-h-[44px] bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-purple-600/20 cursor-pointer">
@@ -910,19 +918,20 @@ export default function SalesHub() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* NEW CUSTOMER MODAL */}
-      {isCustomerModalOpen && (
-        <div className="fixed inset-0 z-[100] w-screen h-screen flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-              <h2 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
+      {mounted && isCustomerModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-800/50 shrink-0">
+              <h2 className="font-bold text-gray-900 dark:text-white text-base sm:text-lg flex items-center gap-2">
                 <Users className="w-5 h-5 text-blue-600 shrink-0" />
                 Add New Customer
               </h2>
-              <button onClick={() => setIsCustomerModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer" aria-label="Close modal">
+              <button onClick={() => setIsCustomerModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer" aria-label="Close modal">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -936,7 +945,7 @@ export default function SalesHub() {
                   value={newCustomer.name}
                   onChange={e => setNewCustomer({...newCustomer, name: e.target.value})}
                   placeholder="e.g. Manual Audit Corp"
-                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-sm"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-sm"
                 />
               </div>
 
@@ -947,7 +956,7 @@ export default function SalesHub() {
                   value={newCustomer.email}
                   onChange={e => setNewCustomer({...newCustomer, email: e.target.value})}
                   placeholder="audit@example.com"
-                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-sm"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-sm"
                 />
               </div>
 
@@ -958,13 +967,13 @@ export default function SalesHub() {
                   value={newCustomer.phone}
                   onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})}
                   placeholder="+1 555-0199"
-                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-sm"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-sm"
                 />
               </div>
             </form>
 
-            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
-              <button type="button" onClick={() => setIsCustomerModalOpen(false)} className="px-4 py-2.5 min-h-[44px] border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors cursor-pointer">
+            <div className="p-4 sm:p-6 border-t border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50 flex justify-end gap-3 shrink-0">
+              <button type="button" onClick={() => setIsCustomerModalOpen(false)} className="px-4 py-2.5 min-h-[44px] border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-200 font-semibold rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">
                 Cancel
               </button>
               <button type="submit" form="customerForm" className="px-5 py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-blue-600/20 cursor-pointer">
@@ -972,7 +981,8 @@ export default function SalesHub() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>
