@@ -3,9 +3,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { createBrowserClient } from '@supabase/ssr';
-import { Plus, Search, FileText, Users, Package, Edit2, Trash2, Loader2, X, AlertCircle, DollarSign } from 'lucide-react';
+import { Plus, Search, FileText, Users, Package, Edit2, Trash2, Loader2, X, AlertCircle, DollarSign, Zap } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { parseToCents } from '@/utils/currency';
+import { createJournalEntryAtomic, JournalLineItem } from '@/utils/journalEntry';
 
 export default function SalesHub() {
   const [mounted, setMounted] = useState(false);
@@ -13,6 +14,7 @@ export default function SalesHub() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -27,6 +29,17 @@ export default function SalesHub() {
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<any>(null);
   const [paymentData, setPaymentData] = useState({ invoice_id: '', amount: '', date: new Date().toISOString().split('T')[0], method: 'Bank Transfer' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Quick Cash Sale State (Walk-in Customer)
+  const [isQuickSaleModalOpen, setIsQuickSaleModalOpen] = useState(false);
+  const [quickSaleData, setQuickSaleData] = useState({
+    date: new Date().toISOString().split('T')[0],
+    amount: '',
+    description: '',
+    product_id: '',
+    quantity: '1',
+    account_id: ''
+  });
 
   const [selectedCustomerStatement, setSelectedCustomerStatement] = useState<any>(null);
 
@@ -175,16 +188,151 @@ export default function SalesHub() {
     setIsLoading(false);
   }
 
-  // Pre-fetch customers for the modal
+  // Pre-fetch auxiliary data for modals
   useEffect(() => {
-    async function getCustomers() {
+    async function getAuxData() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase.from('customers').select('*').eq('user_id', user.id);
-      if (data) setCustomers(data);
+      const [custRes, prodRes, accRes] = await Promise.all([
+        supabase.from('customers').select('*').eq('user_id', user.id).order('name'),
+        supabase.from('products').select('*').eq('user_id', user.id).order('name'),
+        supabase.from('accounts').select('*').eq('user_id', user.id).order('name')
+      ]);
+      if (custRes.data) setCustomers(custRes.data);
+      if (prodRes.data) setProducts(prodRes.data);
+      if (accRes.data) setAccounts(accRes.data);
     }
-    getCustomers();
+    getAuxData();
   }, []);
+
+  async function handleQuickCashSale(e: React.FormEvent) {
+    e.preventDefault();
+    if (isSubmitting) return;
+    if (!quickSaleData.amount || Number(quickSaleData.amount) <= 0) {
+      return toast.error("Please enter a valid sale amount");
+    }
+
+    setIsSubmitting(true);
+    const toastId = toast.loading("Recording quick cash sale...");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setIsSubmitting(false);
+      return toast.error("Not authenticated", { id: toastId });
+    }
+
+    try {
+      // 1. Resolve Deposit Cash/Bank Account
+      let cashAccId = quickSaleData.account_id;
+      if (!cashAccId) {
+        const cashAcc = accounts.find(a => 
+          a.is_cash_account || 
+          a.name.toLowerCase().includes('petty cash') || 
+          a.name.toLowerCase().includes('cash') || 
+          a.name.toLowerCase().includes('main bank')
+        );
+        cashAccId = cashAcc?.id;
+      }
+      if (!cashAccId) {
+        const { data: createdAcc } = await supabase.from('accounts').insert({
+          user_id: user.id,
+          name: 'Petty Cash',
+          type: 'asset',
+          is_system: true,
+          is_cash_account: true
+        }).select('id').single();
+        cashAccId = createdAcc?.id;
+      }
+
+      // 2. Resolve Sales Revenue Account
+      let salesRevAcc = accounts.find(a => a.type === 'revenue' && (a.name.toLowerCase().includes('sales revenue') || a.name.toLowerCase().includes('revenue')));
+      let salesRevAccId = salesRevAcc?.id;
+      if (!salesRevAccId) {
+        const { data: createdRev } = await supabase.from('accounts').insert({
+          user_id: user.id,
+          name: 'Sales Revenue',
+          type: 'revenue',
+          is_system: true,
+          is_cash_account: false
+        }).select('id').single();
+        salesRevAccId = createdRev?.id;
+      }
+
+      const saleAmount = parseFloat(quickSaleData.amount);
+      const selectedProduct = products.find(p => p.id === quickSaleData.product_id);
+      const isInventory = selectedProduct && selectedProduct.is_inventory_tracked;
+      const qty = parseInt(quickSaleData.quantity) || 1;
+      const unitCost = Number(selectedProduct?.cost || 0);
+      const totalCogs = unitCost * qty;
+
+      const lines: JournalLineItem[] = [
+        { account_id: cashAccId!, debit: saleAmount, credit: 0 },
+        { account_id: salesRevAccId!, debit: 0, credit: saleAmount }
+      ];
+
+      // 3. Realize COGS (4-Line Entry) if physical inventory item
+      if (isInventory && totalCogs > 0) {
+        let cogsAcc = accounts.find(a => a.name.toLowerCase().includes('cost of goods sold'));
+        let cogsAccId = cogsAcc?.id;
+        if (!cogsAccId) {
+          const { data: createdCogs } = await supabase.from('accounts').insert({
+            user_id: user.id,
+            name: 'Cost of Goods Sold',
+            type: 'expense',
+            is_system: true,
+            is_cash_account: false
+          }).select('id').single();
+          cogsAccId = createdCogs?.id;
+        }
+
+        let invAcc = accounts.find(a => a.name.toLowerCase().includes('inventory asset') || (a.type === 'asset' && a.name.toLowerCase().includes('inventory')));
+        let invAccId = invAcc?.id;
+        if (!invAccId) {
+          const { data: createdInv } = await supabase.from('accounts').insert({
+            user_id: user.id,
+            name: 'Inventory Asset',
+            type: 'asset',
+            is_system: true,
+            is_cash_account: false
+          }).select('id').single();
+          invAccId = createdInv?.id;
+        }
+
+        lines.push({ account_id: cogsAccId!, debit: totalCogs, credit: 0 });
+        lines.push({ account_id: invAccId!, debit: 0, credit: totalCogs });
+
+        // Decrement physical stock count in products table
+        await supabase.from('products').update({
+          inventory_count: Math.max(0, Number(selectedProduct.inventory_count || 0) - qty)
+        }).eq('id', selectedProduct.id);
+      }
+
+      const desc = quickSaleData.description?.trim() 
+        ? `Quick Cash Sale: ${quickSaleData.description.trim()}`
+        : `Quick Cash Sale for ${saleAmount.toLocaleString()} PKR`;
+
+      const result = await createJournalEntryAtomic(supabase, {
+        user_id: user.id,
+        date: quickSaleData.date,
+        description: desc,
+        lines,
+        created_by_source: 'MANUAL'
+      });
+
+      if (!result.success) {
+        toast.error(result.error || "Failed to record cash sale", { id: toastId });
+        setIsSubmitting(false);
+        return;
+      }
+
+      toast.success(`Quick cash sale of ${saleAmount.toLocaleString()} PKR recorded into Ledger!`, { id: toastId });
+      setIsSubmitting(false);
+      setIsQuickSaleModalOpen(false);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to process sale", { id: toastId });
+      setIsSubmitting(false);
+    }
+  }
 
   async function handleCreateOrUpdateInvoice(e: React.FormEvent) {
     e.preventDefault();
@@ -457,25 +605,53 @@ export default function SalesHub() {
             )}
           </div>
 
-          <button 
-            onClick={() => {
-              if (activeTab === 'invoices') {
-                setIsEditing(false);
-                setNewInvoice({ id: '', customer_id: '', issue_date: '', amount: '' });
-                setIsInvoiceModalOpen(true);
-              } else if (activeTab === 'products') {
-                setEditingProduct({ id: '', name: '', price: '0', cost: '0', is_inventory_tracked: true });
-                setIsProductModalOpen(true);
-              } else {
-                setNewCustomer({ name: '', email: '', phone: '' });
-                setIsCustomerModalOpen(true);
-              }
-            }}
-            className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4 font-bold" />
-            New {activeTab === 'invoices' ? 'Invoice' : activeTab === 'products' ? 'Product' : 'Customer'}
-          </button>
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            {activeTab === 'invoices' && (
+              <button
+                onClick={() => {
+                  const defaultCashAcc = accounts.find(a => 
+                    a.is_cash_account || 
+                    a.name.toLowerCase().includes('petty cash') || 
+                    a.name.toLowerCase().includes('cash') || 
+                    a.name.toLowerCase().includes('main bank')
+                  );
+                  setQuickSaleData({
+                    date: new Date().toISOString().split('T')[0],
+                    amount: '',
+                    description: '',
+                    product_id: '',
+                    quantity: '1',
+                    account_id: defaultCashAcc?.id || ''
+                  });
+                  setIsQuickSaleModalOpen(true);
+                }}
+                className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+              >
+                <Zap className="w-4 h-4 font-bold" />
+                + Quick Cash Sale
+              </button>
+            )}
+
+            <button 
+              onClick={() => {
+                if (activeTab === 'invoices') {
+                  setIsEditing(false);
+                  setNewInvoice({ id: '', customer_id: '', issue_date: '', amount: '' });
+                  setIsInvoiceModalOpen(true);
+                } else if (activeTab === 'products') {
+                  setEditingProduct({ id: '', name: '', price: '0', cost: '0', is_inventory_tracked: true });
+                  setIsProductModalOpen(true);
+                } else {
+                  setNewCustomer({ name: '', email: '', phone: '' });
+                  setIsCustomerModalOpen(true);
+                }
+              }}
+              className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4 font-bold" />
+              New {activeTab === 'invoices' ? 'Invoice' : activeTab === 'products' ? 'Product' : 'Customer'}
+            </button>
+          </div>
         </div>
 
         {/* LISTING */}
@@ -1202,6 +1378,216 @@ export default function SalesHub() {
               </button>
               <button type="submit" form="customerForm" className="px-5 py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-blue-600/20 cursor-pointer">
                 Save Customer
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* QUICK CASH SALE MODAL (WALK-IN CUSTOMER) */}
+      {mounted && isQuickSaleModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200 border border-gray-100">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-emerald-50 to-teal-50 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/20">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
+                    Quick Cash Sale
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      Walk-in Customer
+                    </span>
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-0.5">Posts directly to General Ledger without creating an invoice or customer record.</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsQuickSaleModalOpen(false)} 
+                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body Form */}
+            <form id="quickCashSaleForm" onSubmit={handleQuickCashSale} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Sale Date *</label>
+                  <input 
+                    type="date" 
+                    required
+                    value={quickSaleData.date}
+                    onChange={e => setQuickSaleData({...quickSaleData, date: e.target.value})}
+                    className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-sm"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Sale Amount (PKR) *</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">PKR</span>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      min="0.01"
+                      required
+                      placeholder="0.00"
+                      value={quickSaleData.amount}
+                      onChange={e => setQuickSaleData({...quickSaleData, amount: e.target.value})}
+                      className="w-full pl-12 pr-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-base"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Product / Item Selector (Optional catalog link for COGS) */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Product / Item (Optional)</label>
+                <select
+                  value={quickSaleData.product_id}
+                  onChange={e => {
+                    const prodId = e.target.value;
+                    const prod = products.find(p => p.id === prodId);
+                    if (prod) {
+                      const qty = parseInt(quickSaleData.quantity) || 1;
+                      const calculatedAmount = (Number(prod.price || 0) * qty).toString();
+                      setQuickSaleData({
+                        ...quickSaleData,
+                        product_id: prodId,
+                        amount: calculatedAmount !== '0' ? calculatedAmount : quickSaleData.amount,
+                        description: prod.name
+                      });
+                    } else {
+                      setQuickSaleData({ ...quickSaleData, product_id: '' });
+                    }
+                  }}
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-sm cursor-pointer"
+                >
+                  <option value="">-- Generic Cash Sale / No Specific Catalog Item --</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} {p.price ? `(${Number(p.price).toLocaleString()} PKR)` : ''} {p.is_inventory_tracked ? `[Stock: ${p.inventory_count || 0}]` : '[Service/Untracked]'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* If a product is selected */}
+              {quickSaleData.product_id && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-gray-500 uppercase">Quantity Sold</label>
+                    <input 
+                      type="number" 
+                      min="1"
+                      value={quickSaleData.quantity}
+                      onChange={e => {
+                        const newQty = e.target.value;
+                        const prod = products.find(p => p.id === quickSaleData.product_id);
+                        const qtyNum = parseInt(newQty) || 1;
+                        setQuickSaleData({
+                          ...quickSaleData,
+                          quantity: newQty,
+                          amount: prod?.price ? (Number(prod.price) * qtyNum).toString() : quickSaleData.amount
+                        });
+                      }}
+                      className="w-full px-3 py-2 min-h-[38px] bg-white border border-gray-200 rounded-lg text-gray-900 font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    />
+                  </div>
+
+                  <div className="flex flex-col justify-center text-xs text-gray-600">
+                    {(() => {
+                      const prod = products.find(p => p.id === quickSaleData.product_id);
+                      if (!prod) return null;
+                      const qty = parseInt(quickSaleData.quantity) || 1;
+                      const cogs = Number(prod.cost || 0) * qty;
+                      return prod.is_inventory_tracked ? (
+                        <div>
+                          <span className="font-bold text-emerald-700 block">✓ Inventory Tracked</span>
+                          <span className="text-[11px] text-gray-500">
+                            Stock: {prod.inventory_count || 0} → {Math.max(0, (prod.inventory_count || 0) - qty)} units<br />
+                            COGS Realized: {cogs.toLocaleString()} PKR
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-500">Non-inventory service (Direct revenue).</span>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* Description */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Description / Particulars</label>
+                <input 
+                  type="text" 
+                  value={quickSaleData.description}
+                  onChange={e => setQuickSaleData({...quickSaleData, description: e.target.value})}
+                  placeholder="e.g. Sold cold drink / walk-in desk sale"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-sm"
+                />
+              </div>
+
+              {/* Deposit Account (Petty Cash / Bank) */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Deposit Cash / Bank Account *</label>
+                <select
+                  value={quickSaleData.account_id}
+                  onChange={e => setQuickSaleData({...quickSaleData, account_id: e.target.value})}
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-sm cursor-pointer"
+                >
+                  {accounts
+                    .filter(a => a.is_cash_account || a.type === 'asset')
+                    .map(acc => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name} ({acc.type}) {acc.is_cash_account ? '⭐ Cash/Bank' : ''}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Double Entry Notice */}
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs flex gap-2 items-start">
+                <Zap className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block">Double-Entry Accounting:</span>
+                  <span>
+                    Debit: <strong>Deposit Account</strong> (+ Cash) &bull; Credit: <strong>Sales Revenue</strong> (+ Income).
+                    {quickSaleData.product_id && products.find(p => p.id === quickSaleData.product_id)?.is_inventory_tracked && (
+                      <span className="block mt-0.5 text-emerald-800">
+                        + Debit: <strong>Cost of Goods Sold</strong> (Expense) &bull; Credit: <strong>Inventory Asset</strong> (Asset).
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </div>
+            </form>
+
+            {/* Modal Footer */}
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button 
+                type="button" 
+                onClick={() => setIsQuickSaleModalOpen(false)} 
+                className="px-4 py-2.5 min-h-[44px] border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                form="quickCashSaleForm" 
+                disabled={isSubmitting}
+                className="px-6 py-2.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50 flex items-center gap-2"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                Log Cash Sale
               </button>
             </div>
           </div>

@@ -342,6 +342,12 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
           let productId = null;
           if (item.product_name || item.product_id) {
             productId = await resolveProductId(item.product_name, parseToCents(item.unit_price || 0) / 100, item.is_inventory_tracked, item.product_id);
+            if (productId && (item.is_inventory_tracked || item.account_name === 'Inventory Asset')) {
+              const unitCost = parseToCents(item.unit_price || (item.quantity ? (item.total || 0) / item.quantity : item.total || 0)) / 100;
+              if (unitCost > 0) {
+                await supabase.from('products').update({ cost: unitCost, is_inventory_tracked: true }).eq('id', productId);
+              }
+            }
           }
 
           resolvedLines.push({
@@ -545,7 +551,25 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
           } else if (item.credit && item.credit > 0) {
             isDebit = false;
           } else {
-            isDebit = idx === 0;
+            const lowerAcc = (item.account_name || '').toLowerCase();
+            if (
+              lowerAcc.includes('petty cash') || 
+              lowerAcc.includes('main bank') || 
+              lowerAcc.includes('cost of goods') || 
+              lowerAcc.includes('drawings') || 
+              lowerAcc.includes('equipment')
+            ) {
+              isDebit = idx === 0 || lowerAcc.includes('cost of goods') || lowerAcc.includes('petty cash') || lowerAcc.includes('main bank');
+            } else if (
+              lowerAcc.includes('revenue') || 
+              lowerAcc.includes('sales') || 
+              lowerAcc.includes('equity') || 
+              lowerAcc.includes('payable')
+            ) {
+              isDebit = false;
+            } else {
+              isDebit = idx === 0;
+            }
           }
           idx++;
 

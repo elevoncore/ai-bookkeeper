@@ -66,7 +66,7 @@ export default function ReportsHub() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [activeTab]);
 
   useEffect(() => {
     fetchTimeSeries(timeframe, timeRange);

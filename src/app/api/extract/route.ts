@@ -150,6 +150,10 @@ export async function POST(request: Request) {
          - Line 1 (DEBIT): description: "Owner Personal Withdrawal", account_name: "Owner Drawings", total: 10000, is_debit: true
          - Line 2 (CREDIT): description: "Withdrawal from Main Bank", account_name: "Main Bank Account", total: 10000, is_debit: false
          - CRITICAL: Owner drawings DEBIT "Owner Drawings" (Equity deduction) and CREDIT "Main Bank Account" (Cash decrease).
+        - Quick Cash Sale / Walk-In Customer Sale e.g. "I sold a desk to a walk-in customer for 5,000 PKR cash" or "Sold a soda for 150 PKR cash" or "Cash sale 3,000 PKR for services":
+          - Line 1 (DEBIT): description: "Cash Sale Proceeds", account_name: "Petty Cash", total: 5000, is_debit: true
+          - Line 2 (CREDIT): description: "Sales Revenue", account_name: "Sales Revenue", total: 5000, is_debit: false
+          - CRITICAL: A quick cash sale or walk-in customer sale does NOT require a customer name or invoice creation. Stage a direct LOG_JOURNAL_ENTRY (Debit Petty Cash/Main Bank, Credit Sales Revenue). NEVER set is_complete: false or ask for a customer name when the user indicates a walk-in cash sale!
         - Customer Payment / Partial Invoice Payment e.g. "Faizan paid 10,000 towards his 50,000 invoice" or "Received 10,000 payment from Faizan":
           - Line 1 (DEBIT): description: "Customer Payment Received", account_name: "Main Bank Account", total: 10000, is_debit: true
           - Line 2 (CREDIT): description: "Reduce Accounts Receivable", account_name: "Accounts Receivable", total: 10000, is_debit: false
@@ -175,7 +179,7 @@ export async function POST(request: Request) {
     OUTPUT FORMAT:
     You must respond ONLY with a raw JSON object matching this schema. Do not include markdown formatting, backticks, or any conversational text outside the JSON:
     {
-      "intent": "LOG_BILL" | "LOG_INVOICE" | "LOG_PAYMENT_MADE" | "LOG_PAYMENT_RECEIVED" | "LOG_INVENTORY_ADJUSTMENT" | "UPDATE_TRANSACTION" | "QUERY_FINANCES" | "QUERY_DEBT" | "QUERY_REPORT" | "GENERAL_HELP",
+      "intent": "LOG_BILL" | "LOG_INVOICE" | "LOG_PAYMENT_MADE" | "LOG_PAYMENT_RECEIVED" | "LOG_JOURNAL_ENTRY" | "LOG_INVENTORY_ADJUSTMENT" | "UPDATE_TRANSACTION" | "QUERY_FINANCES" | "QUERY_DEBT" | "QUERY_REPORT" | "GENERAL_HELP",
       "customer_name": "string | null",
       "supplier_name": "string | null",
       "product_name": "string | null",

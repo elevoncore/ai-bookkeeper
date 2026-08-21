@@ -24,6 +24,7 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'sales' | 'purchases' | 'reports'>('overview');
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [logModalTxId, setLogModalTxId] = useState<string | null>(null);
+  const [dataVersion, setDataVersion] = useState(0);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -121,6 +122,7 @@ export default function DashboardPage() {
       });
     }
     setPendingItems(pending.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    setDataVersion(v => v + 1);
 
     setIsLoading(false);
   }
@@ -212,7 +214,7 @@ export default function DashboardPage() {
             )}
             {activeTab === 'reports' && (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <ReportsHub />
+                <ReportsHub key={dataVersion} />
               </div>
             )}
           </div>
