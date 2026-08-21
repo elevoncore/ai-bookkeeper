@@ -24,8 +24,17 @@ export default function SalesHub() {
   const [isEditing, setIsEditing] = useState(false);
   
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<any>(null);
   const [paymentData, setPaymentData] = useState({ invoice_id: '', amount: '', date: new Date().toISOString().split('T')[0], method: 'Bank Transfer' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [selectedCustomerStatement, setSelectedCustomerStatement] = useState<any>(null);
+
+  function getEntityId(prefix: string, item: any) {
+    if (item.code) return item.code;
+    const idStr = item.id ? item.id.substring(0, 6).toUpperCase() : '001';
+    return `${prefix}-${idStr}`;
+  }
 
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '' });
@@ -143,7 +152,7 @@ export default function SalesHub() {
     if (activeTab === 'invoices') {
       const { data: invData } = await supabase
         .from('invoices')
-        .select('*, customers(name), invoice_lines(description, quantity, total, products(cost, is_inventory_tracked))')
+        .select('*, customers(id, name, email, phone), invoice_lines(description, quantity, total, products(cost, is_inventory_tracked))')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       if (invData) setInvoices(invData);
@@ -476,7 +485,7 @@ export default function SalesHub() {
               <Loader2 className="w-8 h-8 animate-spin" />
             </div>
           ) : (
-            <table className="w-full text-left text-sm whitespace-nowrap min-w-[700px]">
+            <table className="w-full text-left text-sm whitespace-nowrap min-w-[850px]">
               <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
                 {activeTab === 'invoices' && (
                   <tr>
@@ -491,17 +500,19 @@ export default function SalesHub() {
                       Issue Date {sortField === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}
                     </th>
                     <th onClick={() => toggleSort('amount')} className="px-6 py-4 text-right cursor-pointer hover:bg-gray-100/60 transition-colors select-none">
-                      Amount {sortField === 'amount' && (sortOrder === 'asc' ? '↑' : '↓')}
+                      Total {sortField === 'amount' && (sortOrder === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-6 py-4 text-right">Est. Margin</th>
+                    <th className="px-6 py-4 text-right">Paid</th>
+                    <th className="px-6 py-4 text-right">Balance Due</th>
                     <th className="px-6 py-4 text-center">Status</th>
                     <th className="px-6 py-4 text-center">AI Verified</th>
-                    <th className="px-6 py-4"></th>
+                    <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 )}
                 {activeTab === 'customers' && (
                   <tr>
-                    <th className="px-6 py-4">Name</th>
+                    <th className="px-6 py-4">Customer ID</th>
+                    <th className="px-6 py-4">Name (Click for Statement)</th>
                     <th className="px-6 py-4">Email</th>
                     <th className="px-6 py-4">Phone</th>
                     <th className="px-6 py-4">Added</th>
@@ -509,6 +520,7 @@ export default function SalesHub() {
                 )}
                 {activeTab === 'products' && (
                   <tr>
+                    <th className="px-6 py-4">Product ID</th>
                     <th className="px-6 py-4">Product Name</th>
                     <th className="px-6 py-4 text-right">Selling Price</th>
                     <th className="px-6 py-4 text-right">Cost (COGS)</th>
@@ -523,7 +535,7 @@ export default function SalesHub() {
                 {/* EMPTY STATES */}
                 {activeTab === 'invoices' && filteredInvoices.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-6 py-16 text-center">
+                    <td colSpan={10} className="px-6 py-16 text-center">
                       <div className="flex flex-col items-center justify-center space-y-3">
                         <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-500">
                           <FileText className="w-6 h-6" />
@@ -536,14 +548,14 @@ export default function SalesHub() {
                 )}
                 {activeTab === 'customers' && filteredCustomers.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-6 py-16 text-center">
+                    <td colSpan={5} className="px-6 py-16 text-center">
                       <p className="text-gray-500 font-medium">No customers found</p>
                     </td>
                   </tr>
                 )}
                 {activeTab === 'products' && filteredProducts.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-16 text-center">
+                    <td colSpan={7} className="px-6 py-16 text-center">
                       <p className="text-gray-500 font-medium">No products found</p>
                     </td>
                   </tr>
@@ -551,51 +563,67 @@ export default function SalesHub() {
 
                 {/* DATA ROWS */}
                 {activeTab === 'invoices' && filteredInvoices.map((inv) => {
-                  const estMargin = inv.invoice_lines?.reduce((sum: number, l: any) => {
-                    const cost = l.products?.cost || 0;
-                    const margin = Number(l.total || 0) - (Number(l.quantity || 1) * Number(cost));
-                    return sum + margin;
-                  }, 0) || 0;
+                  const paidAmount = Number(inv.amount_paid || (inv.total_amount - (inv.balance_due ?? 0)));
+                  const balanceDue = Number(inv.balance_due ?? (inv.total_amount - paidAmount));
+                  const isPartiallyPaid = (inv.status === 'partial' || inv.status === 'partially_paid') || (paidAmount > 0 && balanceDue > 0);
+                  const isFullyPaid = inv.status === 'paid' || (balanceDue <= 0 && paidAmount > 0);
 
                   return (
                   <tr key={inv.id} className="hover:bg-gray-50 transition-colors group">
                     <td className="px-6 py-4 font-medium text-gray-900 flex items-center gap-2">
-                      <span>INV-{inv.id.substring(0, 6).toUpperCase()}</span>
+                      <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                        {getEntityId('INV', inv)}
+                      </span>
                       {inv.created_by_source === 'AI' || (inv.is_ai_verified && inv.created_by_source !== 'MANUAL') ? (
                         <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">🤖 AI</span>
                       ) : (
                         <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">👤 Manual</span>
                       )}
-                      {(inv.is_manually_edited || editedInvoiceIds.has(inv.id)) && (
-                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200">✏️ Edited</span>
-                      )}
                     </td>
                     <td className="px-6 py-4 font-semibold text-blue-700 truncate" title={inv.customers?.name}>
-                      {inv.customers?.name || 'Unknown'}
+                      <button
+                        onClick={() => setSelectedCustomerStatement(inv.customers?.id ? inv.customers : (customers.find(c => c.id === inv.customer_id) || inv.customers || { id: inv.customer_id, name: inv.customers?.name || 'Customer' }))}
+                        className="hover:underline text-blue-700 font-bold cursor-pointer text-left"
+                      >
+                        {inv.customers?.name || 'Unknown'}
+                      </button>
                     </td>
-                    <td className="px-6 py-4 text-gray-700 truncate" title={inv.invoice_lines?.map((l: any) => l.description).join(', ')}>
+                    <td className="px-6 py-4 text-gray-700 truncate max-w-xs" title={inv.invoice_lines?.map((l: any) => l.description).join(', ')}>
                       {inv.invoice_lines?.map((l: any) => l.description).join(', ') || '-'}
                     </td>
                     <td className="px-6 py-4 text-gray-500">
                       {inv.issue_date}
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-gray-900">
-                      {inv.total_amount.toLocaleString()} PKR
+                      {Number(inv.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-emerald-600">
-                      {estMargin > 0 ? '+' : ''}{estMargin.toLocaleString()} PKR
+                      {paidAmount > 0 ? `${paidAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR` : '-'}
+                    </td>
+                    <td className="px-6 py-4 text-right font-bold text-gray-800">
+                      {balanceDue > 0 ? (
+                        <span className="text-rose-600 font-black">{balanceDue.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</span>
+                      ) : (
+                        <span className="text-emerald-600">0.00 PKR</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${
-                        inv.status === 'paid' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                        inv.status === 'partial' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
-                        inv.status === 'draft' ? 'bg-gray-100 text-gray-700 border border-gray-200' :
-                        'bg-amber-100 text-amber-700 border border-amber-200'
-                      }`}>
-                        {inv.status.toUpperCase()}
-                      </span>
-                      {inv.balance_due > 0 && inv.status !== 'draft' && (
-                        <div className="text-[10px] text-gray-500 mt-1 font-medium">Due: {inv.balance_due.toLocaleString()}</div>
+                      {isFullyPaid ? (
+                        <span className="px-2.5 py-1 text-[10px] font-extrabold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          PAID
+                        </span>
+                      ) : isPartiallyPaid ? (
+                        <span className="px-2.5 py-1 text-[10px] font-extrabold rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                          PARTIALLY PAID
+                        </span>
+                      ) : inv.status === 'draft' ? (
+                        <span className="px-2.5 py-1 text-[10px] font-extrabold rounded-full bg-gray-100 text-gray-700 border border-gray-200">
+                          DRAFT
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 text-[10px] font-extrabold rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+                          OPEN
+                        </span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-center">
@@ -607,13 +635,18 @@ export default function SalesHub() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2 items-center">
-                        {inv.balance_due > 0 && inv.status !== 'draft' && (
+                        {balanceDue > 0 && inv.status !== 'draft' && (
                           <button 
                             onClick={() => {
-                              setPaymentData(prev => ({ ...prev, invoice_id: inv.id, amount: inv.balance_due.toString() }));
+                              setSelectedInvoiceForPayment(inv);
+                              setPaymentData(prev => ({ 
+                                ...prev, 
+                                invoice_id: inv.id, 
+                                amount: balanceDue.toString() 
+                              }));
                               setIsPaymentModalOpen(true);
                             }}
-                            className="px-3 py-2 min-h-[44px] text-xs font-bold bg-green-50 text-green-700 hover:bg-green-100 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                            className="px-3 py-2 min-h-[44px] text-xs font-bold bg-green-50 text-green-700 hover:bg-green-100 rounded-xl transition-colors cursor-pointer flex items-center gap-1 border border-green-200"
                             title="Log Payment"
                             aria-label="Log Payment"
                           >
@@ -644,8 +677,18 @@ export default function SalesHub() {
 
                 {activeTab === 'customers' && filteredCustomers.map((c) => (
                   <tr key={c.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                        {getEntityId('CUST', c)}
+                      </span>
+                    </td>
                     <td className="px-6 py-4 font-semibold text-gray-900 flex items-center gap-2">
-                      <span>{c.name}</span>
+                      <button 
+                        onClick={() => setSelectedCustomerStatement(c)}
+                        className="hover:underline text-blue-700 font-bold cursor-pointer text-left"
+                      >
+                        {c.name}
+                      </button>
                       {c.created_by_source === 'AI' ? (
                         <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">🤖 AI</span>
                       ) : (
@@ -663,6 +706,11 @@ export default function SalesHub() {
 
                 {activeTab === 'products' && filteredProducts.map((p) => (
                   <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <span className="font-mono text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                        {getEntityId('PROD', p)}
+                      </span>
+                    </td>
                     <td className="px-6 py-4 font-semibold text-gray-900 flex items-center gap-2">
                       <span>{p.name}</span>
                       {p.created_by_source === 'AI' ? (
@@ -726,7 +774,7 @@ export default function SalesHub() {
                   <option value="">Select a Customer</option>
                   {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
-                <p className="text-[10px] text-gray-400 mt-1">If the customer is missing, ask the AI to "Create customer X".</p>
+                <p className="text-[10px] text-gray-400 mt-1">If the customer is missing, add via "+ New Customer".</p>
               </div>
 
               <div>
@@ -744,12 +792,11 @@ export default function SalesHub() {
                 <label className="block text-xs font-bold text-gray-700 mb-1">Total Amount (PKR)</label>
                 <input 
                   type="number" 
-                  min="0"
-                  step="0.01"
+                  step="0.01" 
+                  placeholder="0.00"
                   className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={newInvoice.amount}
                   onChange={e => setNewInvoice({...newInvoice, amount: e.target.value})}
-                  placeholder="0.00"
                   required
                 />
               </div>
@@ -768,35 +815,79 @@ export default function SalesHub() {
         document.body
       )}
 
-      {/* LOG PAYMENT MODAL */}
+      {/* LOG PAYMENT MODAL (WITH PARTIAL PAYMENT ENGINE) */}
       {mounted && isPaymentModalOpen && createPortal(
         <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
             <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-              <h2 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-green-600 shrink-0" />
-                Log Received Payment
-              </h2>
+              <div>
+                <h2 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-green-600 shrink-0" />
+                  Log Received Payment
+                </h2>
+                {selectedInvoiceForPayment && (
+                  <span className="text-xs text-gray-500 font-medium">
+                    Invoice: <span className="font-mono font-bold text-blue-700">{getEntityId('INV', selectedInvoiceForPayment)}</span>
+                  </span>
+                )}
+              </div>
               <button onClick={() => setIsPaymentModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer" aria-label="Close modal">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
             <form id="paymentForm" onSubmit={handleLogPayment} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
+              
+              {/* INVOICE FINANCIAL SUMMARY BREAKDOWN */}
+              {selectedInvoiceForPayment && (
+                <div className="grid grid-cols-3 gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs">
+                  <div>
+                    <span className="text-gray-500 block text-[10px] uppercase font-bold">Total Invoiced</span>
+                    <span className="font-extrabold text-gray-900">{Number(selectedInvoiceForPayment.total_amount).toLocaleString()} PKR</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block text-[10px] uppercase font-bold">Already Paid</span>
+                    <span className="font-extrabold text-emerald-700">
+                      {Number(selectedInvoiceForPayment.amount_paid || (selectedInvoiceForPayment.total_amount - (selectedInvoiceForPayment.balance_due ?? 0))).toLocaleString()} PKR
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block text-[10px] uppercase font-bold">Remaining Due</span>
+                    <span className="font-extrabold text-rose-700">
+                      {Number(selectedInvoiceForPayment.balance_due ?? selectedInvoiceForPayment.total_amount).toLocaleString()} PKR
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount Received (PKR)</label>
+                <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Amount to Pay (PKR) *</label>
                 <input 
                   type="number" 
                   step="0.01"
                   required
                   value={paymentData.amount}
                   onChange={e => setPaymentData({...paymentData, amount: e.target.value})}
-                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all font-medium"
+                  placeholder="Enter payment amount"
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all font-bold text-base"
                 />
+                {selectedInvoiceForPayment && Number(paymentData.amount) > 0 && (
+                  <p className="text-[11px] text-gray-500 mt-1 font-medium">
+                    {Number(paymentData.amount) < Number(selectedInvoiceForPayment.balance_due ?? selectedInvoiceForPayment.total_amount) ? (
+                      <span className="text-amber-700 font-bold">
+                        ⚠️ Partial Payment: Remaining balance will be {(Number(selectedInvoiceForPayment.balance_due ?? selectedInvoiceForPayment.total_amount) - Number(paymentData.amount)).toLocaleString()} PKR (Status: PARTIALLY PAID)
+                      </span>
+                    ) : (
+                      <span className="text-emerald-700 font-bold">
+                        ✓ Full Payment: Invoice will be marked PAID
+                      </span>
+                    )}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Date of Payment</label>
+                <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Date of Payment *</label>
                 <input 
                   type="date" 
                   required
@@ -807,14 +898,14 @@ export default function SalesHub() {
               </div>
               
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Payment Method</label>
+                <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Payment Method</label>
                 <select 
                   value={paymentData.method}
                   onChange={e => setPaymentData({...paymentData, method: e.target.value})}
                   className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-gray-900"
                 >
-                  <option value="Bank Transfer">Bank Transfer</option>
-                  <option value="Cash">Cash</option>
+                  <option value="Bank Transfer">Bank Transfer (Main Bank Account)</option>
+                  <option value="Cash">Cash (Petty Cash)</option>
                   <option value="Credit Card">Credit Card</option>
                   <option value="Cheque">Cheque</option>
                 </select>
@@ -829,6 +920,139 @@ export default function SalesHub() {
                 {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Record Payment'}
               </button>
             </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* CUSTOMER STATEMENT MODAL */}
+      {mounted && selectedCustomerStatement && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl border border-gray-100 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+            
+            {/* STATEMENT HEADER */}
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">Customer Statement</span>
+                  <span className="font-mono text-xs font-bold text-gray-500">{getEntityId('CUST', selectedCustomerStatement)}</span>
+                </div>
+                <h2 className="text-xl font-extrabold text-gray-900 mt-1 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-blue-600" /> {selectedCustomerStatement.name}
+                </h2>
+                {(selectedCustomerStatement.email || selectedCustomerStatement.phone) && (
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {selectedCustomerStatement.email} {selectedCustomerStatement.phone && `· ${selectedCustomerStatement.phone}`}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => setSelectedCustomerStatement(null)}
+                className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* STATEMENT CONTENT */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 bg-white">
+              
+              {/* STATEMENT KPI CARDS */}
+              {(() => {
+                const custInvoices = invoices.filter(inv => inv.customer_id === selectedCustomerStatement.id || inv.customers?.name === selectedCustomerStatement.name);
+                const totalInvoiced = custInvoices.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
+                const totalPaid = custInvoices.reduce((sum, inv) => sum + Number(inv.amount_paid || (inv.total_amount - (inv.balance_due ?? 0))), 0);
+                const outstandingBalance = Math.max(0, totalInvoiced - totalPaid);
+
+                return (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="p-4 rounded-xl bg-blue-50 border border-blue-200">
+                        <span className="text-xs font-bold text-blue-700 uppercase tracking-wider block">Total Invoiced</span>
+                        <p className="text-xl font-black text-blue-950 mt-1">{totalInvoiced.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</p>
+                      </div>
+                      <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                        <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">Total Paid</span>
+                        <p className="text-xl font-black text-emerald-950 mt-1">{totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</p>
+                      </div>
+                      <div className="p-4 rounded-xl bg-rose-50 border border-rose-200">
+                        <span className="text-xs font-bold text-rose-700 uppercase tracking-wider block">Outstanding Balance (AR)</span>
+                        <p className="text-xl font-black text-rose-950 mt-1">{outstandingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</p>
+                      </div>
+                    </div>
+
+                    {/* TRANSACTIONS TABLE */}
+                    <div className="space-y-2">
+                      <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Invoice & Payment History</h3>
+                      <div className="border border-gray-200 rounded-xl overflow-hidden shadow-xs">
+                        <table className="w-full text-left text-xs whitespace-nowrap">
+                          <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-200">
+                            <tr>
+                              <th className="px-4 py-3">Invoice ID</th>
+                              <th className="px-4 py-3">Issue Date</th>
+                              <th className="px-4 py-3">Items / Particulars</th>
+                              <th className="px-4 py-3 text-right">Invoiced Amount</th>
+                              <th className="px-4 py-3 text-right">Paid Amount</th>
+                              <th className="px-4 py-3 text-right">Balance Due</th>
+                              <th className="px-4 py-3 text-center">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100 text-gray-700">
+                            {custInvoices.length === 0 ? (
+                              <tr>
+                                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                                  No invoices found for this customer.
+                                </td>
+                              </tr>
+                            ) : (
+                              custInvoices.map((inv) => {
+                                const paid = Number(inv.amount_paid || (inv.total_amount - (inv.balance_due ?? 0)));
+                                const due = Number(inv.balance_due ?? (inv.total_amount - paid));
+                                const isPaid = inv.status === 'paid' || due <= 0;
+                                const isPartial = !isPaid && paid > 0;
+
+                                return (
+                                  <tr key={inv.id} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3 font-mono font-bold text-blue-700">{getEntityId('INV', inv)}</td>
+                                    <td className="px-4 py-3 text-gray-500">{inv.issue_date}</td>
+                                    <td className="px-4 py-3 text-gray-800 truncate max-w-xs">{inv.invoice_lines?.map((l: any) => l.description).join(', ') || 'Invoice'}</td>
+                                    <td className="px-4 py-3 text-right font-bold text-gray-900">{Number(inv.total_amount).toLocaleString()} PKR</td>
+                                    <td className="px-4 py-3 text-right font-bold text-emerald-600">{paid > 0 ? `${paid.toLocaleString()} PKR` : '-'}</td>
+                                    <td className="px-4 py-3 text-right font-bold text-rose-600">{due > 0 ? `${due.toLocaleString()} PKR` : '0 PKR'}</td>
+                                    <td className="px-4 py-3 text-center">
+                                      {isPaid ? (
+                                        <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-emerald-100 text-emerald-800">PAID</span>
+                                      ) : isPartial ? (
+                                        <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-amber-100 text-amber-800">PARTIALLY PAID</span>
+                                      ) : (
+                                        <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-blue-100 text-blue-800">OPEN</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+
+            </div>
+
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setSelectedCustomerStatement(null)}
+                className="px-5 py-2.5 min-h-[44px] bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                Close Statement
+              </button>
+            </div>
+
           </div>
         </div>,
         document.body

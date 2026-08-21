@@ -150,9 +150,17 @@ export async function POST(request: Request) {
          - Line 1 (DEBIT): description: "Owner Personal Withdrawal", account_name: "Owner Drawings", total: 10000, is_debit: true
          - Line 2 (CREDIT): description: "Withdrawal from Main Bank", account_name: "Main Bank Account", total: 10000, is_debit: false
          - CRITICAL: Owner drawings DEBIT "Owner Drawings" (Equity deduction) and CREDIT "Main Bank Account" (Cash decrease).
-       - Purchasing Fixed Assets for Office Use e.g. "Bought office computer for 80,000 PKR":
-         - Line 1 (DEBIT): description: "Office Equipment Purchase", account_name: "Fixed Assets - Equipment/Furniture", total: 80000, is_debit: true
-         - Line 2 (CREDIT): description: "Payment from Bank", account_name: "Main Bank Account", total: 80000, is_debit: false
+        - Customer Payment / Partial Invoice Payment e.g. "Faizan paid 10,000 towards his 50,000 invoice" or "Received 10,000 payment from Faizan":
+          - Line 1 (DEBIT): description: "Customer Payment Received", account_name: "Main Bank Account", total: 10000, is_debit: true
+          - Line 2 (CREDIT): description: "Reduce Accounts Receivable", account_name: "Accounts Receivable", total: 10000, is_debit: false
+          - CRITICAL: Customer invoice payments DEBIT "Main Bank Account" (Cash increases) and CREDIT "Accounts Receivable" (A/R asset decreases for the exact payment amount). DO NOT create a new sale/revenue or mark whole invoice as paid if partial.
+        - Vendor / Supplier Bill Payment e.g. "Paid 15,000 to Acme Supplies for bill" or "Partial payment 15,000 towards vendor bill":
+          - Line 1 (DEBIT): description: "Reduce Accounts Payable", account_name: "Accounts Payable", total: 15000, is_debit: true
+          - Line 2 (CREDIT): description: "Vendor Payment from Bank", account_name: "Main Bank Account", total: 15000, is_debit: false
+          - CRITICAL: Vendor payments DEBIT "Accounts Payable" (A/P liability decreases) and CREDIT "Main Bank Account" (Cash decreases).
+        - Purchasing Fixed Assets for Office Use e.g. "Bought office computer for 80,000 PKR":
+          - Line 1 (DEBIT): description: "Office Equipment Purchase", account_name: "Fixed Assets - Equipment/Furniture", total: 80000, is_debit: true
+          - Line 2 (CREDIT): description: "Payment from Bank", account_name: "Main Bank Account", total: 80000, is_debit: false
     5. Product Deduplication (CRITICAL): You MUST map the extracted item to an existing product in the user's catalog if they are semantically identical (e.g., map '1kg mangoes', 'Mangoes', or 'fresh mango' to the existing product 'Mango'). Return the existing product's UUID in "product_id" and its exact catalog name in "product_name".
     6. Product Normalization (CRITICAL): If the product truly does not exist in the catalog and you must create a new one, you MUST normalize the string. Remove all quantities, adjectives, and units of measurement. Always use singular nouns (e.g., create 'Mango', never 'Mangoes' or 'Red Mangoes'). Set "product_id": null and "product_name": "Normalized Product Name".
     7. Quantities & Purchase Unit Costs: You must separate the quantity and unit of measurement from the product name. If the user says "50 kg banana for 4,567 PKR", the product_name is "Banana", the quantity is 50, total is 4567, and unit_price is 91.34 (4567 / 50). Do NOT include units ('kg', 'lbs', 'boxes', 'pcs', etc.) in the product name. For LOG_BILL and LOG_INVOICE of physical inventory items, you MUST ALWAYS extract a numeric quantity so the database can calculate unit cost = amount / quantity to update product inventory and unit cost.
