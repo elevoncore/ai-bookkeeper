@@ -29,6 +29,20 @@ export default function PurchasesHub() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [selectedSupplierStatement, setSelectedSupplierStatement] = useState<any>(null);
+  const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
+  const [newSupplier, setNewSupplier] = useState({ name: '', email: '', phone: '' });
+
+  // Lock background scroll when any modal is open
+  useEffect(() => {
+    if (isBillModalOpen || isPaymentModalOpen || isSupplierModalOpen || selectedSupplierStatement) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isBillModalOpen, isPaymentModalOpen, isSupplierModalOpen, selectedSupplierStatement]);
 
   function getEntityId(prefix: string, item: any) {
     if (item.code) return item.code;
@@ -36,8 +50,6 @@ export default function PurchasesHub() {
     return `${prefix}-${idStr}`;
   }
 
-  const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
-  const [newSupplier, setNewSupplier] = useState({ name: '', email: '', phone: '' });
   const [editedBillIds, setEditedBillIds] = useState<Set<string>>(new Set());
 
   // Search & Filter States
@@ -269,7 +281,15 @@ export default function PurchasesHub() {
 
     const payAmount = parseFloat(paymentData.amount);
     if (isNaN(payAmount) || payAmount <= 0) {
-      return toast.error("Invalid payment amount.");
+      return toast.error("Invalid payment amount. Amount must be greater than zero.");
+    }
+
+    const safeAmount = Math.round(parseToCents(paymentData.amount)) / 100;
+    const bill = selectedBillForPayment || bills.find(b => b.id === paymentData.bill_id);
+    const maxDue = bill?.balance_due != null ? Number(bill.balance_due) : Number(bill?.total_amount || 0);
+
+    if (maxDue > 0 && safeAmount > maxDue) {
+      return toast.error(`Payment amount (${safeAmount.toLocaleString()} PKR) cannot exceed remaining balance due (${maxDue.toLocaleString()} PKR).`);
     }
 
     setIsSubmitting(true);
@@ -280,8 +300,6 @@ export default function PurchasesHub() {
       setIsSubmitting(false);
       return;
     }
-
-    const safeAmount = Math.round(parseToCents(paymentData.amount)) / 100;
 
     const { error: rpcError } = await supabase.rpc('log_payment_made_atomic', {
       p_bill_id: paymentData.bill_id,

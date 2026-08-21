@@ -42,19 +42,29 @@ export default function SalesHub() {
   });
 
   const [selectedCustomerStatement, setSelectedCustomerStatement] = useState<any>(null);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '' });
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<{ id?: string; name: string; price: string; cost: string; is_inventory_tracked: boolean }>({ name: '', price: '', cost: '', is_inventory_tracked: true });
+  const [editedInvoiceIds, setEditedInvoiceIds] = useState<Set<string>>(new Set());
+
+  // Lock background scroll when any modal is open
+  useEffect(() => {
+    if (isInvoiceModalOpen || isPaymentModalOpen || isCustomerModalOpen || isProductModalOpen || isQuickSaleModalOpen || selectedCustomerStatement) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isInvoiceModalOpen, isPaymentModalOpen, isCustomerModalOpen, isProductModalOpen, isQuickSaleModalOpen, selectedCustomerStatement]);
 
   function getEntityId(prefix: string, item: any) {
     if (item.code) return item.code;
     const idStr = item.id ? item.id.substring(0, 6).toUpperCase() : '001';
     return `${prefix}-${idStr}`;
   }
-
-  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
-  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '' });
-
-  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<{ id?: string; name: string; price: string; cost: string; is_inventory_tracked: boolean }>({ name: '', price: '', cost: '', is_inventory_tracked: true });
-  const [editedInvoiceIds, setEditedInvoiceIds] = useState<Set<string>>(new Set());
 
   function openEditProductModal(p: any) {
     setEditingProduct({
@@ -433,18 +443,29 @@ export default function SalesHub() {
     e.preventDefault();
     if (isSubmitting) return;
     if (!paymentData.amount || !paymentData.date) return toast.error("Please fill in all fields");
-    
+
+    const payNum = parseFloat(paymentData.amount);
+    if (isNaN(payNum) || payNum <= 0) {
+      return toast.error("Invalid payment amount. Amount must be greater than zero.");
+    }
+
+    const safeAmount = Math.round(parseToCents(paymentData.amount)) / 100;
+    const invoice = selectedInvoiceForPayment || invoices.find(i => i.id === paymentData.invoice_id);
+    const maxDue = invoice?.balance_due != null ? Number(invoice.balance_due) : Number(invoice?.total_amount || 0);
+
+    if (maxDue > 0 && safeAmount > maxDue) {
+      return toast.error(`Payment amount (${safeAmount.toLocaleString()} PKR) cannot exceed remaining balance due (${maxDue.toLocaleString()} PKR).`);
+    }
+
     setIsSubmitting(true);
     const toastId = toast.loading("Logging payment...");
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-       setIsSubmitting(false);
-       return toast.error("Not authenticated", { id: toastId });
+      setIsSubmitting(false);
+      return toast.error("Not authenticated", { id: toastId });
     }
 
-    const safeAmount = Math.round(parseToCents(paymentData.amount)) / 100;
-
-    const { error } = await supabase.rpc('log_payment_received_atomic', {
+    const { error: rpcError } = await supabase.rpc('log_payment_received_atomic', {
       p_invoice_id: paymentData.invoice_id,
       p_user_id: user.id,
       p_amount: safeAmount,
@@ -452,14 +473,60 @@ export default function SalesHub() {
       p_method: paymentData.method
     });
 
-    if (error) {
-      toast.error(`Error: ${error.message}`, { id: toastId });
-      setIsSubmitting(false);
-    } else {
+    if (!rpcError) {
       toast.success("Payment logged successfully!", { id: toastId });
       setIsSubmitting(false);
       setIsPaymentModalOpen(false);
       fetchData();
+      return;
+    }
+
+    // Fallback if RPC is not deployed
+    try {
+      if (!invoice) throw new Error("Invoice not found");
+      const currentPaid = Number(invoice.amount_paid || 0);
+      const total = Number(invoice.total_amount || 0);
+      const newPaid = currentPaid + safeAmount;
+      const newBalance = Math.max(0, total - newPaid);
+      const newStatus = newBalance <= 0 ? 'paid' : 'partial';
+
+      await supabase
+        .from('invoices')
+        .update({
+          balance_due: newBalance,
+          amount_paid: newPaid,
+          status: newStatus
+        })
+        .eq('id', invoice.id);
+
+      const accountsRes = await supabase.from('accounts').select('*').eq('user_id', user.id);
+      const bankAccount = accountsRes.data?.find(a => a.is_cash_account || a.name.toLowerCase().includes('bank') || a.type === 'asset');
+      const arAccount = accountsRes.data?.find(a => a.name.toLowerCase().includes('accounts receivable') || a.type === 'asset');
+
+      if (bankAccount && arAccount) {
+        const { data: entry } = await supabase.from('journal_entries').insert({
+          user_id: user.id,
+          date: paymentData.date,
+          description: `Customer payment received for Invoice INV-${invoice.id.substring(0, 6).toUpperCase()}`,
+          reference_type: 'invoice_payment',
+          reference_id: invoice.id
+        }).select().single();
+
+        if (entry) {
+          await supabase.from('journal_lines').insert([
+            { journal_entry_id: entry.id, account_id: bankAccount.id, debit: safeAmount, credit: 0 },
+            { journal_entry_id: entry.id, account_id: arAccount.id, debit: 0, credit: safeAmount }
+          ]);
+        }
+      }
+
+      toast.success(`Logged ${safeAmount.toLocaleString()} PKR payment for Invoice!`, { id: toastId });
+      setIsSubmitting(false);
+      setIsPaymentModalOpen(false);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to log payment", { id: toastId });
+      setIsSubmitting(false);
     }
   }
 

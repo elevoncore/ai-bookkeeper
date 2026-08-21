@@ -262,17 +262,17 @@ export async function POST(request: Request) {
 
       // Ambiguity Trap Guardrail (Asset vs Inventory)
       const lowerPrompt = (prompt || '').toLowerCase();
-      const ambiguousKeywords = ['table', 'desk', 'chair', 'furniture', 'computer', 'laptop', 'equipment', 'printer', 'vehicle', 'phone'];
+      const ambiguousKeywords = ['table', 'desk', 'chair', 'furniture', 'seating', 'device', 'appliance', 'fixture', 'computer', 'laptop', 'equipment', 'printer', 'vehicle', 'phone', 'machinery', 'tool'];
       const explicitContext = ['office use', 'fixed asset', 'resale', 'inventory', 'stock', 'for sale', 'internal use', 'for my office', 'for business use', 'for employees', 'for clients', 'for resale', 'walk-in', 'sold'];
       
       const mentionsAmbiguousItem = ambiguousKeywords.some(k => lowerPrompt.includes(k));
       const hasExplicitContext = explicitContext.some(k => lowerPrompt.includes(k));
-      const isPurchase = lowerPrompt.includes('bought') || lowerPrompt.includes('purchased') || lowerPrompt.includes('buy') || lowerPrompt.includes('purchasing');
+      const isPurchase = lowerPrompt.includes('bought') || lowerPrompt.includes('purchased') || lowerPrompt.includes('buy') || lowerPrompt.includes('purchasing') || lowerPrompt.includes('acquired') || lowerPrompt.includes('got') || lowerPrompt.includes('procured') || lowerPrompt.includes('ordered');
 
       if (mentionsAmbiguousItem && isPurchase && !hasExplicitContext) {
         structuredData.is_complete = false;
         const matchedItem = ambiguousKeywords.find(k => lowerPrompt.includes(k)) || 'item';
-        const question = `Did you buy this ${matchedItem} for internal office use (Fixed Asset) or as inventory to sell to customers?`;
+        const question = `Did you buy/acquire this ${matchedItem} for internal office use (Fixed Asset) or as inventory to sell to customers?`;
         structuredData.clarification_question = question;
         structuredData.conversational_response = question;
       }
