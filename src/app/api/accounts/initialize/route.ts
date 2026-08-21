@@ -34,16 +34,18 @@ export async function POST(request: Request) {
       p_user_id: user.id
     });
 
-    // Ensure all standard system accounts exist (including Loan Payable & Interest Expense)
+    // Ensure all standard system accounts exist (including Sub-Accounts)
     const accountsToSeed = [
       { user_id: user.id, name: 'Main Bank Account', type: 'asset', is_system: true, is_cash_account: true },
       { user_id: user.id, name: 'Petty Cash', type: 'asset', is_system: true, is_cash_account: true },
       { user_id: user.id, name: 'Accounts Receivable', type: 'asset', is_system: true, is_cash_account: false },
       { user_id: user.id, name: 'Inventory Asset', type: 'asset', is_system: true, is_cash_account: false },
+      { user_id: user.id, name: 'Fixed Assets - Office/Equipment', type: 'asset', is_system: true, is_cash_account: false },
       { user_id: user.id, name: 'Fixed Assets - Equipment/Furniture', type: 'asset', is_system: true, is_cash_account: false },
       { user_id: user.id, name: 'Accounts Payable', type: 'liability', is_system: true, is_cash_account: false },
       { user_id: user.id, name: 'Sales Tax Payable', type: 'liability', is_system: true, is_cash_account: false },
       { user_id: user.id, name: 'Loan Payable', type: 'liability', is_system: true, is_cash_account: false },
+      { user_id: user.id, name: 'Long-Term Loan Payable', type: 'liability', is_system: true, is_cash_account: false },
       { user_id: user.id, name: 'Owners Equity', type: 'equity', is_system: true, is_cash_account: false },
       { user_id: user.id, name: 'Owner Drawings', type: 'equity', is_system: true, is_cash_account: false },
       { user_id: user.id, name: 'Retained Earnings', type: 'equity', is_system: true, is_cash_account: false },

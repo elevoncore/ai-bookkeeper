@@ -130,26 +130,26 @@ export async function POST(request: Request) {
        - COST OF GOODS SOLD: 'Cost of Goods Sold' is ONLY realized upon selling inventory items (LOG_INVOICE), NEVER upon purchasing inventory.
        - If a user prompt mentions multiple expenses (e.g. "rent and AWS bill together"), you MUST split them into separate line items in "line_items" and assign each item its specific account category.
        - You must place the exact account name in the "account_name" field of each line item.
-    5. Journal Entry Balancing & Loan/Equity Workflows (CRITICAL for LOG_JOURNAL_ENTRY): If intent is LOG_JOURNAL_ENTRY, you MUST output balanced debit and credit lines in "line_items" using exact Chart of Accounts names: ['Main Bank Account', 'Petty Cash', 'Accounts Receivable', 'Inventory Asset', 'Fixed Assets - Equipment/Furniture', 'Accounts Payable', 'Sales Tax Payable', 'Loan Payable', 'Owners Equity', 'Owner Drawings', 'Retained Earnings', 'Sales Revenue', 'Service Revenue', 'Cost of Goods Sold', 'Rent Expense', 'Utilities', 'Software & Hosting', 'Interest Expense', 'General Operating Expense'].
-       - Capital Investment e.g. "Investing 100,000 PKR into bank as owner capital":
-         - Line 1 (DEBIT): description: "Capital Investment", account_name: "Main Bank Account", total: 100000, is_debit: true
-         - Line 2 (CREDIT): description: "Owner Equity Contribution", account_name: "Owners Equity", total: 100000, is_debit: false
-       - Receiving a Loan e.g. "I received a 500,000 PKR loan from the bank" or "Got a loan of 500,000 PKR":
-         - Line 1 (DEBIT): description: "Bank Loan Proceeds", account_name: "Main Bank Account", total: 500000, is_debit: true
-         - Line 2 (CREDIT): description: "Loan Principal Obligation", account_name: "Loan Payable", total: 500000, is_debit: false
-         - CRITICAL: Receiving a loan INCREASES Main Bank Account (DEBIT) and INCREASES Loan Payable (CREDIT).
-       - Repaying a Loan with Interest e.g. "Repaid 50,000 PKR loan principal and 5,000 PKR interest":
-         - Line 1 (DEBIT): description: "Loan Principal Repayment", account_name: "Loan Payable", total: 50000, is_debit: true
-         - Line 2 (DEBIT): description: "Interest Expense", account_name: "Interest Expense", total: 5000, is_debit: true
-         - Line 3 (CREDIT): description: "Cash Paid for Principal and Interest", account_name: "Main Bank Account", total: 55000, is_debit: false
-         - CRITICAL: Repaying a loan DECREASES Loan Payable (DEBIT), INVOICES Interest Expense (DEBIT), and DECREASES Main Bank Account (CREDIT for total cash paid = principal + interest). Total Debits MUST equal Total Credits.
-       - Bank/Cash Transfer e.g. "Transfer 5,000 from Bank to Petty Cash" or "Deposited cash into bank":
-         - Line 1 (DEBIT): description: "Transfer to Receiving Account", account_name: "Petty Cash", total: 5000, is_debit: true
-         - Line 2 (CREDIT): description: "Transfer from Sending Account", account_name: "Main Bank Account", total: 5000, is_debit: false
-       - Owner Drawings e.g. "I withdrew 10,000 PKR for personal use" or "Owner drew 10,000 PKR":
-         - Line 1 (DEBIT): description: "Owner Personal Withdrawal", account_name: "Owner Drawings", total: 10000, is_debit: true
-         - Line 2 (CREDIT): description: "Withdrawal from Main Bank", account_name: "Main Bank Account", total: 10000, is_debit: false
-         - CRITICAL: Owner drawings DEBIT "Owner Drawings" (Equity deduction) and CREDIT "Main Bank Account" (Cash decrease).
+    5. Journal Entry Balancing & Loan/Equity Workflows (CRITICAL for LOG_JOURNAL_ENTRY): If intent is LOG_JOURNAL_ENTRY, you MUST output balanced debit and credit lines in "line_items" using exact Chart of Accounts names: ['Main Bank Account', 'Petty Cash', 'Accounts Receivable', 'Inventory Asset', 'Fixed Assets - Office/Equipment', 'Fixed Assets - Equipment/Furniture', 'Accounts Payable', 'Sales Tax Payable', 'Loan Payable', 'Long-Term Loan Payable', 'Owners Equity', 'Owner Drawings', 'Retained Earnings', 'Sales Revenue', 'Service Revenue', 'Cost of Goods Sold', 'Rent Expense', 'Utilities', 'Software & Hosting', 'Interest Expense', 'General Operating Expense'].
+        - Capital Investment e.g. "Investing 100,000 PKR into bank as owner capital":
+          - Line 1 (DEBIT): description: "Capital Investment", account_name: "Main Bank Account", total: 100000, is_debit: true
+          - Line 2 (CREDIT): description: "Owner Equity Contribution", account_name: "Owners Equity", total: 100000, is_debit: false
+        - Receiving a Loan e.g. "I received a 500,000 PKR loan from the bank" or "Got a loan of 500,000 PKR":
+          - Line 1 (DEBIT): description: "Bank Loan Proceeds", account_name: "Main Bank Account", total: 500000, is_debit: true
+          - Line 2 (CREDIT): description: "Loan Principal Obligation", account_name: "Loan Payable", total: 500000, is_debit: false
+          - CRITICAL: Receiving a loan INCREASES Main Bank Account (DEBIT) and INCREASES Loan Payable (CREDIT).
+        - Repaying a Loan with Interest e.g. "Repaid 50,000 PKR loan principal and 5,000 PKR interest":
+          - Line 1 (DEBIT): description: "Loan Principal Repayment", account_name: "Loan Payable", total: 50000, is_debit: true
+          - Line 2 (DEBIT): description: "Interest Expense", account_name: "Interest Expense", total: 5000, is_debit: true
+          - Line 3 (CREDIT): description: "Cash Paid for Principal and Interest", account_name: "Main Bank Account", total: 55000, is_debit: false
+          - CRITICAL: Repaying a loan DECREASES Loan Payable (DEBIT), INVOICES Interest Expense (DEBIT), and DECREASES Main Bank Account (CREDIT for total cash paid = principal + interest). Total Debits MUST equal Total Credits.
+        - Bank/Cash Transfer e.g. "Transfer 5,000 from Bank to Petty Cash" or "Deposited cash into bank":
+          - Line 1 (DEBIT): description: "Transfer to Receiving Account", account_name: "Petty Cash", total: 5000, is_debit: true
+          - Line 2 (CREDIT): description: "Transfer from Sending Account", account_name: "Main Bank Account", total: 5000, is_debit: false
+        - Owner Drawings e.g. "I withdrew 10,000 PKR for personal use" or "Owner drew 10,000 PKR":
+          - Line 1 (DEBIT): description: "Owner Personal Withdrawal", account_name: "Owner Drawings", total: 10000, is_debit: true
+          - Line 2 (CREDIT): description: "Withdrawal from Cash/Bank", account_name: "Petty Cash", total: 10000, is_debit: false
+          - CRITICAL: Owner drawings DEBIT "Owner Drawings" (Equity deduction) and CREDIT "Petty Cash" or "Main Bank Account" (Cash decrease).
         - Quick Cash Sale / Walk-In Customer Sale e.g. "I sold a desk to a walk-in customer for 5,000 PKR cash" or "Sold a soda for 150 PKR cash" or "Cash sale 3,000 PKR for services":
           - Line 1 (DEBIT): description: "Cash Sale Proceeds", account_name: "Petty Cash", total: 5000, is_debit: true
           - Line 2 (CREDIT): description: "Sales Revenue", account_name: "Sales Revenue", total: 5000, is_debit: false
@@ -163,13 +163,13 @@ export async function POST(request: Request) {
           - Line 2 (CREDIT): description: "Vendor Payment from Bank", account_name: "Main Bank Account", total: 15000, is_debit: false
           - CRITICAL: Vendor payments DEBIT "Accounts Payable" (A/P liability decreases) and CREDIT "Main Bank Account" (Cash decreases).
         - Purchasing Fixed Assets for Office Use e.g. "Bought office computer for 80,000 PKR":
-          - Line 1 (DEBIT): description: "Office Equipment Purchase", account_name: "Fixed Assets - Equipment/Furniture", total: 80000, is_debit: true
+          - Line 1 (DEBIT): description: "Office Equipment Purchase", account_name: "Fixed Assets - Office/Equipment", total: 80000, is_debit: true
           - Line 2 (CREDIT): description: "Payment from Bank", account_name: "Main Bank Account", total: 80000, is_debit: false
     5. Product Deduplication (CRITICAL): You MUST map the extracted item to an existing product in the user's catalog if they are semantically identical (e.g., map '1kg mangoes', 'Mangoes', or 'fresh mango' to the existing product 'Mango'). Return the existing product's UUID in "product_id" and its exact catalog name in "product_name".
     6. Product Normalization (CRITICAL): If the product truly does not exist in the catalog and you must create a new one, you MUST normalize the string. Remove all quantities, adjectives, and units of measurement. Always use singular nouns (e.g., create 'Mango', never 'Mangoes' or 'Red Mangoes'). Set "product_id": null and "product_name": "Normalized Product Name".
     7. Quantities & Purchase Unit Costs: You must separate the quantity and unit of measurement from the product name. If the user says "50 kg banana for 4,567 PKR", the product_name is "Banana", the quantity is 50, total is 4567, and unit_price is 91.34 (4567 / 50). Do NOT include units ('kg', 'lbs', 'boxes', 'pcs', etc.) in the product name. For LOG_BILL and LOG_INVOICE of physical inventory items, you MUST ALWAYS extract a numeric quantity so the database can calculate unit cost = amount / quantity to update product inventory and unit cost.
     8. Smart Inventory Tracking: Determine if an item is physical inventory. If the item has physical units (kg, boxes, pcs) or is a quantifiable tangible good (e.g. "Banana"), set "is_inventory_tracked" to true. If it is a service (e.g. "Web Design", "Hosting", "Consulting") or generic expense, set it to false.
-    9. Asset vs Inventory Ambiguity Rule (CRITICAL): If a user buys an item that could be either for internal office use OR for resale to customers (e.g., furniture, computers, tables, laptops, chairs, equipment e.g. "I bought a table for 5,000 PKR" or "Bought a computer for 50,000"), and the prompt DOES NOT specify whether it is for office use or for resale inventory, you MUST NOT guess or assume. You MUST set "is_complete": false, and ask for explicit clarification in "conversational_response" and "clarification_question" (e.g., "Did you buy this table for internal office use (Fixed Asset) or for resale to customers (Inventory)?").
+    9. Asset vs Inventory Ambiguity Rule (CRITICAL): If a user buys or purchases an item that could be either for internal office/business use OR for resale to customers (e.g., furniture, computers, tables, laptops, chairs, desks, printers, vehicles, or equipment e.g. "I bought a table for 5,000 PKR" or "Bought a computer for 50,000"), and the prompt DOES NOT explicitly specify whether it is for office use or for resale inventory, you MUST NOT guess or assume, and MUST NOT stage a transaction. You MUST set "is_complete": false, and ask for explicit clarification in "conversational_response" and "clarification_question" (e.g., "Did you buy this table for internal office use (Fixed Asset) or for resale to customers (Inventory)?").
     10. Dates: Today's date is ${today}. If the user says "yesterday" or "today" or a day of the week, calculate the exact YYYY-MM-DD based on today. The "issue_date" and "due_date" MUST be in strict YYYY-MM-DD format. If no issue_date is given, default to ${today}.
     11. Currency Code: Extract the 3-letter currency code (e.g. 'USD', 'EUR', 'GBP', 'PKR') from symbols ($ = USD, € = EUR, £ = GBP, Rs / PKR = PKR) or context. Default to 'PKR' if unspecified.
     12. Inventory Stocktake Adjustments (LOG_INVENTORY_ADJUSTMENT): If the intent is LOG_INVENTORY_ADJUSTMENT, extract "product_name" (the name of the product), "product_id" (if matching catalog), "actual_stock_count" (the actual physical count on shelf), and "reason" (e.g. "Monthly stocktake", "Spilled milk", "Stolen goods").
@@ -199,7 +199,8 @@ export async function POST(request: Request) {
           "account_name": "string",
           "product_id": "string | null",
           "product_name": "string | null",
-          "is_inventory_tracked": boolean
+          "is_inventory_tracked": boolean,
+          "is_debit": boolean
         }
       ],
       "is_complete": boolean,
@@ -215,8 +216,9 @@ export async function POST(request: Request) {
       if (msg.sender === 'user') {
         contents.push({ role: 'user', parts: [{ text: msg.text }] });
       } else if (msg.sender === 'ai') {
-        // Only push text AI responses to context
-        if (msg.text) {
+        if (msg.extractedDraft) {
+          contents.push({ role: 'model', parts: [{ text: JSON.stringify(msg.extractedDraft) }] });
+        } else {
           contents.push({ role: 'model', parts: [{ text: msg.text }] });
         }
       }
@@ -257,6 +259,23 @@ export async function POST(request: Request) {
       
       // Basic runtime validation of AI response structure
       if (!structuredData.intent) structuredData.intent = 'GENERAL_HELP';
+
+      // Ambiguity Trap Guardrail (Asset vs Inventory)
+      const lowerPrompt = (prompt || '').toLowerCase();
+      const ambiguousKeywords = ['table', 'desk', 'chair', 'furniture', 'computer', 'laptop', 'equipment', 'printer', 'vehicle', 'phone'];
+      const explicitContext = ['office use', 'fixed asset', 'resale', 'inventory', 'stock', 'for sale', 'internal use', 'for my office', 'for business use', 'for employees', 'for clients', 'for resale', 'walk-in', 'sold'];
+      
+      const mentionsAmbiguousItem = ambiguousKeywords.some(k => lowerPrompt.includes(k));
+      const hasExplicitContext = explicitContext.some(k => lowerPrompt.includes(k));
+      const isPurchase = lowerPrompt.includes('bought') || lowerPrompt.includes('purchased') || lowerPrompt.includes('buy') || lowerPrompt.includes('purchasing');
+
+      if (mentionsAmbiguousItem && isPurchase && !hasExplicitContext) {
+        structuredData.is_complete = false;
+        const matchedItem = ambiguousKeywords.find(k => lowerPrompt.includes(k)) || 'item';
+        const question = `Did you buy this ${matchedItem} for internal office use (Fixed Asset) or as inventory to sell to customers?`;
+        structuredData.clarification_question = question;
+        structuredData.conversational_response = question;
+      }
       
       if (['LOG_BILL', 'LOG_INVOICE'].includes(structuredData.intent)) {
         // Ambiguity Safeguard: Check if extracted line items match existing products partially or in a similar category

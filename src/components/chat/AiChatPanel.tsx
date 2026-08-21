@@ -551,25 +551,7 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
           } else if (item.credit && item.credit > 0) {
             isDebit = false;
           } else {
-            const lowerAcc = (item.account_name || '').toLowerCase();
-            if (
-              lowerAcc.includes('petty cash') || 
-              lowerAcc.includes('main bank') || 
-              lowerAcc.includes('cost of goods') || 
-              lowerAcc.includes('drawings') || 
-              lowerAcc.includes('equipment')
-            ) {
-              isDebit = idx === 0 || lowerAcc.includes('cost of goods') || lowerAcc.includes('petty cash') || lowerAcc.includes('main bank');
-            } else if (
-              lowerAcc.includes('revenue') || 
-              lowerAcc.includes('sales') || 
-              lowerAcc.includes('equity') || 
-              lowerAcc.includes('payable')
-            ) {
-              isDebit = false;
-            } else {
-              isDebit = idx === 0;
-            }
+            isDebit = (idx === 0);
           }
           idx++;
 
