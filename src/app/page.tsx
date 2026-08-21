@@ -7,16 +7,28 @@ import Footer from '@/components/landing/Footer';
 
 export default function Home() {
   return (
-    <main className="relative min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-50 transition-colors duration-300 scroll-smooth">
+    <main className="relative min-h-screen bg-[#FAFAFA] dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-50 transition-colors duration-300 scroll-smooth selection:bg-purple-100 selection:text-purple-900">
       
-      {/* Global Evolving Background Glows (Dark Purple / Neon Mixture) */}
+      {/* Light Mode Pastel Gradient Mesh / Diffused Blur Background Orbs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute -top-[10%] -left-[10%] w-[50vw] h-[50vw] max-w-[800px] max-h-[800px] rounded-full bg-purple-500/20 dark:bg-purple-600/20 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '10s' }} />
-        <div className="absolute top-[40%] -right-[10%] w-[40vw] h-[40vw] max-w-[600px] max-h-[600px] rounded-full bg-fuchsia-500/20 dark:bg-fuchsia-600/20 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '14s', animationDelay: '2s' }} />
-        <div className="absolute -bottom-[20%] left-[20%] w-[60vw] h-[60vw] max-w-[900px] max-h-[900px] rounded-full bg-indigo-500/10 dark:bg-indigo-700/20 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '18s', animationDelay: '4s' }} />
+        {/* Soft Light Lilac / Purple Orb */}
+        <div 
+          className="absolute -top-[12%] -left-[8%] w-[55vw] h-[55vw] max-w-[850px] max-h-[850px] rounded-full bg-purple-200/50 dark:bg-purple-900/20 blur-[130px] lg:blur-[170px] animate-pulse" 
+          style={{ animationDuration: '11s' }} 
+        />
+        {/* Soft Mint Green / Ice Blue Orb */}
+        <div 
+          className="absolute top-[30%] -right-[12%] w-[45vw] h-[45vw] max-w-[700px] max-h-[700px] rounded-full bg-emerald-100/60 dark:bg-emerald-950/20 blur-[130px] lg:blur-[170px] animate-pulse" 
+          style={{ animationDuration: '15s', animationDelay: '2s' }} 
+        />
+        {/* Soft Ice Blue / Cyan Orb */}
+        <div 
+          className="absolute -bottom-[15%] left-[25%] w-[60vw] h-[60vw] max-w-[950px] max-h-[950px] rounded-full bg-cyan-100/50 dark:bg-indigo-950/20 blur-[130px] lg:blur-[170px] animate-pulse" 
+          style={{ animationDuration: '18s', animationDelay: '4s' }} 
+        />
       </div>
 
-      {/* Main Content Wrapper (Above the glows) */}
+      {/* Main Content Wrapper */}
       <div className="relative z-10 flex flex-col min-h-screen">
         <Navbar />
         <HeroSection />

@@ -1,63 +1,125 @@
 'use client';
 
-import { Database, Network, Globe, MessageSquareText } from 'lucide-react';
+import { motion } from 'framer-motion';
 
-const deepDiveItems = [
+const columnsData = [
   {
-    icon: <Network className="w-6 h-6 text-amber-600 dark:text-amber-400" />,
-    title: 'AI Entity Resolution & Auditing',
-    description: 'Matches natural language inputs to deterministic database identifiers (Products, Customers). Preserves original AI reasoning alongside every transaction for auditing.',
-    bg: 'bg-amber-100 dark:bg-amber-500/10'
+    number: '1',
+    title: 'AI ENTITY RESOLUTION',
+    numberBorder: 'border-orange-500 text-orange-600 dark:text-orange-400',
+    lineBg: 'bg-orange-500',
+    hoverGlow: 'hover:border-orange-200 dark:hover:border-orange-500/30',
+    points: [
+      'Natural Language to Deterministic IDs',
+      'Automated Customer & Product Matching',
+      'Immutable AI Audit Reasoning Logs'
+    ]
   },
   {
-    icon: <Database className="w-6 h-6 text-blue-600 dark:text-blue-400" />,
-    title: 'Dynamic WAC & Inventory Automation',
-    description: 'Distinct behaviors for physical goods vs. services. Dynamic recalculation of inventory value via Weighted Average Cost (WAC) following new purchase bills.',
-    bg: 'bg-blue-100 dark:bg-blue-500/10'
+    number: '2',
+    title: 'WAC & INVENTORY',
+    numberBorder: 'border-cyan-500 text-cyan-600 dark:text-cyan-400',
+    lineBg: 'bg-cyan-500',
+    hoverGlow: 'hover:border-cyan-200 dark:hover:border-cyan-500/30',
+    points: [
+      'Weighted Average Cost (WAC) Tracking',
+      'Goods vs Services Accounting Rules',
+      'Automated Stocktake Reconciliation'
+    ]
   },
   {
-    icon: <Globe className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />,
-    title: 'Multi-Currency Settlement Engine',
-    description: 'Natively integrated US Dollars (USD) and Euros (EUR). Smart update logic tracking historical payments and recalculating totals seamlessly.',
-    bg: 'bg-emerald-100 dark:bg-emerald-500/10'
+    number: '3',
+    title: 'MULTI-CURRENCY',
+    numberBorder: 'border-purple-500 text-purple-600 dark:text-purple-400',
+    lineBg: 'bg-purple-500',
+    hoverGlow: 'hover:border-purple-200 dark:hover:border-purple-500/30',
+    points: [
+      'Multi-Currency Settlement (USD, EUR, PKR)',
+      'Historical Payment Recalculations',
+      'Atomic Balances & Overdraft Protection'
+    ]
   },
   {
-    icon: <MessageSquareText className="w-6 h-6 text-purple-600 dark:text-purple-400" />,
-    title: 'Conversational Financial Reporting',
-    description: 'A powerful AI Clarification Engine allows you to query your financial data (P&L, Trial Balance, Cash Book) using natural language QUERY_REPORT intents.',
-    bg: 'bg-purple-100 dark:bg-purple-500/10'
+    number: '4',
+    title: 'CONVERSATIONAL AI',
+    numberBorder: 'border-emerald-500 text-emerald-600 dark:text-emerald-400',
+    lineBg: 'bg-emerald-500',
+    hoverGlow: 'hover:border-emerald-200 dark:hover:border-emerald-500/30',
+    points: [
+      'Natural Language QUERY_REPORT Intents',
+      'Live P&L, Cash Book & Trial Balance',
+      'Instant Conversational Insights'
+    ]
   }
 ];
 
 export default function DeepDiveSection() {
+  const easing = [0.22, 1, 0.36, 1] as const;
+
   return (
-    <section id="deep-dive" className="py-24 transition-colors duration-300">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-20">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-8 shadow-inner">
-            <Database className="w-8 h-8 text-slate-700 dark:text-slate-300" />
-          </div>
-          <h2 className="text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-white mb-6 tracking-tight">
+    <section id="deep-dive" className="py-20 sm:py-28 transition-colors duration-300 relative overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        
+        {/* Main Left-Aligned Headline (Slides up first) */}
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-60px' }}
+          transition={{ duration: 0.8, ease: easing }}
+          className="text-left max-w-3xl mb-16 sm:mb-20"
+        >
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 dark:text-white mb-4 tracking-tight">
             Advanced Capabilities
           </h2>
-          <p className="text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed">
             Explore the deep technical features that power Inscribe AI&apos;s production-ready ERP system.
           </p>
-        </div>
+        </motion.div>
 
-        <div className="space-y-6">
-          {deepDiveItems.map((item, i) => (
-            <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center gap-8 p-8 rounded-[2rem] bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 ${item.bg}`}>
-                {item.icon}
+        {/* 4 Sequential Columns Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10">
+          {columnsData.map((col, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ 
+                duration: 0.8, 
+                delay: 0.2 + index * 0.15, // Sequential cascade: 0.2s, 0.35s, 0.50s, 0.65s
+                ease: easing 
+              }}
+              className={`p-6 sm:p-7 rounded-3xl bg-slate-50/90 dark:bg-slate-900/50 backdrop-blur-sm border border-slate-200/80 dark:border-slate-800 transition-all duration-300 hover:shadow-xl hover:-translate-y-1.5 ${col.hoverGlow} flex flex-col`}
+            >
+              {/* Column Header: Number & Title */}
+              <div className="flex items-center gap-3.5 mb-7">
+                <div className={`w-8 h-8 rounded-full border-2 ${col.numberBorder} flex items-center justify-center font-extrabold text-sm shrink-0 font-mono shadow-2xs`}>
+                  {col.number}
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 tracking-wider uppercase font-sans">
+                  {col.title}
+                </h3>
               </div>
-              <div>
-                <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3">{item.title}</h3>
-                <p className="text-slate-600 dark:text-slate-400 text-base leading-relaxed">{item.description}</p>
+
+              {/* Column Body: Colored Vertical Line + Bullet Points */}
+              <div className="flex gap-4 sm:gap-5 items-stretch flex-1">
+                {/* Vertical Accent Line */}
+                <div className={`w-1 rounded-full ${col.lineBg} shrink-0 opacity-90`} />
+
+                {/* Stacked Bullet Points */}
+                <div className="flex flex-col justify-between py-0.5 space-y-5 text-sm sm:text-base font-medium text-slate-700 dark:text-slate-300 leading-snug">
+                  {col.points.map((point, pIdx) => (
+                    <p key={pIdx} className="hover:text-slate-900 dark:hover:text-white transition-colors">
+                      {point}
+                    </p>
+                  ))}
+                </div>
               </div>
-            </div>
+
+            </motion.div>
           ))}
         </div>
+
       </div>
     </section>
   );

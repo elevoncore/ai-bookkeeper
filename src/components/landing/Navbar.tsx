@@ -1,18 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, BookOpen, Moon, Sun } from 'lucide-react';
-import { useTheme } from 'next-themes';
-import { useEffect, useState } from 'react';
+import { ArrowRight, BookOpen } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export default function Navbar() {
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   const scrollTo = (id: string) => {
     const el = document.getElementById(id);
     if (el) {
@@ -20,54 +12,69 @@ export default function Navbar() {
     }
   };
 
+  const easing = [0.22, 1, 0.36, 1] as const;
+
   return (
-    <div className="fixed top-6 left-0 right-0 z-50 flex justify-center px-4">
-      <nav className="flex items-center justify-between gap-8 px-6 py-3 bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border border-white/40 dark:border-slate-800/60 rounded-full shadow-lg shadow-slate-200/20 dark:shadow-black/40 transition-all">
+    <motion.div 
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.8, delay: 0, ease: easing }}
+      className="fixed top-5 left-0 right-0 z-50 flex justify-center px-4"
+    >
+      <nav className="flex items-center justify-between gap-6 sm:gap-8 px-6 py-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 rounded-full shadow-sm transition-all w-full max-w-6xl">
         
-        {/* Brand */}
-        <div className="flex items-center gap-2 pr-4 border-r border-slate-200/50 dark:border-slate-700/50">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-bold shadow-sm">
+        {/* Brand Logo */}
+        <Link href="/" className="flex items-center gap-2.5 group">
+          <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold shadow-sm shadow-purple-500/20 group-hover:scale-105 transition-transform">
             <BookOpen className="w-4 h-4" />
           </div>
-          <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 hidden sm:block">
-            Inscribe AI
+          <span className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+            Inscribe<span className="text-purple-600 dark:text-purple-400">AI</span>
           </span>
+        </Link>
+
+        {/* Meaningful Navbar Links pointing to actual sections */}
+        <div className="hidden md:flex items-center gap-8">
+          <button 
+            onClick={() => scrollTo('features')} 
+            className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer"
+          >
+            Features
+          </button>
+
+          <button 
+            onClick={() => scrollTo('architecture')} 
+            className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer"
+          >
+            Architecture
+          </button>
+
+          <button 
+            onClick={() => scrollTo('deep-dive')} 
+            className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer"
+          >
+            Capabilities
+          </button>
         </div>
 
-        {/* Links */}
-        <div className="hidden md:flex items-center gap-6">
-          <button onClick={() => scrollTo('features')} className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Features</button>
-          <button onClick={() => scrollTo('architecture')} className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Architecture</button>
-          <button onClick={() => scrollTo('roadmap')} className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Roadmap</button>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-3 pl-4 border-l border-slate-200/50 dark:border-slate-700/50">
-          {mounted && (
-            <button
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              aria-label="Toggle Dark Mode"
-            >
-              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-          )}
-
+        {/* Action Controls */}
+        <div className="flex items-center gap-4">
           <Link 
             href="/login"
-            className="text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors hidden sm:block"
+            className="text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors hidden sm:block px-2"
           >
             Log in
           </Link>
+
           <Link 
             href="/dashboard"
-            className="group flex items-center gap-1.5 px-4 py-2 bg-slate-900 dark:bg-white hover:bg-blue-600 dark:hover:bg-blue-500 text-white dark:text-slate-900 dark:hover:text-white text-sm font-bold rounded-full transition-all hover:shadow-lg hover:-translate-y-0.5"
+            className="group inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-purple-600 hover:bg-purple-700 text-white font-semibold text-sm transition-all shadow-xs hover:shadow-purple-500/20 cursor-pointer"
           >
-            Dashboard
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            <span>Dashboard</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
           </Link>
         </div>
       </nav>
-    </div>
+    </motion.div>
   );
 }

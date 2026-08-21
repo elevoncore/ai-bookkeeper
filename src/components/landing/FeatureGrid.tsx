@@ -1,6 +1,7 @@
 'use client';
 
 import { Bot, Scale, Receipt, Box, LineChart, Users } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const features = [
   {
@@ -47,26 +48,46 @@ const features = [
   }
 ];
 
+// Custom non-linear domino stagger delay (seconds) for dynamic organic grid pop-in effect
+const dominoDelays = [0.05, 0.16, 0.09, 0.22, 0.33, 0.27];
+
 export default function FeatureGrid() {
+  const easing = [0.22, 1, 0.36, 1] as const;
+
   return (
     <section id="features" className="py-24 relative transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="text-center max-w-3xl mx-auto mb-20">
-          <h2 className="text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-white mb-6 tracking-tight">
-            Built on a solid <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500 dark:from-blue-400 dark:to-indigo-400">
-              accounting foundation
-            </span>
+        
+        {/* Section Header: Slide-up Entrance */}
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-60px' }}
+          transition={{ duration: 0.8, ease: easing }}
+          className="text-center max-w-3xl mx-auto mb-20 flex flex-col items-center"
+        >
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 dark:text-white mb-6 tracking-tight">
+            Key <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500 dark:from-blue-400 dark:to-indigo-400">Features</span>
           </h2>
-          <p className="text-lg text-slate-600 dark:text-slate-400 leading-relaxed">
-            Inscribe AI is a massive, fully-featured ERP system in production. From Weighted Average Cost inventory to AI Entity Resolution, it handles everything.
+          
+          <p className="text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-2xl">
+            Built on a solid accounting foundation. Inscribe AI is a massive, fully-featured ERP system in production. From Weighted Average Cost inventory to AI Entity Resolution, it handles everything.
           </p>
-        </div>
+        </motion.div>
 
+        {/* 6 Grid Items: Dynamic Staggered Domino Grid Effect */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((feature, index) => (
-            <div 
+            <motion.div 
               key={index}
+              initial={{ opacity: 0, y: 35, scale: 0.95 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ 
+                duration: 0.6, 
+                delay: dominoDelays[index], 
+                ease: easing 
+              }}
               className={`group p-8 rounded-[2rem] bg-slate-50 dark:bg-slate-900/50 backdrop-blur-sm border border-slate-100 dark:border-slate-800 transition-all duration-500 hover:shadow-2xl hover:shadow-blue-500/5 dark:hover:shadow-blue-900/20 hover:-translate-y-2 ${feature.borderColor}`}
             >
               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-8 transition-transform duration-500 group-hover:scale-110 ${feature.color}`}>
@@ -76,9 +97,10 @@ export default function FeatureGrid() {
               <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                 {feature.description}
               </p>
-            </div>
+            </motion.div>
           ))}
         </div>
+
       </div>
     </section>
   );
