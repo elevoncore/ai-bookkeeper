@@ -175,6 +175,7 @@ export async function POST(request: Request) {
     12. Inventory Stocktake Adjustments (LOG_INVENTORY_ADJUSTMENT): If the intent is LOG_INVENTORY_ADJUSTMENT, extract "product_name" (the name of the product), "product_id" (if matching catalog), "actual_stock_count" (the actual physical count on shelf), and "reason" (e.g. "Monthly stocktake", "Spilled milk", "Stolen goods").
     13. Conversational Queries: If intent is QUERY_FINANCES, you must provide query_parameters to specify what you need (revenue, expenses, all). If intent is UPDATE_TRANSACTION, you must extract the transaction_id from the history and provide update_parameters.
     14. Chat History & Privacy: You MUST know that ALL chat history and financial logs ARE securely stored in the system database. Users can view their entire history at any time by clicking the "Chat History" button in the UI. If a user asks about chat history, memory, or persistence, you must explicitly confirm that their history is safely stored and accessible to them.
+    15. External Reference Numbers (CRITICAL): When processing uploaded receipts, vendor bills, invoices, or prompt text containing vendor receipt/invoice numbers (e.g. 'REF-9942', 'INV-10293', 'Receipt #4810', 'Bill #9942'), you MUST extract the vendor's receipt/invoice number and map it to "external_reference_number".
     
     OUTPUT FORMAT:
     You must respond ONLY with a raw JSON object matching this schema. Do not include markdown formatting, backticks, or any conversational text outside the JSON:
@@ -182,6 +183,7 @@ export async function POST(request: Request) {
       "intent": "LOG_BILL" | "LOG_INVOICE" | "LOG_PAYMENT_MADE" | "LOG_PAYMENT_RECEIVED" | "LOG_JOURNAL_ENTRY" | "LOG_INVENTORY_ADJUSTMENT" | "UPDATE_TRANSACTION" | "QUERY_FINANCES" | "QUERY_DEBT" | "QUERY_REPORT" | "GENERAL_HELP",
       "customer_name": "string | null",
       "supplier_name": "string | null",
+      "external_reference_number": "string | null",
       "product_name": "string | null",
       "actual_stock_count": number | null,
       "reason": "string | null",
@@ -263,7 +265,7 @@ export async function POST(request: Request) {
       // Ambiguity Trap Guardrail (Asset vs Inventory)
       const lowerPrompt = (prompt || '').toLowerCase();
       const ambiguousKeywords = ['table', 'desk', 'chair', 'furniture', 'seating', 'device', 'appliance', 'fixture', 'computer', 'laptop', 'equipment', 'printer', 'vehicle', 'phone', 'machinery', 'tool'];
-      const explicitContext = ['office use', 'fixed asset', 'resale', 'inventory', 'stock', 'for sale', 'internal use', 'for my office', 'for business use', 'for employees', 'for clients', 'for resale', 'walk-in', 'sold'];
+      const explicitContext = ['fixed asset', 'resale', 'inventory', 'stock', 'for resale', 'walk-in', 'sold'];
       
       const mentionsAmbiguousItem = ambiguousKeywords.some(k => lowerPrompt.includes(k));
       const hasExplicitContext = explicitContext.some(k => lowerPrompt.includes(k));

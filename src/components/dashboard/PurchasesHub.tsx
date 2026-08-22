@@ -20,7 +20,7 @@ export default function PurchasesHub() {
   }, []);
 
   const [isBillModalOpen, setIsBillModalOpen] = useState(false);
-  const [newBill, setNewBill] = useState({ id: '', supplier_id: '', account_id: '', issue_date: '', amount: '' });
+  const [newBill, setNewBill] = useState({ id: '', supplier_id: '', account_id: '', issue_date: '', amount: '', external_reference_number: '' });
   const [isEditing, setIsEditing] = useState(false);
   
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -198,6 +198,7 @@ export default function PurchasesHub() {
     }
 
     try {
+      const extRef = newBill.external_reference_number?.trim() || null;
       if (isEditing && newBill.id) {
         const { error: billError } = await supabase
           .from('bills')
@@ -206,6 +207,7 @@ export default function PurchasesHub() {
             issue_date: newBill.issue_date,
             total_amount: numericAmount,
             balance_due: numericAmount,
+            external_reference_number: extRef,
             is_manually_edited: true,
             updated_at: new Date().toISOString()
           })
@@ -227,6 +229,8 @@ export default function PurchasesHub() {
 
         setEditedBillIds(prev => new Set(prev).add(newBill.id));
         toast.success("Bill updated successfully!");
+        closeModal();
+        fetchData();
       } else {
         const { data: createdBill, error: billError } = await supabase
           .from('bills')
@@ -236,6 +240,7 @@ export default function PurchasesHub() {
             issue_date: newBill.issue_date,
             total_amount: numericAmount,
             balance_due: numericAmount,
+            external_reference_number: extRef,
             status: 'unpaid',
             is_ai_verified: false,
             created_by_source: 'MANUAL'
@@ -390,7 +395,8 @@ export default function PurchasesHub() {
       supplier_id: bill.supplier_id,
       account_id: bill.bill_lines?.[0]?.account_id || '',
       issue_date: bill.issue_date,
-      amount: bill.total_amount.toString()
+      amount: bill.total_amount.toString(),
+      external_reference_number: bill.external_reference_number || ''
     });
     setIsBillModalOpen(true);
   }
@@ -398,7 +404,38 @@ export default function PurchasesHub() {
   function closeModal() {
     setIsBillModalOpen(false);
     setIsEditing(false);
-    setNewBill({ id: '', supplier_id: '', account_id: '', issue_date: '', amount: '' });
+    setNewBill({ id: '', supplier_id: '', account_id: '', issue_date: '', amount: '', external_reference_number: '' });
+  }
+
+  async function handleSaveSupplier(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newSupplier.name) return toast.error("Supplier name is required.");
+    setIsSubmitting(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setIsSubmitting(false);
+      return toast.error("Not authenticated");
+    }
+    const { data, error } = await supabase.from('suppliers').insert({
+      user_id: user.id,
+      name: newSupplier.name.trim(),
+      email: newSupplier.email?.trim() || null,
+      phone: newSupplier.phone?.trim() || null,
+      created_by_source: 'MANUAL'
+    }).select().single();
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Supplier created successfully!");
+      setIsSupplierModalOpen(false);
+      setNewSupplier({ name: '', email: '', phone: '' });
+      fetchData();
+      if (data) {
+        setNewBill(prev => ({ ...prev, supplier_id: data.id }));
+      }
+    }
+    setIsSubmitting(false);
   }
 
   return (
@@ -466,7 +503,7 @@ export default function PurchasesHub() {
             onClick={() => {
               if (activeTab === 'bills') {
                 setIsEditing(false);
-                setNewBill({ id: '', supplier_id: '', account_id: '', issue_date: '', amount: '' });
+                setNewBill({ id: '', supplier_id: '', account_id: '', issue_date: '', amount: '', external_reference_number: '' });
                 setIsBillModalOpen(true);
               } else {
                 setNewSupplier({ name: '', email: '', phone: '' });
@@ -559,14 +596,23 @@ export default function PurchasesHub() {
 
                   return (
                   <tr key={bill.id} className="hover:bg-gray-50 transition-colors group">
-                    <td className="px-6 py-4 font-medium text-gray-900 flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
-                        {getEntityId('BILL', bill)}
-                      </span>
-                      {bill.created_by_source === 'AI' || (bill.is_ai_verified && bill.created_by_source !== 'MANUAL') ? (
-                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">🤖 AI</span>
-                      ) : (
-                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">👤 Manual</span>
+                    <td className="px-6 py-4 font-medium text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                          {getEntityId('BILL', bill)}
+                        </span>
+                        {bill.created_by_source === 'AI' || (bill.is_ai_verified && bill.created_by_source !== 'MANUAL') ? (
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">🤖 AI</span>
+                        ) : (
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">👤 Manual</span>
+                        )}
+                      </div>
+                      {bill.external_reference_number && (
+                        <div className="mt-1">
+                          <span className="font-mono text-[10px] font-bold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
+                            Ref: {bill.external_reference_number}
+                          </span>
+                        </div>
                       )}
                     </td>
                     <td className="px-6 py-4 font-semibold text-indigo-700 truncate" title={bill.suppliers?.name}>
@@ -696,10 +742,193 @@ export default function PurchasesHub() {
 
       </div>
 
+      {/* CREATE / EDIT BILL MODAL (WITH EXTERNAL REFERENCE NUMBER) */}
+      {mounted && isBillModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-indigo-600" />
+                {isEditing ? 'Edit Bill / Purchase' : 'Create New Bill / Expense'}
+              </h2>
+              <button onClick={closeModal} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors cursor-pointer" aria-label="Close modal">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form id="billForm" onSubmit={handleSaveBill} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-xs font-bold text-gray-700">Vendor / Supplier *</label>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setNewSupplier({ name: '', email: '', phone: '' });
+                      setIsSupplierModalOpen(true);
+                    }}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-bold hover:underline cursor-pointer"
+                  >
+                    + Add New Supplier
+                  </button>
+                </div>
+                <select 
+                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                  value={newBill.supplier_id}
+                  onChange={e => setNewBill({...newBill, supplier_id: e.target.value})}
+                  required
+                >
+                  <option value="">Select a Supplier</option>
+                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Expense / Asset Category</label>
+                <select 
+                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                  value={newBill.account_id}
+                  onChange={e => setNewBill({...newBill, account_id: e.target.value})}
+                >
+                  <option value="">Default Expense Category</option>
+                  {chartOfAccounts.filter(a => a.type === 'expense' || a.type === 'asset').map(a => (
+                    <option key={a.id} value={a.id}>{a.name} ({a.type.toUpperCase()})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Issue Date *</label>
+                  <input 
+                    type="date" 
+                    className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={newBill.issue_date}
+                    onChange={e => setNewBill({...newBill, issue_date: e.target.value})}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Total Amount (PKR) *</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    placeholder="0.00"
+                    className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={newBill.amount}
+                    onChange={e => setNewBill({...newBill, amount: e.target.value})}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* EXTERNAL REFERENCE NUMBER INPUT */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Vendor Invoice / Receipt # <span className="text-gray-400 font-normal">(External Reference)</span>
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. REF-9942, INV-2024-001, REC-8491"
+                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={newBill.external_reference_number}
+                  onChange={e => setNewBill({...newBill, external_reference_number: e.target.value})}
+                />
+                <p className="text-[11px] text-gray-400 mt-1">Preserves the vendor&apos;s original receipt number for audits and tax records.</p>
+              </div>
+            </form>
+
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button type="button" onClick={closeModal} className="px-4 py-2.5 min-h-[44px] border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors cursor-pointer text-sm">
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                form="billForm"
+                disabled={isSubmitting} 
+                className="px-5 py-2.5 min-h-[44px] bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-all cursor-pointer text-sm shadow-md shadow-indigo-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                {isEditing ? 'Save Changes' : 'Create Bill'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* CREATE SUPPLIER MODAL */}
+      {mounted && isSupplierModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-lg max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Truck className="w-5 h-5 text-indigo-600" /> Add New Supplier
+              </h2>
+              <button onClick={() => setIsSupplierModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors cursor-pointer" aria-label="Close modal">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form id="supplierForm" onSubmit={handleSaveSupplier} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Supplier / Vendor Name *</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Acme Office Supplies"
+                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={newSupplier.name}
+                  onChange={e => setNewSupplier({...newSupplier, name: e.target.value})}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Email</label>
+                <input 
+                  type="email" 
+                  placeholder="vendor@company.com"
+                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={newSupplier.email}
+                  onChange={e => setNewSupplier({...newSupplier, email: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Phone</label>
+                <input 
+                  type="tel" 
+                  placeholder="+92 300 1234567"
+                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={newSupplier.phone}
+                  onChange={e => setNewSupplier({...newSupplier, phone: e.target.value})}
+                />
+              </div>
+            </form>
+
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button type="button" onClick={() => setIsSupplierModalOpen(false)} className="px-4 py-2.5 min-h-[44px] border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors cursor-pointer text-sm">
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                form="supplierForm"
+                disabled={isSubmitting} 
+                className="px-5 py-2.5 min-h-[44px] bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-all cursor-pointer text-sm shadow-md shadow-indigo-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                Add Supplier
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* MODAL FOR LOG PAYMENT (WITH PARTIAL PAYMENT ENGINE) */}
       {mounted && isPaymentModalOpen && createPortal(
         <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
             <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <div>
                 <h3 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
@@ -817,7 +1046,7 @@ export default function PurchasesHub() {
       {/* SUPPLIER STATEMENT MODAL */}
       {mounted && selectedSupplierStatement && createPortal(
         <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl border border-gray-100 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-xl shadow-2xl border border-gray-100 w-[calc(100%-2rem)] max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
             
             {/* STATEMENT HEADER */}
             <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">

@@ -268,9 +268,22 @@ export default function SalesHub() {
       }
 
       const saleAmount = parseFloat(quickSaleData.amount);
+      if (isNaN(saleAmount) || saleAmount <= 0) {
+        setIsSubmitting(false);
+        return toast.error("Sale amount must be greater than zero.", { id: toastId });
+      }
+
       const selectedProduct = products.find(p => p.id === quickSaleData.product_id);
       const isInventory = selectedProduct && selectedProduct.is_inventory_tracked;
       const qty = parseInt(quickSaleData.quantity) || 1;
+      const currentStock = Number(selectedProduct?.inventory_count || 0);
+
+      // Strict Inventory Stock Validation Guardrail
+      if (isInventory && qty > currentStock) {
+        setIsSubmitting(false);
+        return toast.error(`Insufficient inventory. Requested ${qty}, but only ${currentStock} available in stock.`, { id: toastId });
+      }
+
       const unitCost = Number(selectedProduct?.cost || 0);
       const totalCogs = unitCost * qty;
 
@@ -312,8 +325,22 @@ export default function SalesHub() {
 
         // Decrement physical stock count in products table
         await supabase.from('products').update({
-          inventory_count: Math.max(0, Number(selectedProduct.inventory_count || 0) - qty)
+          inventory_count: Math.max(0, currentStock - qty)
         }).eq('id', selectedProduct.id);
+      }
+
+      // Link to a default "Walk-in Customer" entity & create sales invoice record for inventory tracking
+      let walkInCustomer = customers.find(c => c.name.toLowerCase().includes('walk-in') || c.name.toLowerCase().includes('cash sale'));
+      let walkInCustomerId = walkInCustomer?.id;
+      if (!walkInCustomerId) {
+        const { data: newWalkIn } = await supabase.from('customers').insert({
+          user_id: user.id,
+          name: 'Walk-in Customer',
+          email: 'walkin@customer.local',
+          phone: '-',
+          created_by_source: 'SYSTEM'
+        }).select('id').single();
+        walkInCustomerId = newWalkIn?.id;
       }
 
       const desc = quickSaleData.description?.trim() 
@@ -332,6 +359,34 @@ export default function SalesHub() {
         toast.error(result.error || "Failed to record cash sale", { id: toastId });
         setIsSubmitting(false);
         return;
+      }
+
+      // Record invoice tracking line
+      try {
+        const { data: cashInvoice } = await supabase.from('invoices').insert({
+          user_id: user.id,
+          customer_id: walkInCustomerId || null,
+          issue_date: quickSaleData.date,
+          total_amount: saleAmount,
+          amount_paid: saleAmount,
+          balance_due: 0,
+          status: 'paid',
+          is_ai_verified: true,
+          created_by_source: 'MANUAL'
+        }).select('id').single();
+
+        if (cashInvoice && selectedProduct) {
+          await supabase.from('invoice_lines').insert({
+            invoice_id: cashInvoice.id,
+            product_id: selectedProduct.id,
+            description: quickSaleData.description || `Quick Cash Sale: ${selectedProduct.name}`,
+            quantity: qty,
+            unit_price: saleAmount / qty,
+            total: saleAmount
+          });
+        }
+      } catch (err) {
+        console.warn("Failed to record cash invoice tracking row:", err);
       }
 
       toast.success(`Quick cash sale of ${saleAmount.toLocaleString()} PKR recorded into Ledger!`, { id: toastId });
@@ -997,7 +1052,7 @@ export default function SalesHub() {
       {/* CENTERED POP-UP MODAL FOR NEW/EDIT INVOICE */}
       {mounted && isInvoiceModalOpen && createPortal(
         <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-3xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
             <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <h2 className="text-lg font-bold text-gray-900">{isEditing ? 'Edit Invoice' : 'Create New Invoice'}</h2>
               <button onClick={closeModal} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors cursor-pointer" aria-label="Close modal">
@@ -1061,7 +1116,7 @@ export default function SalesHub() {
       {/* LOG PAYMENT MODAL (WITH PARTIAL PAYMENT ENGINE) */}
       {mounted && isPaymentModalOpen && createPortal(
         <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
             <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <div>
                 <h2 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
@@ -1171,7 +1226,7 @@ export default function SalesHub() {
       {/* CUSTOMER STATEMENT MODAL */}
       {mounted && selectedCustomerStatement && createPortal(
         <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl border border-gray-100 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-xl shadow-2xl border border-gray-100 w-[calc(100%-2rem)] max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
             
             {/* STATEMENT HEADER */}
             <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
@@ -1304,7 +1359,7 @@ export default function SalesHub() {
       {/* EDIT PRODUCT MODAL */}
       {mounted && isProductModalOpen && createPortal(
         <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
             <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <h2 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
                 <Package className="w-5 h-5 text-purple-600 shrink-0" />
@@ -1392,7 +1447,7 @@ export default function SalesHub() {
       {/* NEW CUSTOMER MODAL */}
       {mounted && isCustomerModalOpen && createPortal(
         <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
             <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <h2 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
                 <Users className="w-5 h-5 text-blue-600 shrink-0" />
@@ -1455,7 +1510,7 @@ export default function SalesHub() {
       {/* QUICK CASH SALE MODAL (WALK-IN CUSTOMER) */}
       {mounted && isQuickSaleModalOpen && createPortal(
         <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200 border border-gray-100">
+          <div className="bg-white rounded-2xl shadow-2xl w-[calc(100%-2rem)] max-w-xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200 border border-gray-100">
             {/* Modal Header */}
             <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-emerald-50 to-teal-50 shrink-0">
               <div className="flex items-center gap-3">

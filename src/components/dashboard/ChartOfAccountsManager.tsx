@@ -749,7 +749,7 @@ export default function ChartOfAccountsManager() {
       {/* CREATE ACCOUNT MODAL */}
       {mounted && isModalOpen && createPortal(
         <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
             <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 <Plus className="w-5 h-5 text-blue-600" /> Create Ledger Account
@@ -858,7 +858,7 @@ export default function ChartOfAccountsManager() {
       {/* EDIT ACCOUNT MODAL */}
       {mounted && editingAccount && createPortal(
         <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
             <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-blue-600" /> Edit Account
@@ -964,7 +964,7 @@ export default function ChartOfAccountsManager() {
       {/* MANUAL JOURNAL ENTRY MODAL */}
       {mounted && isJournalModalOpen && createPortal(
         <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-3xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
             <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-purple-600" /> New General Journal Entry
@@ -1123,7 +1123,7 @@ export default function ChartOfAccountsManager() {
       {/* T-ACCOUNT DRILL-DOWN LEDGER MODAL */}
       {mounted && selectedTAccount && createPortal(
         <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl border border-gray-100 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-xl shadow-2xl border border-gray-100 w-[calc(100%-2rem)] max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
             <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <div>
                 <div className="flex items-center gap-2">

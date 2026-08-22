@@ -376,7 +376,12 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
         
         if (rpcError) throw new Error(`Atomic Bill Creation Failed: ${rpcError.message}`);
         insertedId = billId;
-        try { await supabase.from('bills').update({ created_by_source: 'AI' }).eq('id', billId); } catch (_) {}
+        try { 
+          await supabase.from('bills').update({ 
+            created_by_source: 'AI',
+            external_reference_number: ext.external_reference_number || null
+          }).eq('id', billId); 
+        } catch (_) {}
 
         if (ext.status === 'paid') {
            const { error: payError } = await supabase.rpc('log_payment_made_atomic', {
@@ -431,7 +436,12 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
         
         if (rpcError) throw new Error(`Atomic Invoice Creation Failed: ${rpcError.message}`);
         insertedId = invoiceId;
-        try { await supabase.from('invoices').update({ created_by_source: 'AI' }).eq('id', invoiceId); } catch (_) {}
+        try { 
+          await supabase.from('invoices').update({ 
+            created_by_source: 'AI',
+            external_reference_number: ext.external_reference_number || null
+          }).eq('id', invoiceId); 
+        } catch (_) {}
 
         if (ext.status === 'paid') {
            const { error: payError } = await supabase.rpc('log_payment_received_atomic', {
