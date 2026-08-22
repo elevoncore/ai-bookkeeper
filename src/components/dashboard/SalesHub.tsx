@@ -62,6 +62,7 @@ export default function SalesHub() {
 
   function getEntityId(prefix: string, item: any) {
     if (item.code) return item.code;
+    if (item.name === 'Walk-in Customer') return 'CUST-WALKIN';
     const idStr = item.id ? item.id.substring(0, 6).toUpperCase() : '001';
     return `${prefix}-${idStr}`;
   }
@@ -231,42 +232,6 @@ export default function SalesHub() {
     }
 
     try {
-      // 1. Resolve Deposit Cash/Bank Account
-      let cashAccId = quickSaleData.account_id;
-      if (!cashAccId) {
-        const cashAcc = accounts.find(a => 
-          a.is_cash_account || 
-          a.name.toLowerCase().includes('petty cash') || 
-          a.name.toLowerCase().includes('cash') || 
-          a.name.toLowerCase().includes('main bank')
-        );
-        cashAccId = cashAcc?.id;
-      }
-      if (!cashAccId) {
-        const { data: createdAcc } = await supabase.from('accounts').insert({
-          user_id: user.id,
-          name: 'Petty Cash',
-          type: 'asset',
-          is_system: true,
-          is_cash_account: true
-        }).select('id').single();
-        cashAccId = createdAcc?.id;
-      }
-
-      // 2. Resolve Sales Revenue Account
-      let salesRevAcc = accounts.find(a => a.type === 'revenue' && (a.name.toLowerCase().includes('sales revenue') || a.name.toLowerCase().includes('revenue')));
-      let salesRevAccId = salesRevAcc?.id;
-      if (!salesRevAccId) {
-        const { data: createdRev } = await supabase.from('accounts').insert({
-          user_id: user.id,
-          name: 'Sales Revenue',
-          type: 'revenue',
-          is_system: true,
-          is_cash_account: false
-        }).select('id').single();
-        salesRevAccId = createdRev?.id;
-      }
-
       const saleAmount = parseFloat(quickSaleData.amount);
       if (isNaN(saleAmount) || saleAmount <= 0) {
         setIsSubmitting(false);
@@ -278,118 +243,74 @@ export default function SalesHub() {
       const qty = parseInt(quickSaleData.quantity) || 1;
       const currentStock = Number(selectedProduct?.inventory_count || 0);
 
-      // Strict Inventory Stock Validation Guardrail
+      // 1. Strict Inventory Stock Validation Guardrail
       if (isInventory && qty > currentStock) {
         setIsSubmitting(false);
         return toast.error(`Insufficient inventory. Requested ${qty}, but only ${currentStock} available in stock.`, { id: toastId });
       }
 
-      const unitCost = Number(selectedProduct?.cost || 0);
-      const totalCogs = unitCost * qty;
-
-      const lines: JournalLineItem[] = [
-        { account_id: cashAccId!, debit: saleAmount, credit: 0 },
-        { account_id: salesRevAccId!, debit: 0, credit: saleAmount }
-      ];
-
-      // 3. Realize COGS (4-Line Entry) if physical inventory item
-      if (isInventory && totalCogs > 0) {
-        let cogsAcc = accounts.find(a => a.name.toLowerCase().includes('cost of goods sold'));
-        let cogsAccId = cogsAcc?.id;
-        if (!cogsAccId) {
-          const { data: createdCogs } = await supabase.from('accounts').insert({
-            user_id: user.id,
-            name: 'Cost of Goods Sold',
-            type: 'expense',
-            is_system: true,
-            is_cash_account: false
-          }).select('id').single();
-          cogsAccId = createdCogs?.id;
-        }
-
-        let invAcc = accounts.find(a => a.name.toLowerCase().includes('inventory asset') || (a.type === 'asset' && a.name.toLowerCase().includes('inventory')));
-        let invAccId = invAcc?.id;
-        if (!invAccId) {
-          const { data: createdInv } = await supabase.from('accounts').insert({
-            user_id: user.id,
-            name: 'Inventory Asset',
-            type: 'asset',
-            is_system: true,
-            is_cash_account: false
-          }).select('id').single();
-          invAccId = createdInv?.id;
-        }
-
-        lines.push({ account_id: cogsAccId!, debit: totalCogs, credit: 0 });
-        lines.push({ account_id: invAccId!, debit: 0, credit: totalCogs });
-
-        // Decrement physical stock count in products table
-        await supabase.from('products').update({
-          inventory_count: Math.max(0, currentStock - qty)
-        }).eq('id', selectedProduct.id);
-      }
-
-      // Link to a default "Walk-in Customer" entity & create sales invoice record for inventory tracking
-      let walkInCustomer = customers.find(c => c.name.toLowerCase().includes('walk-in') || c.name.toLowerCase().includes('cash sale'));
+      // 2. Resolve permanent system "Walk-in Customer" (CUST-WALKIN)
+      let walkInCustomer = customers.find(c => c.code === 'CUST-WALKIN' || c.name === 'Walk-in Customer');
       let walkInCustomerId = walkInCustomer?.id;
       if (!walkInCustomerId) {
-        const { data: newWalkIn } = await supabase.from('customers').insert({
+        const { data: newWalkIn, error: walkInError } = await supabase.from('customers').insert({
           user_id: user.id,
           name: 'Walk-in Customer',
+          code: 'CUST-WALKIN',
           email: 'walkin@customer.local',
           phone: '-',
           created_by_source: 'SYSTEM'
         }).select('id').single();
+        if (walkInError) throw new Error(`Failed to resolve Walk-in Customer: ${walkInError.message}`);
         walkInCustomerId = newWalkIn?.id;
       }
 
-      const desc = quickSaleData.description?.trim() 
-        ? `Quick Cash Sale: ${quickSaleData.description.trim()}`
-        : `Quick Cash Sale for ${saleAmount.toLocaleString()} PKR`;
-
-      const result = await createJournalEntryAtomic(supabase, {
-        user_id: user.id,
-        date: quickSaleData.date,
-        description: desc,
-        lines,
-        created_by_source: 'MANUAL'
-      });
-
-      if (!result.success) {
-        toast.error(result.error || "Failed to record cash sale", { id: toastId });
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Record invoice tracking line
-      try {
-        const { data: cashInvoice } = await supabase.from('invoices').insert({
-          user_id: user.id,
-          customer_id: walkInCustomerId || null,
-          issue_date: quickSaleData.date,
-          total_amount: saleAmount,
-          amount_paid: saleAmount,
-          balance_due: 0,
-          status: 'paid',
-          is_ai_verified: true,
-          created_by_source: 'MANUAL'
-        }).select('id').single();
-
-        if (cashInvoice && selectedProduct) {
-          await supabase.from('invoice_lines').insert({
-            invoice_id: cashInvoice.id,
-            product_id: selectedProduct.id,
-            description: quickSaleData.description || `Quick Cash Sale: ${selectedProduct.name}`,
+      // 3. Create standard Invoice via create_invoice_with_lines_atomic
+      const lineDescription = quickSaleData.description?.trim() || (selectedProduct ? `Quick Cash Sale: ${selectedProduct.name}` : 'Quick Cash Sale');
+      const { data: invoiceId, error: createError } = await supabase.rpc('create_invoice_with_lines_atomic', {
+        p_user_id: user.id,
+        p_customer_id: walkInCustomerId,
+        p_issue_date: quickSaleData.date,
+        p_due_date: quickSaleData.date,
+        p_status: 'open',
+        p_total_amount: saleAmount,
+        p_receipt_url: null,
+        p_line_items: [
+          {
+            product_id: selectedProduct ? selectedProduct.id : null,
+            description: lineDescription,
             quantity: qty,
             unit_price: saleAmount / qty,
             total: saleAmount
-          });
-        }
-      } catch (err) {
-        console.warn("Failed to record cash invoice tracking row:", err);
+          }
+        ],
+        p_currency_code: 'PKR',
+        p_exchange_rate: 1.0,
+        p_original_amount: saleAmount,
+        p_created_by_source: 'MANUAL'
+      });
+
+      if (createError || !invoiceId) {
+        throw new Error(createError?.message || "Failed to create invoice for cash sale");
       }
 
-      toast.success(`Quick cash sale of ${saleAmount.toLocaleString()} PKR recorded into Ledger!`, { id: toastId });
+      // 4. Verify the invoice so inventory deduction, COGS math, and revenue posting trigger automatically
+      await supabase.from('invoices').update({ is_ai_verified: true, is_manually_edited: false }).eq('id', invoiceId);
+
+      // 5. Immediately log full payment against the invoice routing to Cash
+      const { error: payError } = await supabase.rpc('log_payment_received_atomic', {
+        p_invoice_id: invoiceId,
+        p_user_id: user.id,
+        p_amount: saleAmount,
+        p_date: quickSaleData.date,
+        p_method: 'Cash'
+      });
+
+      if (payError) {
+        throw new Error(`Invoice created but payment logging failed: ${payError.message}`);
+      }
+
+      toast.success(`Quick cash sale of ${saleAmount.toLocaleString()} PKR logged as Paid Invoice!`, { id: toastId });
       setIsSubmitting(false);
       setIsQuickSaleModalOpen(false);
       fetchData();
@@ -973,7 +894,9 @@ export default function SalesHub() {
                   );
                 })}
 
-                {activeTab === 'customers' && filteredCustomers.map((c) => (
+                {activeTab === 'customers' && filteredCustomers.map((c) => {
+                  const isSystemCustomer = c.code === 'CUST-WALKIN' || c.name === 'Walk-in Customer';
+                  return (
                   <tr key={c.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
@@ -987,12 +910,14 @@ export default function SalesHub() {
                       >
                         {c.name}
                       </button>
-                      {c.created_by_source === 'AI' ? (
+                      {isSystemCustomer ? (
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-50 text-purple-700 border border-purple-200">🔒 System Protected</span>
+                      ) : c.created_by_source === 'AI' ? (
                         <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">🤖 AI</span>
                       ) : (
                         <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">👤 Manual</span>
                       )}
-                      {c.is_manually_edited && (
+                      {c.is_manually_edited && !isSystemCustomer && (
                         <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200">✏️ Edited</span>
                       )}
                     </td>
@@ -1000,7 +925,8 @@ export default function SalesHub() {
                     <td className="px-6 py-4 text-gray-500">{c.phone || '-'}</td>
                     <td className="px-6 py-4 text-gray-400 text-xs">{new Date(c.created_at).toLocaleDateString()}</td>
                   </tr>
-                ))}
+                  );
+                })}
 
                 {activeTab === 'products' && filteredProducts.map((p) => (
                   <tr key={p.id} className="hover:bg-gray-50 transition-colors">

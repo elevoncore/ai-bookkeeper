@@ -72,6 +72,25 @@ export async function POST(request: Request) {
       }
     }
 
+    // Ensure permanent system Walk-in Customer exists
+    const { data: existingWalkIn } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('user_id', user.id)
+      .or('name.eq.Walk-in Customer,code.eq.CUST-WALKIN')
+      .limit(1);
+
+    if (!existingWalkIn || existingWalkIn.length === 0) {
+      await supabase.from('customers').insert({
+        user_id: user.id,
+        name: 'Walk-in Customer',
+        code: 'CUST-WALKIN',
+        email: 'walkin@customer.local',
+        phone: '-',
+        created_by_source: 'SYSTEM'
+      });
+    }
+
     // Fetch and return complete chart of accounts for user
     const { data: accounts, error: fetchError } = await supabase
       .from('accounts')
