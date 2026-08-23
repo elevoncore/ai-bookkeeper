@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo, useTransition, memo } from 'react';
 import { 
  Search, 
- Filter, 
  ChevronLeft, 
  ChevronRight, 
  ArrowUpDown,
@@ -23,8 +22,40 @@ interface TransactionsExplorerProps {
  transactions: Transaction[];
 }
 
+const ExplorerRow = memo(function ExplorerRow({ tx }: { tx: Transaction }) {
+  return (
+    <tr className="hover:bg-blue-50/50 transition-colors">
+      <td className="px-6 py-3.5 text-slate-500 flex items-center gap-2">
+        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+        {tx.issue_date}
+      </td>
+      <td className="px-6 py-3.5 font-bold text-slate-900">{tx.contacts?.name || 'Unknown Contact'}</td>
+      <td className="px-6 py-3.5">
+        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 text-xs font-semibold rounded-lg border border-slate-200/60">
+          {tx.chart_of_accounts?.name || 'Uncategorized'}
+        </span>
+      </td>
+      <td className="px-6 py-3.5">
+        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${tx.entry_type === 'credit' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+          {tx.entry_type === 'credit' ? 'Invoice / AR' : 'Bill / AP'}
+        </span>
+      </td>
+      <td className="px-6 py-3.5">
+        <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider ${tx.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : tx.status === 'partial' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'}`}>
+          {tx.status}
+        </span>
+      </td>
+      <td className="px-6 py-3.5 font-black text-slate-900 text-right">
+        {tx.amount.toLocaleString()} PKR
+      </td>
+    </tr>
+  );
+});
+
 export default function TransactionsExplorer({ transactions }: TransactionsExplorerProps) {
  const [searchTerm, setSearchTerm] = useState('');
+ const [deferredSearch, setDeferredSearch] = useState('');
+ const [isPending, startTransition] = useTransition();
  const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'pending'>('all');
  const [sortConfig, setSortConfig] = useState<{ key: keyof Transaction | 'account' | 'contact'; direction: 'asc' | 'desc' }>({ key: 'issue_date', direction: 'desc' });
  const [currentPage, setCurrentPage] = useState(1);
@@ -173,43 +204,19 @@ export default function TransactionsExplorer({ transactions }: TransactionsExplo
  </th>
  </tr>
  </thead>
- <tbody className="divide-y divide-slate-100 bg-white/60 text-slate-700 ">
- {currentData.length > 0 ? (
- currentData.map(tx => (
- <tr key={tx.id} className="hover:bg-blue-50/50 transition-colors">
- <td className="px-6 py-3.5 text-slate-500 flex items-center gap-2">
- <Calendar className="w-3.5 h-3.5 text-slate-400" />
- {tx.issue_date}
- </td>
- <td className="px-6 py-3.5 font-bold text-slate-900 ">{tx.contacts?.name || 'Unknown Contact'}</td>
- <td className="px-6 py-3.5">
- <span className="px-2.5 py-1 bg-slate-100 text-slate-600 text-xs font-semibold rounded-lg border border-slate-200/60 ">
- {tx.chart_of_accounts?.name || 'Uncategorized'}
- </span>
- </td>
- <td className="px-6 py-3.5">
- <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${tx.entry_type === 'credit' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 ' : 'bg-rose-50 text-rose-700 border border-rose-200 '}`}>
- {tx.entry_type === 'credit' ? 'Invoice / AR' : 'Bill / AP'}
- </span>
- </td>
- <td className="px-6 py-3.5">
- <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider ${tx.status === 'paid' ? 'bg-emerald-100 text-emerald-800 ' : tx.status === 'partial' ? 'bg-amber-100 text-amber-800 ' : 'bg-slate-100 text-slate-700 '}`}>
- {tx.status}
- </span>
- </td>
- <td className="px-6 py-3.5 font-black text-slate-900 text-right">
- {tx.amount.toLocaleString()} PKR
- </td>
- </tr>
- ))
- ) : (
- <tr>
- <td colSpan={6} className="px-6 py-12 text-center text-slate-400 ">
- No transactions found matching your criteria.
- </td>
- </tr>
- )}
- </tbody>
+          <tbody className="divide-y divide-slate-100 bg-white/60 text-slate-700">
+            {currentData.length > 0 ? (
+              currentData.map(tx => (
+                <ExplorerRow key={tx.id} tx={tx} />
+              ))
+            ) : (
+              <tr>
+                <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                  No transactions found matching your criteria.
+                </td>
+              </tr>
+            )}
+          </tbody>
  </table>
  </div>
 

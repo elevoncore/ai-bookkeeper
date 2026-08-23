@@ -24,6 +24,7 @@ import {
 } from 'recharts';
 import { parseToCents, formatFromCents } from '@/utils/currency';
 import CashbookWidget from '@/components/dashboard/CashbookWidget';
+import { fetchWithCache } from '@/lib/cache';
 
 type Invoice = {
  id: string; total_amount: number; balance_due: number; issue_date: string; status: string;
@@ -61,9 +62,8 @@ export default function BentoStatsPanel({
  useEffect(() => {
  async function loadCash() {
  try {
- const res = await fetch('/api/reports/cashbook');
- if (res.ok) {
- const json = await res.json();
+ const json = await fetchWithCache<{ totalCashBalance: number }>('/api/reports/cashbook', undefined, 30000);
+ if (json) {
  setTotalLiquidCash(json.totalCashBalance ?? 0);
  }
  } catch (e) {}

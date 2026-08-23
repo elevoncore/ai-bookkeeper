@@ -29,6 +29,7 @@ import {
  Legend
 } from 'recharts';
 import ChartOfAccountsManager from './ChartOfAccountsManager';
+import { fetchWithCache, invalidateCache } from '@/lib/cache';
 
 type Tab = 'chart_of_accounts' | 'cashbook' | 'pnl' | 'balance_sheet' | 'trial_balance' | 'ledger';
 
@@ -82,9 +83,8 @@ export default function ReportsHub() {
  const dateQuery = targetDate || asOfDate;
  setIsLoadingBs(true);
  try {
- const resBs = await fetch(`/api/reports/balance-sheet?asOfDate=${dateQuery}`);
- if (resBs.ok) {
- const bsData = await resBs.json();
+ const bsData = await fetchWithCache(`/api/reports/balance-sheet?asOfDate=${dateQuery}`, undefined, 20000);
+ if (bsData) {
  setBalanceSheet(bsData);
  }
  } catch (e) {
@@ -97,9 +97,8 @@ export default function ReportsHub() {
  async function fetchCashbookData() {
  setIsLoadingCashbook(true);
  try {
- const res = await fetch('/api/reports/cashbook');
- if (res.ok) {
- const summaryData = await res.json();
+ const summaryData = await fetchWithCache('/api/reports/cashbook', undefined, 20000);
+ if (summaryData) {
  setCashbookSummary(summaryData);
  }
 
@@ -159,12 +158,9 @@ export default function ReportsHub() {
  async function fetchTimeSeries(tf: 'daily' | 'weekly' | 'monthly', range: '7d' | '30d' | 'ytd' | 'all') {
  setIsLoadingTimeSeries(true);
  try {
- const res = await fetch(`/api/reports/time-series?timeframe=${tf}&range=${range}`);
- if (res.ok) {
- const data = await res.json();
- if (data.series) {
+ const data = await fetchWithCache(`/api/reports/time-series?timeframe=${tf}&range=${range}`, undefined, 30000);
+ if (data && data.series) {
  setTimeSeriesData(data.series);
- }
  }
  } catch (e) {
  console.error("Failed to fetch time-series data:", e);
@@ -176,12 +172,9 @@ export default function ReportsHub() {
  async function fetchInsights() {
  setIsGeneratingInsights(true);
  try {
- const res = await fetch('/api/reports/insights');
- if (res.ok) {
- const data = await res.json();
- if (data.insights) {
+ const data = await fetchWithCache('/api/reports/insights', undefined, 60000);
+ if (data && data.insights) {
  setInsights(data.insights);
- }
  }
  } catch (e) {
  console.error("Failed to fetch AI insights:", e);
@@ -206,9 +199,8 @@ export default function ReportsHub() {
 
  // Fetch P&L & Trial Balance
  try {
- const res = await fetch('/api/reports/financials');
- if (res.ok) {
- const data = await res.json();
+ const data = await fetchWithCache('/api/reports/financials', undefined, 20000);
+ if (data) {
  setFinancials(data);
  }
  } catch (e) {

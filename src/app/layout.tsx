@@ -6,18 +6,24 @@ import { Toaster } from 'react-hot-toast';
 const geistSans = Geist({
  variable: "--font-geist-sans",
  subsets: ["latin"],
+ display: "swap",
+ preload: true,
  fallback: ["sans-serif"]
 });
 
 const geistMono = Geist_Mono({
  variable: "--font-geist-mono",
  subsets: ["latin"],
+ display: "swap",
+ preload: true,
  fallback: ["monospace"]
 });
 
 const outfit = Outfit({
  variable: "--font-outfit",
  subsets: ["latin"],
+ display: "swap",
+ preload: true,
  fallback: ["sans-serif"]
 });
 

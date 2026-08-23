@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Building2, Coins, Landmark, RefreshCw, Wallet, ShieldCheck, Plus, BookOpen } from 'lucide-react';
+import { fetchWithCache, invalidateCache } from '@/lib/cache';
 
 interface CashAccount {
  id: string | null;
@@ -31,11 +32,13 @@ export default function CashbookWidget({ onOpenAddAccount, onOpenAdjustBalance }
  const [isLoading, setIsLoading] = useState(true);
  const [isRefreshing, setIsRefreshing] = useState(false);
 
- async function fetchCashbookData() {
+ async function fetchCashbookData(forceRefresh = false) {
  try {
- const res = await fetch('/api/reports/cashbook');
- if (res.ok) {
- const json = await res.json();
+ if (forceRefresh) {
+ invalidateCache('/api/reports/cashbook');
+ }
+ const json = await fetchWithCache<CashbookData>('/api/reports/cashbook', undefined, 30000);
+ if (json) {
  setData(json);
  }
  } catch (e) {
@@ -52,7 +55,7 @@ export default function CashbookWidget({ onOpenAddAccount, onOpenAdjustBalance }
 
  function handleRefresh() {
  setIsRefreshing(true);
- fetchCashbookData();
+ fetchCashbookData(true);
  }
 
  const primaryCurrency = data?.currency || 'PKR';

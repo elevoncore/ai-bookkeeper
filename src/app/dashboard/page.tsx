@@ -2,16 +2,61 @@
 
 import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import dynamic from 'next/dynamic';
 import { Loader2, MessageSquare, X } from 'lucide-react';
 import HeaderNav from '@/components/layout/HeaderNav';
 import BentoStatsPanel from '@/components/dashboard/BentoStatsPanel';
 import AgingSummaryPanel from '@/components/dashboard/AgingSummaryPanel';
-import AiChatPanel from '@/components/chat/AiChatPanel';
-import SalesHub from '@/components/dashboard/SalesHub';
-import PurchasesHub from '@/components/dashboard/PurchasesHub';
-import ReportsHub from '@/components/dashboard/ReportsHub';
 import PendingTable, { PendingItem } from '@/components/dashboard/PendingTable';
-import AiChatLogModal from '@/components/dashboard/AiChatLogModal';
+
+function HubLoadingSkeleton({ title }: { title: string }) {
+  return (
+    <div className="bg-white/80 backdrop-blur-3xl rounded-3xl border border-white/60 p-6 sm:p-8 space-y-6 shadow-xl min-h-[500px]">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div>
+          <div className="h-6 w-40 bg-slate-200 animate-pulse rounded-lg" />
+          <div className="h-4 w-64 bg-slate-100 animate-pulse rounded-md mt-2" />
+        </div>
+        <div className="h-10 w-32 bg-slate-200 animate-pulse rounded-xl" />
+      </div>
+      <div className="space-y-3">
+        <div className="h-12 w-full bg-slate-100 animate-pulse rounded-xl" />
+        <div className="h-16 w-full bg-slate-100 animate-pulse rounded-xl" />
+        <div className="h-16 w-full bg-slate-100 animate-pulse rounded-xl" />
+        <div className="h-16 w-full bg-slate-100 animate-pulse rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+const SalesHub = dynamic(() => import('@/components/dashboard/SalesHub'), {
+  loading: () => <HubLoadingSkeleton title="Sales Hub" />,
+  ssr: false,
+});
+
+const PurchasesHub = dynamic(() => import('@/components/dashboard/PurchasesHub'), {
+  loading: () => <HubLoadingSkeleton title="Purchases Hub" />,
+  ssr: false,
+});
+
+const ReportsHub = dynamic(() => import('@/components/dashboard/ReportsHub'), {
+  loading: () => <HubLoadingSkeleton title="Financial Reports" />,
+  ssr: false,
+});
+
+const AiChatPanel = dynamic(() => import('@/components/chat/AiChatPanel'), {
+  loading: () => (
+    <div className="h-full w-full bg-white/80 backdrop-blur-3xl rounded-3xl border border-white/60 p-6 flex flex-col items-center justify-center gap-3 animate-pulse shadow-xl">
+      <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+      <span className="text-xs font-bold text-slate-500">Initializing AI Assistant...</span>
+    </div>
+  ),
+  ssr: false,
+});
+
+const AiChatLogModal = dynamic(() => import('@/components/dashboard/AiChatLogModal'), {
+  ssr: false,
+});
 
 export default function DashboardPage() {
  const [invoices, setInvoices] = useState<any[]>([]);

@@ -2,31 +2,41 @@
  * Calculates Levenshtein Distance between two strings.
  */
 export function levenshteinDistance(a: string, b: string): number {
- const str1 = a.toLowerCase().trim();
- const str2 = b.toLowerCase().trim();
+  const str1 = a.toLowerCase().trim();
+  const str2 = b.toLowerCase().trim();
 
- const track = Array(str2.length + 1).fill(null).map(() =>
- Array(str1.length + 1).fill(null)
- );
+  if (str1 === str2) return 0;
+  if (str1.length === 0) return str2.length;
+  if (str2.length === 0) return str1.length;
 
- for (let i = 0; i <= str1.length; i += 1) {
- track[0][i] = i;
- }
- for (let j = 0; j <= str2.length; j += 1) {
- track[j][0] = j;
- }
+  const len1 = str1.length;
+  const len2 = str2.length;
 
- for (let j = 1; j <= str2.length; j += 1) {
- for (let i = 1; i <= str1.length; i += 1) {
- const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
- track[j][i] = Math.min(
- track[j][i - 1] + 1, // deletion
- track[j - 1][i] + 1, // insertion
- track[j - 1][i - 1] + indicator // substitution
- );
- }
- }
- return track[str2.length][str1.length];
+  let prevRow = new Int32Array(len2 + 1);
+  let currRow = new Int32Array(len2 + 1);
+
+  for (let j = 0; j <= len2; j++) {
+    prevRow[j] = j;
+  }
+
+  for (let i = 1; i <= len1; i++) {
+    currRow[0] = i;
+    const char1 = str1.charCodeAt(i - 1);
+    for (let j = 1; j <= len2; j++) {
+      const char2 = str2.charCodeAt(j - 1);
+      const cost = char1 === char2 ? 0 : 1;
+      currRow[j] = Math.min(
+        currRow[j - 1] + 1,
+        prevRow[j] + 1,
+        prevRow[j - 1] + cost
+      );
+    }
+    const temp = prevRow;
+    prevRow = currRow;
+    currRow = temp;
+  }
+
+  return prevRow[len2];
 }
 
 /**
