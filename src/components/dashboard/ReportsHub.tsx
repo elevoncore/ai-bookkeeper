@@ -65,159 +65,156 @@ export default function ReportsHub() {
  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
  );
 
- useEffect(() => {
- fetchData();
- }, [activeTab]);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
- useEffect(() => {
- fetchTimeSeries(timeframe, timeRange);
- }, [timeframe, timeRange]);
+  useEffect(() => {
+    fetchTimeSeries(timeframe, timeRange);
+  }, [timeframe, timeRange]);
 
- useEffect(() => {
- if (activeTab === 'cashbook') {
- fetchCashbookData();
- }
- }, [activeTab]);
+  useEffect(() => {
+    fetchBalanceSheet(asOfDate);
+  }, [asOfDate]);
 
- async function fetchBalanceSheet(targetDate?: string) {
- const dateQuery = targetDate || asOfDate;
- setIsLoadingBs(true);
- try {
- const bsData = await fetchWithCache(`/api/reports/balance-sheet?asOfDate=${dateQuery}`, undefined, 20000);
- if (bsData) {
- setBalanceSheet(bsData);
- }
- } catch (e) {
- console.error("Failed to fetch balance sheet:", e);
- } finally {
- setIsLoadingBs(false);
- }
- }
+  async function fetchBalanceSheet(targetDate?: string) {
+    const dateQuery = targetDate || asOfDate;
+    setIsLoadingBs(true);
+    try {
+      const bsData = await fetchWithCache(`/api/reports/balance-sheet?asOfDate=${dateQuery}`, undefined, 60000);
+      if (bsData) {
+        setBalanceSheet(bsData);
+      }
+    } catch (e) {
+      console.error("Failed to fetch balance sheet:", e);
+    } finally {
+      setIsLoadingBs(false);
+    }
+  }
 
- async function fetchCashbookData() {
- setIsLoadingCashbook(true);
- try {
- const summaryData = await fetchWithCache('/api/reports/cashbook', undefined, 20000);
- if (summaryData) {
- setCashbookSummary(summaryData);
- }
+  async function fetchCashbookData() {
+    setIsLoadingCashbook(true);
+    try {
+      const summaryData = await fetchWithCache('/api/reports/cashbook', undefined, 60000);
+      if (summaryData) {
+        setCashbookSummary(summaryData);
+      }
 
- const { data: { user } } = await supabase.auth.getUser();
- if (!user) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
- const { data: accounts } = await supabase
- .from('accounts')
- .select('id, name, is_cash_account, type')
- .eq('user_id', user.id);
+      const { data: accounts } = await supabase
+        .from('accounts')
+        .select('id, name, is_cash_account, type')
+        .eq('user_id', user.id);
 
- const cashAccountIds = (accounts || []).filter(a => {
- if (a.type !== 'asset') return false;
- if (a.is_cash_account) return true;
- const lower = a.name.toLowerCase();
- return lower === 'main bank account' || lower === 'petty cash' || lower.includes('bank') || lower.includes('cash') || lower.includes('wallet') || lower.includes('paypal') || lower.includes('easypaisa');
- }).map(a => a.id);
+      const cashAccountIds = (accounts || []).filter(a => {
+        if (a.type !== 'asset') return false;
+        if (a.is_cash_account) return true;
+        const lower = a.name.toLowerCase();
+        return lower === 'main bank account' || lower === 'petty cash' || lower.includes('bank') || lower.includes('cash') || lower.includes('wallet') || lower.includes('paypal') || lower.includes('easypaisa');
+      }).map(a => a.id);
 
- if (cashAccountIds.length > 0) {
- const { data: lines } = await supabase
- .from('journal_lines')
- .select('*, journal_entries(date, description, reference_type), accounts(name)')
- .in('account_id', cashAccountIds)
- .order('created_at', { ascending: true });
+      if (cashAccountIds.length > 0) {
+        const { data: lines } = await supabase
+          .from('journal_lines')
+          .select('*, journal_entries(date, description, reference_type), accounts(name)')
+          .in('account_id', cashAccountIds)
+          .order('created_at', { ascending: true });
 
- setCashbookEntries(lines || []);
- } else {
- setCashbookEntries([]);
- }
- } catch (e) {
- console.error("Failed to fetch cashbook details:", e);
- } finally {
- setIsLoadingCashbook(false);
- }
- }
+        setCashbookEntries(lines || []);
+      } else {
+        setCashbookEntries([]);
+      }
+    } catch (e) {
+      console.error("Failed to fetch cashbook details:", e);
+    } finally {
+      setIsLoadingCashbook(false);
+    }
+  }
 
- const processedCashbookEntries = useMemo(() => {
- let filtered = cashbookEntries;
- if (cashAccountFilter !== 'all') {
- filtered = cashbookEntries.filter(l => l.account_id === cashAccountFilter);
- }
+  const processedCashbookEntries = useMemo(() => {
+    let filtered = cashbookEntries;
+    if (cashAccountFilter !== 'all') {
+      filtered = cashbookEntries.filter(l => l.account_id === cashAccountFilter);
+    }
 
- let currentBalance = 0;
- const withBalance = filtered.map(line => {
- const debit = Number(line.debit || 0);
- const credit = Number(line.credit || 0);
- currentBalance += (debit - credit);
- return {
- ...line,
- running_balance: currentBalance
- };
- });
+    let currentBalance = 0;
+    const withBalance = filtered.map(line => {
+      const debit = Number(line.debit || 0);
+      const credit = Number(line.credit || 0);
+      currentBalance += (debit - credit);
+      return {
+        ...line,
+        running_balance: currentBalance
+      };
+    });
 
- return [...withBalance].reverse();
- }, [cashbookEntries, cashAccountFilter]);
+    return [...withBalance].reverse();
+  }, [cashbookEntries, cashAccountFilter]);
 
- async function fetchTimeSeries(tf: 'daily' | 'weekly' | 'monthly', range: '7d' | '30d' | 'ytd' | 'all') {
- setIsLoadingTimeSeries(true);
- try {
- const data = await fetchWithCache(`/api/reports/time-series?timeframe=${tf}&range=${range}`, undefined, 30000);
- if (data && data.series) {
- setTimeSeriesData(data.series);
- }
- } catch (e) {
- console.error("Failed to fetch time-series data:", e);
- } finally {
- setIsLoadingTimeSeries(false);
- }
- }
+  async function fetchTimeSeries(tf: 'daily' | 'weekly' | 'monthly', range: '7d' | '30d' | 'ytd' | 'all') {
+    setIsLoadingTimeSeries(true);
+    try {
+      const data = await fetchWithCache(`/api/reports/time-series?timeframe=${tf}&range=${range}`, undefined, 60000);
+      if (data && data.series) {
+        setTimeSeriesData(data.series);
+      }
+    } catch (e) {
+      console.error("Failed to fetch time-series data:", e);
+    } finally {
+      setIsLoadingTimeSeries(false);
+    }
+  }
 
- async function fetchInsights() {
- setIsGeneratingInsights(true);
- try {
- const data = await fetchWithCache('/api/reports/insights', undefined, 60000);
- if (data && data.insights) {
- setInsights(data.insights);
- }
- } catch (e) {
- console.error("Failed to fetch AI insights:", e);
- } finally {
- setIsGeneratingInsights(false);
- }
- }
+  async function fetchInsights() {
+    setIsGeneratingInsights(true);
+    try {
+      const data = await fetchWithCache('/api/reports/insights', undefined, 120000);
+      if (data && data.insights) {
+        setInsights(data.insights);
+      }
+    } catch (e) {
+      console.error("Failed to fetch AI insights:", e);
+    } finally {
+      setIsGeneratingInsights(false);
+    }
+  }
 
- async function fetchData() {
- setIsLoading(true);
- const { data: { user } } = await supabase.auth.getUser();
- if (!user) return;
+  async function fetchData() {
+    setIsLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
 
- // Fetch ledger
- const { data: entries } = await supabase
- .from('journal_entries')
- .select('*, journal_lines(*, accounts(name, type))')
- .eq('user_id', user.id)
- .order('date', { ascending: false });
+      // Parallel pre-fetch across all reports
+      await Promise.all([
+        supabase
+          .from('journal_entries')
+          .select('*, journal_lines(*, accounts(name, type))')
+          .eq('user_id', user.id)
+          .order('date', { ascending: false })
+          .then(({ data }) => { if (data) setJournalEntries(data); }),
+        fetchWithCache('/api/reports/financials', undefined, 60000)
+          .then(data => { if (data) setFinancials(data); }),
+        fetchWithCache(`/api/reports/balance-sheet?asOfDate=${asOfDate}`, undefined, 60000)
+          .then(data => { if (data) setBalanceSheet(data); }),
+        fetchCashbookData(),
+        fetchWithCache(`/api/reports/time-series?timeframe=${timeframe}&range=${timeRange}`, undefined, 60000)
+          .then(data => { if (data?.series) setTimeSeriesData(data.series); })
+      ]);
 
- if (entries) setJournalEntries(entries);
-
- // Fetch P&L & Trial Balance
- try {
- const data = await fetchWithCache('/api/reports/financials', undefined, 20000);
- if (data) {
- setFinancials(data);
- }
- } catch (e) {
- console.error("Failed to fetch financials:", e);
- }
-
- // Fetch Balance Sheet
- await fetchBalanceSheet(asOfDate);
-
- // Fetch Cashbook Summary
- await fetchCashbookData();
-
- // Fetch Initial Insights
- fetchInsights();
-
- setIsLoading(false);
- }
+      // Fire AI insights in background
+      fetchInsights();
+    } catch (err) {
+      console.error("Error fetching report data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
  return (
  <div className="space-y-6 min-w-0">

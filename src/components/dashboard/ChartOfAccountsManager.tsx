@@ -160,43 +160,12 @@ export default function ChartOfAccountsManager() {
  return;
  }
 
- // Ensure all standard system accounts exist for user
- const defaultAccountsToSeed = [
- { user_id: user.id, name: 'Main Bank Account', type: 'asset', is_system: true, is_cash_account: true },
- { user_id: user.id, name: 'Petty Cash', type: 'asset', is_system: true, is_cash_account: true },
- { user_id: user.id, name: 'Accounts Receivable', type: 'asset', is_system: true, is_cash_account: false },
- { user_id: user.id, name: 'Inventory Asset', type: 'asset', is_system: true, is_cash_account: false },
- { user_id: user.id, name: 'Fixed Assets - Office/Equipment', type: 'asset', is_system: true, is_cash_account: false },
- { user_id: user.id, name: 'Fixed Assets - Equipment/Furniture', type: 'asset', is_system: true, is_cash_account: false },
- { user_id: user.id, name: 'Accounts Payable', type: 'liability', is_system: true, is_cash_account: false },
- { user_id: user.id, name: 'Sales Tax Payable', type: 'liability', is_system: true, is_cash_account: false },
- { user_id: user.id, name: 'Loan Payable', type: 'liability', is_system: true, is_cash_account: false },
- { user_id: user.id, name: 'Long-Term Loan Payable', type: 'liability', is_system: true, is_cash_account: false },
- { user_id: user.id, name: 'Owners Equity', type: 'equity', is_system: true, is_cash_account: false },
- { user_id: user.id, name: 'Owner Drawings', type: 'equity', is_system: true, is_cash_account: false },
- { user_id: user.id, name: 'Retained Earnings', type: 'equity', is_system: true, is_cash_account: false },
- { user_id: user.id, name: 'Sales Revenue', type: 'revenue', is_system: true, is_cash_account: false },
- { user_id: user.id, name: 'Service Revenue', type: 'revenue', is_system: true, is_cash_account: false },
- { user_id: user.id, name: 'Cost of Goods Sold', type: 'expense', is_system: true, is_cash_account: false },
- { user_id: user.id, name: 'Rent Expense', type: 'expense', is_system: true, is_cash_account: false },
- { user_id: user.id, name: 'Utilities', type: 'expense', is_system: true, is_cash_account: false },
- { user_id: user.id, name: 'Software & Hosting', type: 'expense', is_system: true, is_cash_account: false },
- { user_id: user.id, name: 'Interest Expense', type: 'expense', is_system: true, is_cash_account: false },
- { user_id: user.id, name: 'General Operating Expense', type: 'expense', is_system: true, is_cash_account: false }
- ];
-
- for (const acc of defaultAccountsToSeed) {
- const { data: existing } = await supabase
- .from('accounts')
- .select('id')
- .eq('user_id', user.id)
- .eq('name', acc.name)
- .limit(1);
-
- if (!existing || existing.length === 0) {
- await supabase.from('accounts').insert(acc);
- }
- }
+ // Background seeding check
+ (async () => {
+ try {
+ await supabase.rpc('initialize_default_accounts', { p_user_id: user.id });
+ } catch {}
+ })();
 
  // Fetch accounts
  const { data: accData, error: accError } = await supabase
