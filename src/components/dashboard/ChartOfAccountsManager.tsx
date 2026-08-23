@@ -638,9 +638,9 @@ export default function ChartOfAccountsManager() {
  <button
  key={typeKey}
  onClick={() => setSelectedTypeFilter(typeKey)}
- className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all cursor-pointer ${
+ className={`px-3.5 py-2 min-h-[38px] rounded-xl text-xs font-semibold capitalize transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
  selectedTypeFilter === typeKey
- ? 'bg-gray-900 text-white shadow-sm'
+ ? 'bg-gray-900 text-white shadow-sm font-bold'
  : 'bg-white/60 text-gray-600 hover:bg-white border border-gray-200'
  }`}
  >

@@ -14,7 +14,11 @@ export default function AiChatLogModal({ txId, onClose }: AiChatLogModalProps) {
  const [isLoading, setIsLoading] = useState(true);
 
  useEffect(() => {
- setMounted(true);
+   setMounted(true);
+   document.body.style.overflow = 'hidden';
+   return () => {
+     document.body.style.overflow = 'unset';
+   };
  }, []);
  
  const supabase = createBrowserClient(

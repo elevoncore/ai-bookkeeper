@@ -758,7 +758,7 @@ export default function SalesHub() {
  </div>
  ) : (
  <table className="w-full text-left text-sm whitespace-nowrap min-w-[850px]">
- <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
+ <thead className="bg-gray-50 text-gray-700 font-bold border-b border-gray-200">
  {activeTab === 'invoices' && (
  <tr>
  <th onClick={() => toggleSort('id')} className="px-6 py-4 cursor-pointer hover:bg-gray-100/60 transition-colors select-none">

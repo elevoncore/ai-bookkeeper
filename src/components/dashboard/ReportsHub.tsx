@@ -301,37 +301,37 @@ export default function ReportsHub() {
  <div className="flex flex-wrap gap-2 min-w-0">
  <button
  onClick={() => setActiveTab('chart_of_accounts')}
- className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'chart_of_accounts' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+ className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${activeTab === 'chart_of_accounts' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
  >
  <FolderTree className="w-4 h-4" /> Chart of Accounts
  </button>
  <button
  onClick={() => setActiveTab('cashbook')}
- className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'cashbook' ? 'bg-emerald-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+ className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${activeTab === 'cashbook' ? 'bg-emerald-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
  >
  <Wallet className="w-4 h-4" /> Dedicated Cash Book
  </button>
  <button
  onClick={() => setActiveTab('pnl')}
- className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'pnl' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+ className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${activeTab === 'pnl' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
  >
  <FileSpreadsheet className="w-4 h-4" /> Profit & Loss
  </button>
  <button
  onClick={() => setActiveTab('balance_sheet')}
- className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'balance_sheet' ? 'bg-purple-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+ className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${activeTab === 'balance_sheet' ? 'bg-purple-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
  >
  <Landmark className="w-4 h-4" /> Balance Sheet
  </button>
  <button
  onClick={() => setActiveTab('trial_balance')}
- className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'trial_balance' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+ className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${activeTab === 'trial_balance' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
  >
  <Scale className="w-4 h-4" /> Trial Balance
  </button>
  <button
  onClick={() => setActiveTab('ledger')}
- className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'ledger' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
+ className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${activeTab === 'ledger' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
  >
  <DollarSign className="w-4 h-4" /> General Ledger
  </button>
@@ -551,18 +551,18 @@ export default function ReportsHub() {
  </div>
 
  <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
- {/* Timeframe Selector */}
- <div className="flex bg-gray-100 p-1 rounded-xl text-xs font-bold">
- {(['daily', 'weekly', 'monthly'] as const).map((tf) => (
- <button
- key={tf}
- onClick={() => setTimeframe(tf)}
- className={`px-3 py-1.5 rounded-lg capitalize transition-all cursor-pointer ${timeframe === tf ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
- >
- {tf}
- </button>
- ))}
- </div>
+            {/* Timeframe Selector */}
+            <div className="flex bg-gray-100 p-1 rounded-xl text-xs font-bold items-center">
+              {(['daily', 'weekly', 'monthly'] as const).map((tf) => (
+                <button
+                  key={tf}
+                  onClick={() => setTimeframe(tf)}
+                  className={`px-3.5 py-2 min-h-[36px] rounded-lg capitalize transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${timeframe === tf ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-gray-500 hover:text-gray-800'}`}
+                >
+                  {tf}
+                </button>
+              ))}
+            </div>
 
  {/* Range Selector */}
  <select
