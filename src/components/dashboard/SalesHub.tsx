@@ -38,6 +38,7 @@ export default function SalesHub() {
     description: '',
     product_id: '',
     quantity: '1',
+    cost: '',
     account_id: ''
   });
 
@@ -239,11 +240,12 @@ export default function SalesHub() {
       }
 
       const selectedProduct = products.find(p => p.id === quickSaleData.product_id);
+      const isCatalog = !!selectedProduct;
       const isInventory = selectedProduct && selectedProduct.is_inventory_tracked;
-      const qty = parseInt(quickSaleData.quantity) || 1;
+      const qty = isCatalog ? (parseInt(quickSaleData.quantity) || 1) : 1;
       const currentStock = Number(selectedProduct?.inventory_count || 0);
 
-      // 1. Strict Inventory Stock Validation Guardrail
+      // 1. Strict Inventory Stock Validation Guardrail (for catalog items)
       if (isInventory && qty > currentStock) {
         setIsSubmitting(false);
         return toast.error(`Insufficient inventory. Requested ${qty}, but only ${currentStock} available in stock.`, { id: toastId });
@@ -266,7 +268,7 @@ export default function SalesHub() {
       }
 
       // 3. Create standard Invoice via create_invoice_with_lines_atomic
-      const lineDescription = quickSaleData.description?.trim() || (selectedProduct ? `Quick Cash Sale: ${selectedProduct.name}` : 'Quick Cash Sale');
+      const lineDescription = quickSaleData.description?.trim() || (selectedProduct ? `Quick Cash Sale: ${selectedProduct.name}` : 'Quick Cash Sale (Custom Item)');
       const { data: invoiceId, error: createError } = await supabase.rpc('create_invoice_with_lines_atomic', {
         p_user_id: user.id,
         p_customer_id: walkInCustomerId,
@@ -294,10 +296,10 @@ export default function SalesHub() {
         throw new Error(createError?.message || "Failed to create invoice for cash sale");
       }
 
-      // 4. Verify the invoice so inventory deduction, COGS math, and revenue posting trigger automatically
+      // 4. Verify the invoice so revenue and any catalog COGS posting trigger automatically
       await supabase.from('invoices').update({ is_ai_verified: true, is_manually_edited: false }).eq('id', invoiceId);
 
-      // 5. Immediately log full payment against the invoice routing to Cash
+      // 5. Immediately log full payment against the invoice routing to Cash/Bank
       const { error: payError } = await supabase.rpc('log_payment_received_atomic', {
         p_invoice_id: invoiceId,
         p_user_id: user.id,
@@ -310,9 +312,59 @@ export default function SalesHub() {
         throw new Error(`Invoice created but payment logging failed: ${payError.message}`);
       }
 
+      // 6. Pass-Through Accounting for Custom Items with Acquisition Cost > 0
+      const acqCost = (!isCatalog && quickSaleData.cost) ? parseFloat(quickSaleData.cost) : 0;
+      if (acqCost > 0) {
+        let cogsAcc = accounts.find(a => a.type === 'expense' && (a.name.toLowerCase().includes('cost of goods sold') || a.name.toLowerCase().includes('cogs')));
+        let cogsAccId = cogsAcc?.id;
+        if (!cogsAccId) {
+          const { data: createdCogs } = await supabase.from('accounts').insert({
+            user_id: user.id,
+            name: 'Cost of Goods Sold',
+            type: 'expense',
+            is_system: true,
+            is_cash_account: false
+          }).select('id').single();
+          cogsAccId = createdCogs?.id;
+        }
+
+        let cashAccId = quickSaleData.account_id;
+        if (!cashAccId) {
+          const cashAcc = accounts.find(a => a.is_cash_account || a.name.toLowerCase().includes('main bank') || a.name.toLowerCase().includes('petty cash') || a.name.toLowerCase().includes('cash'));
+          cashAccId = cashAcc?.id;
+        }
+
+        if (cogsAccId && cashAccId) {
+          const costResult = await createJournalEntryAtomic(supabase, {
+            user_id: user.id,
+            date: quickSaleData.date,
+            description: `Acquisition cost for pass-through sale: ${lineDescription}`,
+            lines: [
+              { account_id: cogsAccId, debit: acqCost, credit: 0 },
+              { account_id: cashAccId, debit: 0, credit: acqCost }
+            ],
+            created_by_source: 'MANUAL',
+            reference_type: 'cogs_passthrough',
+            reference_id: invoiceId
+          });
+          if (!costResult.success) {
+            console.warn("Failed to post pass-through cost journal entry:", costResult.error);
+          }
+        }
+      }
+
       toast.success(`Quick cash sale of ${saleAmount.toLocaleString()} PKR logged as Paid Invoice!`, { id: toastId });
       setIsSubmitting(false);
       setIsQuickSaleModalOpen(false);
+      setQuickSaleData({
+        date: new Date().toISOString().split('T')[0],
+        amount: '',
+        description: '',
+        product_id: '',
+        quantity: '1',
+        cost: '',
+        account_id: ''
+      });
       fetchData();
     } catch (err: any) {
       toast.error(err.message || "Failed to process sale", { id: toastId });
@@ -664,6 +716,7 @@ export default function SalesHub() {
                     description: '',
                     product_id: '',
                     quantity: '1',
+                    cost: '',
                     account_id: defaultCashAcc?.id || ''
                   });
                   setIsQuickSaleModalOpen(true);
@@ -1465,39 +1518,20 @@ export default function SalesHub() {
             {/* Modal Body Form */}
             <form id="quickCashSaleForm" onSubmit={handleQuickCashSale} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Sale Date *</label>
-                  <input 
-                    type="date" 
-                    required
-                    value={quickSaleData.date}
-                    onChange={e => setQuickSaleData({...quickSaleData, date: e.target.value})}
-                    className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-sm"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Sale Amount (PKR) *</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">PKR</span>
-                    <input 
-                      type="number" 
-                      step="0.01"
-                      min="0.01"
-                      required
-                      placeholder="0.00"
-                      value={quickSaleData.amount}
-                      onChange={e => setQuickSaleData({...quickSaleData, amount: e.target.value})}
-                      className="w-full pl-12 pr-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-base"
-                    />
-                  </div>
-                </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Sale Date *</label>
+                <input 
+                  type="date" 
+                  required
+                  value={quickSaleData.date}
+                  onChange={e => setQuickSaleData({...quickSaleData, date: e.target.value})}
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-sm"
+                />
               </div>
 
-              {/* Product / Item Selector (Optional catalog link for COGS) */}
+              {/* Product / Item Selector */}
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Product / Item (Optional)</label>
+                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Sale Type / Item *</label>
                 <select
                   value={quickSaleData.product_id}
                   onChange={e => {
@@ -1510,79 +1544,181 @@ export default function SalesHub() {
                         ...quickSaleData,
                         product_id: prodId,
                         amount: calculatedAmount !== '0' ? calculatedAmount : quickSaleData.amount,
-                        description: prod.name
+                        description: prod.name,
+                        cost: ''
                       });
                     } else {
-                      setQuickSaleData({ ...quickSaleData, product_id: '' });
+                      setQuickSaleData({
+                        ...quickSaleData,
+                        product_id: '',
+                        cost: ''
+                      });
                     }
                   }}
                   className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-sm cursor-pointer"
                 >
-                  <option value="">-- Generic Cash Sale / No Specific Catalog Item --</option>
+                  <option value="">✨ Custom Item / Service (Not in Catalog)</option>
                   {products.map(p => (
                     <option key={p.id} value={p.id}>
-                      {p.name} {p.price ? `(${Number(p.price).toLocaleString()} PKR)` : ''} {p.is_inventory_tracked ? `[Stock: ${p.inventory_count || 0}]` : '[Service/Untracked]'}
+                      📦 {p.name} {p.price ? `(${Number(p.price).toLocaleString()} PKR)` : ''} {p.is_inventory_tracked ? `[Stock: ${p.inventory_count || 0}]` : '[Service/Untracked]'}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* If a product is selected */}
-              {quickSaleData.product_id && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
+              {!quickSaleData.product_id ? (
+                <>
+                  {/* Custom Item Description */}
                   <div className="space-y-1">
-                    <label className="text-[11px] font-semibold text-gray-500 uppercase">Quantity Sold</label>
+                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Item Name / Description *</label>
                     <input 
-                      type="number" 
-                      min="1"
-                      value={quickSaleData.quantity}
-                      onChange={e => {
-                        const newQty = e.target.value;
-                        const prod = products.find(p => p.id === quickSaleData.product_id);
-                        const qtyNum = parseInt(newQty) || 1;
-                        setQuickSaleData({
-                          ...quickSaleData,
-                          quantity: newQty,
-                          amount: prod?.price ? (Number(prod.price) * qtyNum).toString() : quickSaleData.amount
-                        });
-                      }}
-                      className="w-full px-3 py-2 min-h-[38px] bg-white border border-gray-200 rounded-lg text-gray-900 font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      type="text" 
+                      required
+                      value={quickSaleData.description}
+                      onChange={e => setQuickSaleData({...quickSaleData, description: e.target.value})}
+                      placeholder="e.g. Resold Samsung Phone, Strategy Consulting, Tuckshop Soda"
+                      className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-sm"
                     />
                   </div>
 
-                  <div className="flex flex-col justify-center text-xs text-gray-600">
-                    {(() => {
-                      const prod = products.find(p => p.id === quickSaleData.product_id);
-                      if (!prod) return null;
-                      const qty = parseInt(quickSaleData.quantity) || 1;
-                      const cogs = Number(prod.cost || 0) * qty;
-                      return prod.is_inventory_tracked ? (
+                  {/* Custom Item Amounts: Sale Price + Acquisition Cost */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Sale Price (PKR) *</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">PKR</span>
+                        <input 
+                          type="number" 
+                          step="0.01"
+                          min="0.01"
+                          required
+                          placeholder="0.00"
+                          value={quickSaleData.amount}
+                          onChange={e => setQuickSaleData({...quickSaleData, amount: e.target.value})}
+                          className="w-full pl-12 pr-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-base"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Acquisition Cost (Optional)</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">PKR</span>
+                        <input 
+                          type="number" 
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00 (Leave 0 for service)"
+                          value={quickSaleData.cost}
+                          onChange={e => setQuickSaleData({...quickSaleData, cost: e.target.value})}
+                          className="w-full pl-12 pr-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Real-time Margin & Profit Calculator */}
+                  {(() => {
+                    const sale = parseFloat(quickSaleData.amount) || 0;
+                    const acq = parseFloat(quickSaleData.cost) || 0;
+                    const profit = sale - acq;
+                    const margin = sale > 0 ? ((profit / sale) * 100).toFixed(1) : '0.0';
+                    if (sale <= 0) return null;
+                    return (
+                      <div className={`p-3 rounded-xl border text-xs flex justify-between items-center ${acq > 0 ? 'bg-blue-50 border-blue-200 text-blue-900' : 'bg-emerald-50 border-emerald-200 text-emerald-900'}`}>
                         <div>
-                          <span className="font-bold text-emerald-700 block">✓ Inventory Tracked</span>
-                          <span className="text-[11px] text-gray-500">
-                            Stock: {prod.inventory_count || 0} → {Math.max(0, (prod.inventory_count || 0) - qty)} units<br />
-                            COGS Realized: {cogs.toLocaleString()} PKR
+                          <span className="font-bold block">{acq > 0 ? '🛒 Pass-Through Flip' : '⚡ 100% Margin Service'}</span>
+                          <span className="text-[11px] text-gray-600">
+                            {acq > 0 
+                              ? `Sale: ${sale.toLocaleString()} PKR - Cost: ${acq.toLocaleString()} PKR`
+                              : `Pure service revenue without catalog inventory`}
                           </span>
                         </div>
-                      ) : (
-                        <span className="text-gray-500">Non-inventory service (Direct revenue).</span>
-                      );
-                    })()}
-                  </div>
-                </div>
-              )}
+                        <div className="text-right">
+                          <span className={`font-extrabold block text-sm ${profit >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                            {profit >= 0 ? `+${profit.toLocaleString()} PKR` : `${profit.toLocaleString()} PKR`}
+                          </span>
+                          <span className="text-[10px] font-bold uppercase text-gray-500">{margin}% Margin</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
+              ) : (
+                <>
+                  {/* Catalog Item Details */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Sale Amount (PKR) *</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">PKR</span>
+                        <input 
+                          type="number" 
+                          step="0.01"
+                          min="0.01"
+                          required
+                          placeholder="0.00"
+                          value={quickSaleData.amount}
+                          onChange={e => setQuickSaleData({...quickSaleData, amount: e.target.value})}
+                          className="w-full pl-12 pr-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-base"
+                        />
+                      </div>
+                    </div>
 
-              {/* Description */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Description / Particulars</label>
-                <input 
-                  type="text" 
-                  value={quickSaleData.description}
-                  onChange={e => setQuickSaleData({...quickSaleData, description: e.target.value})}
-                  placeholder="e.g. Sold cold drink / walk-in desk sale"
-                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-sm"
-                />
-              </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Quantity Sold</label>
+                      <input 
+                        type="number" 
+                        min="1"
+                        value={quickSaleData.quantity}
+                        onChange={e => {
+                          const newQty = e.target.value;
+                          const prod = products.find(p => p.id === quickSaleData.product_id);
+                          const qtyNum = parseInt(newQty) || 1;
+                          setQuickSaleData({
+                            ...quickSaleData,
+                            quantity: newQty,
+                            amount: prod?.price ? (Number(prod.price) * qtyNum).toString() : quickSaleData.amount
+                          });
+                        }}
+                        className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Catalog stock & COGS indicator */}
+                  {(() => {
+                    const prod = products.find(p => p.id === quickSaleData.product_id);
+                    if (!prod) return null;
+                    const qty = parseInt(quickSaleData.quantity) || 1;
+                    const cogs = Number(prod.cost || 0) * qty;
+                    return prod.is_inventory_tracked ? (
+                      <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs">
+                        <span className="font-bold text-emerald-700 block">✓ Inventory Tracked</span>
+                        <span className="text-[11px] text-gray-500">
+                          Stock: {prod.inventory_count || 0} → {Math.max(0, (prod.inventory_count || 0) - qty)} units &bull; Unit Cost: {(prod.cost || 0).toLocaleString()} PKR &bull; Total COGS: {cogs.toLocaleString()} PKR
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs text-gray-500">
+                        Non-inventory catalog service (Direct revenue).
+                      </div>
+                    );
+                  })()}
+
+                  {/* Description for Catalog Item */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Description / Particulars</label>
+                    <input 
+                      type="text" 
+                      value={quickSaleData.description}
+                      onChange={e => setQuickSaleData({...quickSaleData, description: e.target.value})}
+                      placeholder="e.g. Sold cold drink / walk-in desk sale"
+                      className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-sm"
+                    />
+                  </div>
+                </>
+              )}
 
               {/* Deposit Account (Petty Cash / Bank) */}
               <div className="space-y-1">
@@ -1609,11 +1745,24 @@ export default function SalesHub() {
                   <span className="font-bold block">Double-Entry Accounting:</span>
                   <span>
                     Debit: <strong>Deposit Account</strong> (+ Cash) &bull; Credit: <strong>Sales Revenue</strong> (+ Income).
-                    {quickSaleData.product_id && products.find(p => p.id === quickSaleData.product_id)?.is_inventory_tracked && (
-                      <span className="block mt-0.5 text-emerald-800">
-                        + Debit: <strong>Cost of Goods Sold</strong> (Expense) &bull; Credit: <strong>Inventory Asset</strong> (Asset).
-                      </span>
-                    )}
+                    {(() => {
+                      const acq = parseFloat(quickSaleData.cost) || 0;
+                      if (!quickSaleData.product_id && acq > 0) {
+                        return (
+                          <span className="block mt-0.5 text-blue-900 font-semibold">
+                            + Debit: <strong>Cost of Goods Sold</strong> ({acq.toLocaleString()} PKR) &bull; Credit: <strong>Deposit Account</strong> ({acq.toLocaleString()} PKR) [Net Cash: +{( (parseFloat(quickSaleData.amount) || 0) - acq).toLocaleString()} PKR]
+                          </span>
+                        );
+                      }
+                      if (quickSaleData.product_id && products.find(p => p.id === quickSaleData.product_id)?.is_inventory_tracked) {
+                        return (
+                          <span className="block mt-0.5 text-emerald-800">
+                            + Debit: <strong>Cost of Goods Sold</strong> (Expense) &bull; Credit: <strong>Inventory Asset</strong> (Asset).
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                   </span>
                 </div>
               </div>

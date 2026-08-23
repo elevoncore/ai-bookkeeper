@@ -16,6 +16,8 @@ export interface PostJournalEntryParams {
   lines: JournalLineItem[];
   created_by_source?: 'AI' | 'MANUAL';
   draft_id?: string;
+  reference_type?: string;
+  reference_id?: string | null;
 }
 
 /**
@@ -26,7 +28,7 @@ export async function createJournalEntryAtomic(
   supabase: SupabaseClient,
   params: PostJournalEntryParams
 ): Promise<{ success: boolean; id?: string; error?: string }> {
-  const { user_id, date, description, lines, created_by_source = 'AI', draft_id } = params;
+  const { user_id, date, description, lines, created_by_source = 'AI', draft_id, reference_type = 'JOURNAL', reference_id = null } = params;
 
   if (!lines || lines.length === 0) {
     return { success: false, error: 'Journal entry must contain at least one line item.' };
@@ -124,8 +126,8 @@ export async function createJournalEntryAtomic(
   const insertPayload: any = {
     user_id,
     date,
-    reference_type: 'JOURNAL',
-    reference_id: null,
+    reference_type: reference_type || 'JOURNAL',
+    reference_id: reference_id || null,
     description
   };
 
