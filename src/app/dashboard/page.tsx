@@ -174,13 +174,13 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-slate-50 dark:bg-[#090d16] font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <div className="relative min-h-screen bg-[#f8fafc] text-slate-900 overflow-x-hidden font-sans">
       
-      {/* Global Evolving Background Glows */}
+      {/* Dynamic Background Blurs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute -top-[10%] -left-[10%] w-[50vw] h-[50vw] max-w-[800px] max-h-[800px] rounded-full bg-purple-500/10 dark:bg-purple-600/15 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '10s' }} />
-        <div className="absolute top-[40%] -right-[10%] w-[40vw] h-[40vw] max-w-[600px] max-h-[600px] rounded-full bg-fuchsia-500/10 dark:bg-fuchsia-600/15 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '14s', animationDelay: '2s' }} />
-        <div className="absolute -bottom-[20%] left-[20%] w-[60vw] h-[60vw] max-w-[900px] max-h-[900px] rounded-full bg-indigo-500/10 dark:bg-indigo-600/10 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '18s', animationDelay: '4s' }} />
+        <div className="absolute -top-[10%] -left-[10%] w-[50vw] h-[50vw] max-w-[800px] max-h-[800px] rounded-full bg-purple-500/10 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '10s' }} />
+        <div className="absolute top-[40%] -right-[10%] w-[40vw] h-[40vw] max-w-[600px] max-h-[600px] rounded-full bg-fuchsia-500/10 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '14s', animationDelay: '2s' }} />
+        <div className="absolute -bottom-[20%] left-[20%] w-[60vw] h-[60vw] max-w-[900px] max-h-[900px] rounded-full bg-indigo-500/10 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '18s', animationDelay: '4s' }} />
       </div>
 
       {/* Main Content Wrapper */}
@@ -257,7 +257,7 @@ export default function DashboardPage() {
 
         {mobileChatOpen && (
           <div className="fixed inset-0 z-[100] w-screen h-screen bg-black/60 backdrop-blur-sm flex flex-col justify-end p-2 sm:p-4 animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-label="AI Assistant Mobile Chat">
-            <div className="bg-white dark:bg-slate-900 rounded-3xl h-[85dvh] max-h-[85dvh] w-full max-w-lg mx-auto flex flex-col shadow-2xl overflow-hidden relative border border-slate-200 dark:border-slate-800">
+            <div className="bg-white rounded-3xl h-[85dvh] max-h-[85dvh] w-full max-w-lg mx-auto flex flex-col shadow-2xl overflow-hidden relative border border-slate-200">
               <AiChatPanel
                 chartOfAccounts={chartOfAccounts}
                 onDataChanged={fetchFinancials}

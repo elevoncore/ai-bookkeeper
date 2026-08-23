@@ -1,7 +1,7 @@
 ﻿import { chromium } from 'playwright-core';
 
 async function runAudit() {
-  console.log("🚀 Starting Antigravity UI/UX Responsive & Accessibility Audit...");
+  console.log("🚀 Starting InscribeAI UI/UX Responsive & Accessibility Audit (Pure Light Theme)...");
 
   let browser;
   try {
@@ -62,13 +62,12 @@ async function runAudit() {
           };
         });
 
-        // 2. Check Interactive Element Touch Target Sizes (< 32px)
+        // 2. Check Interactive Element Touch Target Sizes (< 28px)
         const smallTouchTargets = await page.evaluate(() => {
           const interactive = Array.from(document.querySelectorAll('button, a[href], input, select'));
           const tooSmall = [];
           for (const el of interactive) {
             const rect = el.getBoundingClientRect();
-            // Ignore hidden or 0x0 elements
             if (rect.width > 0 && rect.height > 0 && (rect.width < 28 || rect.height < 28)) {
               tooSmall.push({
                 tag: el.tagName,
@@ -95,17 +94,6 @@ async function runAudit() {
           return unlabeled;
         });
 
-        // 4. Test Theme Toggle (Dark / Light Switch)
-        let themeSwitched = false;
-        try {
-          const toggleBtn = await page.$('button[aria-label*="mode" i], button[title*="mode" i], button[aria-label*="theme" i]');
-          if (toggleBtn) {
-            await toggleBtn.click();
-            await page.waitForTimeout(300);
-            themeSwitched = true;
-          }
-        } catch (e) {}
-
         const status = (!overflowDetails.hasOverflow && missingAria.length === 0) ? '✅ PASS' : '⚠️ WARN';
         
         console.log(`[${status}] ${bp.name} (${bp.width}x${bp.height}): docWidth=${overflowDetails.docWidth}px, winWidth=${overflowDetails.winWidth}px, overflow=${overflowDetails.hasOverflow ? 'YES' : 'NO'}, unlabeled=${missingAria.length}`);
@@ -116,7 +104,6 @@ async function runAudit() {
           width: bp.width,
           overflow: overflowDetails.hasOverflow ? 'FAIL' : 'PASS (0px overflow)',
           unlabeledButtons: missingAria.length,
-          themeToggleTested: themeSwitched ? 'YES' : 'N/A',
           status
         });
 
@@ -128,7 +115,6 @@ async function runAudit() {
           width: bp.width,
           overflow: 'ERROR',
           unlabeledButtons: 0,
-          themeToggleTested: 'NO',
           status: '❌ ERROR'
         });
       } finally {
@@ -140,7 +126,7 @@ async function runAudit() {
   await browser.close();
 
   console.log(`\n=============================================================`);
-  console.log(`📊 FINAL RESPONSIVE & ACCESSIBILITY AUDIT MATRIX`);
+  console.log(`📊 FINAL RESPONSIVE & ACCESSIBILITY AUDIT MATRIX (InscribeAI)`);
   console.log(`=============================================================`);
   console.table(results);
 }

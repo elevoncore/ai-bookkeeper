@@ -1,28 +1,15 @@
 @import "tailwindcss";
-@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
-  --card-bg: rgba(255, 255, 255, 0.75);
-  --card-border: rgba(226, 232, 240, 0.8);
+  --card-bg: rgba(255, 255, 255, 0.85);
+  --card-border: rgba(226, 232, 240, 0.9);
   --muted: #64748b;
   --accent: #2563eb;
   --accent-hover: #1d4ed8;
   --scrollbar-thumb: #cbd5e1;
   --scrollbar-thumb-hover: #94a3b8;
-}
-
-.dark {
-  --background: #090d16;
-  --foreground: #f8fafc;
-  --card-bg: rgba(15, 23, 42, 0.75);
-  --card-border: rgba(30, 41, 59, 0.8);
-  --muted: #94a3b8;
-  --accent: #3b82f6;
-  --accent-hover: #60a5fa;
-  --scrollbar-thumb: #334155;
-  --scrollbar-thumb-hover: #475569;
 }
 
 @theme inline {
