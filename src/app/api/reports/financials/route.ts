@@ -4,30 +4,55 @@ import { cookies } from "next/headers";
 
 export async function GET(request: Request) {
  try {
- const cookieStore = await cookies();
- const supabase = createServerClient(
- process.env.NEXT_PUBLIC_SUPABASE_URL!,
- process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
- {
- cookies: {
- getAll() {
- return cookieStore.getAll();
- },
- setAll(cookiesToSet) {
- try {
- cookiesToSet.forEach(({ name, value, options }) =>
- cookieStore.set(name, value, options)
- );
- } catch {}
- },
- },
- }
- );
+    const cookieStore = await cookies();
+    let supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              );
+            } catch {}
+          },
+        },
+      }
+    );
 
- const { data: { user } } = await supabase.auth.getUser();
- if (!user) {
- return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
- }
+    let user = null;
+    const { data: cookieAuthData } = await supabase.auth.getUser();
+    user = cookieAuthData?.user;
+
+    // Fallback for Bearer token in Authorization header
+    if (!user) {
+      const authHeader = request.headers.get("authorization");
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        supabase = createServerClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          {
+            global: {
+              headers: { Authorization: authHeader }
+            },
+            cookies: {
+              getAll() { return cookieStore.getAll(); },
+              setAll() {}
+            }
+          }
+        );
+        const { data: tokenAuthData } = await supabase.auth.getUser();
+        user = tokenAuthData?.user;
+      }
+    }
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
  // 1. Fetch Accounts
  const { data: accounts } = await supabase
