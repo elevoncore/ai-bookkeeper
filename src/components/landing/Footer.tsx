@@ -26,8 +26,9 @@ export default function Footer() {
             <div className="flex items-center gap-4">
               <a 
                 href="mailto:elevoncore@gmail.com"
-                className="flex items-center justify-center w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 transition-colors"
+                className="flex items-center justify-center w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
                 title="elevoncore@gmail.com"
+                aria-label="Send email to Elevon Core support"
               >
                 <Mail className="w-5 h-5" />
               </a>
@@ -35,8 +36,9 @@ export default function Footer() {
                 href="https://elevon-core.vercel.app/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center w-12 h-12 rounded-full bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
+                className="flex items-center justify-center w-12 h-12 rounded-full bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors focus-visible:ring-2 focus-visible:ring-purple-500"
                 title="Elevon Core Website"
+                aria-label="Visit Elevon Core Website"
               >
                 <Globe className="w-5 h-5" />
               </a>

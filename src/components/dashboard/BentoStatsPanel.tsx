@@ -124,19 +124,19 @@ export default function BentoStatsPanel({
     <div className="space-y-6 min-w-0">
       
       {/* PERSONALIZED GREETING HEADER */}
-      <div className={`flex flex-col ${forceMobileView ? '' : forceDesktopView ? 'flex-row' : 'sm:flex-row'} justify-between items-start ${forceMobileView ? '' : forceDesktopView ? 'items-center' : 'sm:items-center'} gap-4 bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-6 rounded-2xl min-w-0`}>
+      <div className={`flex flex-col ${forceMobileView ? '' : forceDesktopView ? 'flex-row' : 'sm:flex-row'} justify-between items-start ${forceMobileView ? '' : forceDesktopView ? 'items-center' : 'sm:items-center'} gap-4 bg-white/80 dark:bg-slate-900/70 backdrop-blur-3xl shadow-xl dark:shadow-black/40 border border-white/60 dark:border-slate-800 p-5 sm:p-6 rounded-2xl min-w-0`}>
         <div>
-          <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
-            Welcome back, <span className="capitalize text-blue-600 truncate">{userName}</span>
-            <span className="text-xl shrink-0">👋</span>
+          <h1 className="text-lg sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+            Welcome back, <span className="capitalize text-blue-600 dark:text-blue-400 truncate">{userName}</span>
+            <span className="text-xl shrink-0" role="img" aria-label="Waving hand">👋</span>
           </h1>
-          <p className="text-xs text-gray-500 mt-1">
-            Here is your SME Bookkeeping financial summary.
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Here is your live double-entry financial summary.
           </p>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs font-medium text-gray-400">
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
             {new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
           </span>
         </div>
@@ -147,98 +147,117 @@ export default function BentoStatsPanel({
         {/* BENTO TOP ROW: 4 KEY METRIC CARDS */}
         <div className={`grid grid-cols-1 ${forceMobileView ? '' : forceDesktopView ? 'grid-cols-4' : 'sm:grid-cols-2 lg:grid-cols-4'} gap-4 min-w-0`}>
           
-          <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-5 rounded-2xl relative overflow-hidden group hover:border-blue-200 transition-all min-w-0">
+          {/* REVENUE CARD */}
+          <div className="bg-white/80 dark:bg-slate-900/70 backdrop-blur-3xl shadow-xl dark:shadow-black/40 border border-white/60 dark:border-slate-800 p-5 rounded-2xl relative overflow-hidden group hover:border-blue-300 dark:hover:border-blue-500/40 transition-all min-w-0">
             <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold shrink-0 border border-blue-100 dark:border-blue-800/60">
                 <Wallet className="w-5 h-5" />
               </div>
-              <button className="w-8 h-8 rounded-full bg-gray-50 text-gray-400 hover:text-gray-700 flex items-center justify-center cursor-pointer shrink-0" title="View details">
+              <button 
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer shrink-0 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500" 
+                title="View revenue details"
+                aria-label="View revenue details"
+              >
                 <ArrowUpRight className="w-4 h-4" />
               </button>
             </div>
 
             <div className="mt-4 min-w-0">
-              <span className="text-xs font-medium text-gray-500 block truncate">Total Revenue (Invoiced)</span>
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block truncate">Total Revenue (Invoiced)</span>
               <div className="flex items-baseline gap-2 mt-1 min-w-0">
-                <span className="text-xl sm:text-2xl font-black text-gray-900 truncate">
+                <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white truncate">
                   {totalRevenue.toLocaleString()} {primaryCurrency}
                 </span>
-                <span className="text-xs font-semibold text-emerald-600 flex items-center gap-0.5 shrink-0">
-                  <TrendingUp className="w-3 h-3" />
+                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5 shrink-0" aria-label="Positive trend">
+                  <TrendingUp className="w-3.5 h-3.5" />
                 </span>
               </div>
             </div>
-            <p className="text-[11px] text-gray-400 mt-3 flex items-center gap-1 truncate">
-              <span>Outstanding AR: <span className="font-bold text-amber-600">{pendingReceivables.toLocaleString()} {primaryCurrency}</span></span>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-3 flex items-center gap-1 truncate">
+              <span>Outstanding AR: <span className="font-bold text-amber-600 dark:text-amber-400">{pendingReceivables.toLocaleString()} {primaryCurrency}</span></span>
             </p>
           </div>
 
-          <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-5 rounded-2xl relative overflow-hidden group hover:border-emerald-200 transition-all min-w-0">
+          {/* EXPENSES CARD */}
+          <div className="bg-white/80 dark:bg-slate-900/70 backdrop-blur-3xl shadow-xl dark:shadow-black/40 border border-white/60 dark:border-slate-800 p-5 rounded-2xl relative overflow-hidden group hover:border-emerald-300 dark:hover:border-emerald-500/40 transition-all min-w-0">
             <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold shrink-0 border border-emerald-100 dark:border-emerald-800/60">
                 <CheckCircle className="w-5 h-5" />
               </div>
-              <button className="w-8 h-8 rounded-full bg-gray-50 text-gray-400 hover:text-gray-700 flex items-center justify-center cursor-pointer shrink-0" title="View details">
+              <button 
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer shrink-0 transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500" 
+                title="View expense details"
+                aria-label="View expense details"
+              >
                 <ArrowUpRight className="w-4 h-4" />
               </button>
             </div>
 
             <div className="mt-4 min-w-0">
-              <span className="text-xs font-medium text-gray-500 block truncate">Total Expenses (Billed)</span>
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block truncate">Total Expenses (Billed)</span>
               <div className="flex items-baseline gap-2 mt-1 min-w-0">
-                <span className="text-xl sm:text-2xl font-black text-gray-900 truncate">
+                <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white truncate">
                   {totalExpenses.toLocaleString()} {primaryCurrency}
                 </span>
               </div>
             </div>
-            <p className="text-[11px] text-gray-400 mt-3 flex items-center gap-1 truncate">
-              <span>Outstanding AP: <span className="font-bold text-red-500">{pendingPayables.toLocaleString()} {primaryCurrency}</span></span>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-3 flex items-center gap-1 truncate">
+              <span>Outstanding AP: <span className="font-bold text-rose-600 dark:text-rose-400">{pendingPayables.toLocaleString()} {primaryCurrency}</span></span>
             </p>
           </div>
 
-          <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-5 rounded-2xl relative overflow-hidden group hover:border-purple-200 transition-all min-w-0">
+          {/* NET POSITION CARD */}
+          <div className="bg-white/80 dark:bg-slate-900/70 backdrop-blur-3xl shadow-xl dark:shadow-black/40 border border-white/60 dark:border-slate-800 p-5 rounded-2xl relative overflow-hidden group hover:border-purple-300 dark:hover:border-purple-500/40 transition-all min-w-0">
             <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold shrink-0 border border-purple-100 dark:border-purple-800/60">
                 <Clock className="w-5 h-5" />
               </div>
-              <button className="w-8 h-8 rounded-full bg-gray-50 text-gray-400 hover:text-gray-700 flex items-center justify-center cursor-pointer shrink-0" title="View details">
+              <button 
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer shrink-0 transition-colors focus-visible:ring-2 focus-visible:ring-purple-500" 
+                title="View net position details"
+                aria-label="View net position details"
+              >
                 <ArrowUpRight className="w-4 h-4" />
               </button>
             </div>
 
             <div className="mt-4 min-w-0">
-              <span className="text-xs font-medium text-gray-500 block truncate">Net Position</span>
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block truncate">Net Position</span>
               <div className="flex items-baseline gap-2 mt-1 min-w-0">
-                <span className={`text-xl sm:text-2xl font-black truncate ${(totalRevenue - totalExpenses) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                <span className={`text-xl sm:text-2xl font-black truncate ${(totalRevenue - totalExpenses) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                   {(totalRevenue - totalExpenses).toLocaleString()} {primaryCurrency}
                 </span>
               </div>
             </div>
-            <p className="text-[11px] text-gray-400 mt-3 flex items-center gap-1 truncate">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-3 flex items-center gap-1 truncate">
               <span>Invoiced minus Billed</span>
             </p>
           </div>
 
           {/* TOTAL LIQUID CASH BENTO STAT CARD */}
-          <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-5 rounded-2xl relative overflow-hidden group hover:border-indigo-200 transition-all min-w-0">
+          <div className="bg-white/80 dark:bg-slate-900/70 backdrop-blur-3xl shadow-xl dark:shadow-black/40 border border-white/60 dark:border-slate-800 p-5 rounded-2xl relative overflow-hidden group hover:border-indigo-300 dark:hover:border-indigo-500/40 transition-all min-w-0">
             <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shrink-0">
-                <Wallet className="w-5 h-5 text-indigo-600" />
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold shrink-0 border border-indigo-100 dark:border-indigo-800/60">
+                <Wallet className="w-5 h-5" />
               </div>
-              <button className="w-8 h-8 rounded-full bg-gray-50 text-gray-400 hover:text-gray-700 flex items-center justify-center cursor-pointer shrink-0" title="View Cashbook">
+              <button 
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer shrink-0 transition-colors focus-visible:ring-2 focus-visible:ring-indigo-500" 
+                title="View Cashbook"
+                aria-label="View Cashbook"
+              >
                 <ArrowUpRight className="w-4 h-4" />
               </button>
             </div>
 
             <div className="mt-4 min-w-0">
-              <span className="text-xs font-medium text-gray-500 block truncate">Total Liquid Cash</span>
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block truncate">Total Liquid Cash</span>
               <div className="flex items-baseline gap-2 mt-1 min-w-0">
-                <span className="text-xl sm:text-2xl font-black text-emerald-600 truncate">
+                <span className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 truncate">
                   {totalLiquidCash !== null ? totalLiquidCash.toLocaleString() : '...'} {primaryCurrency}
                 </span>
               </div>
             </div>
-            <p className="text-[11px] text-gray-400 mt-3 flex items-center gap-1 truncate">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-3 flex items-center gap-1 truncate">
               <span>Aggregated Cash & Bank Accounts</span>
             </p>
           </div>
@@ -248,14 +267,15 @@ export default function BentoStatsPanel({
         {/* BENTO MIDDLE ROW: CHARTS */}
         <div className={`grid grid-cols-1 ${forceMobileView ? '' : forceDesktopView ? 'grid-cols-2' : 'lg:grid-cols-2'} gap-4 min-w-0`}>
           
-          <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-6 rounded-2xl space-y-4 min-w-0">
+          {/* CASH FLOW TIMELINE */}
+          <div className="bg-white/80 dark:bg-slate-900/70 backdrop-blur-3xl shadow-xl dark:shadow-black/40 border border-white/60 dark:border-slate-800 p-5 sm:p-6 rounded-2xl space-y-4 min-w-0">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-sm text-gray-900 flex items-center gap-2">
-                  <BarChart2 className="w-4 h-4 text-purple-600 shrink-0" />
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <BarChart2 className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
                   Cash Flow Timeline
                 </h3>
-                <p className="text-xs text-gray-400 mt-0.5">Track daily/weekly revenue vs expenses</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Track daily/weekly revenue vs expenses</p>
               </div>
             </div>
 
@@ -272,52 +292,63 @@ export default function BentoStatsPanel({
                       <stop offset="95%" stopColor="#EC4899" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="name" stroke="#9CA3AF" fontSize={11} tickLine={false} />
-                  <YAxis stroke="#9CA3AF" fontSize={11} tickLine={false} axisLine={false} />
-                  <Tooltip />
-                  <Area type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={3} fillOpacity={1} fill="url(#colorSpend)" />
-                  <Area type="monotone" dataKey="expenses" stroke="#EC4899" strokeWidth={2} strokeDasharray="3 3" fillOpacity={1} fill="url(#colorActive)" />
+                  <XAxis dataKey="name" stroke="#94A3B8" fontSize={11} tickLine={false} />
+                  <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => val.toLocaleString()} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                      borderColor: 'rgba(51, 65, 85, 0.8)',
+                      borderRadius: '12px',
+                      color: '#fff',
+                      fontSize: '12px',
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)'
+                    }}
+                    formatter={(value: any) => [`${Number(value).toLocaleString()} ${primaryCurrency}`, '']}
+                  />
+                  <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#3B82F6" strokeWidth={3} fillOpacity={1} fill="url(#colorSpend)" />
+                  <Area type="monotone" dataKey="expenses" name="Expenses" stroke="#EC4899" strokeWidth={2} strokeDasharray="3 3" fillOpacity={1} fill="url(#colorActive)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-6 rounded-2xl space-y-4 min-w-0">
+          {/* RECENT ACTIVITY */}
+          <div className="bg-white/80 dark:bg-slate-900/70 backdrop-blur-3xl shadow-xl dark:shadow-black/40 border border-white/60 dark:border-slate-800 p-5 sm:p-6 rounded-2xl space-y-4 min-w-0">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-sm text-gray-900 flex items-center gap-2">
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                   Recent Activity
                 </h3>
-                <p className="text-xs text-gray-400 mt-0.5">Latest invoices and bills</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Latest invoices and bills</p>
               </div>
             </div>
             <div className="space-y-3 min-w-0">
               {invoices.slice(0, 3).map(inv => (
-                <div key={inv.id} className="flex justify-between items-center p-3 border border-gray-100 rounded-xl bg-gray-50 min-w-0 gap-2">
+                <div key={inv.id} className="flex justify-between items-center p-3 border border-slate-100 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800/50 min-w-0 gap-2">
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-gray-800 truncate">Invoice to {inv.customers?.name}</p>
-                    <p className="text-[10px] text-gray-500">{inv.issue_date}</p>
+                    <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">Invoice to {inv.customers?.name || 'Customer'}</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">{inv.issue_date}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-xs font-bold text-emerald-600">+{inv.total_amount.toLocaleString()} {primaryCurrency}</p>
-                    <p className="text-[10px] font-semibold text-gray-500">{inv.status.toUpperCase()}</p>
+                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">+{inv.total_amount.toLocaleString()} {primaryCurrency}</p>
+                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">{inv.status}</p>
                   </div>
                 </div>
               ))}
               {bills.slice(0, 3).map(b => (
-                <div key={b.id} className="flex justify-between items-center p-3 border border-gray-100 rounded-xl bg-gray-50 min-w-0 gap-2">
+                <div key={b.id} className="flex justify-between items-center p-3 border border-slate-100 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800/50 min-w-0 gap-2">
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-gray-800 truncate">Bill from {b.suppliers?.name}</p>
-                    <p className="text-[10px] text-gray-500">{b.issue_date}</p>
+                    <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">Bill from {b.suppliers?.name || 'Supplier'}</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">{b.issue_date}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-xs font-bold text-red-600">-{b.total_amount.toLocaleString()} {primaryCurrency}</p>
-                    <p className="text-[10px] font-semibold text-gray-500">{b.status.toUpperCase()}</p>
+                    <p className="text-xs font-bold text-rose-600 dark:text-rose-400">-{b.total_amount.toLocaleString()} {primaryCurrency}</p>
+                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">{b.status}</p>
                   </div>
                 </div>
               ))}
               {invoices.length === 0 && bills.length === 0 && (
-                <p className="text-xs text-gray-400 text-center py-4">No recent activity.</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-6">No recent activity.</p>
               )}
             </div>
           </div>

@@ -68,17 +68,17 @@ export default function CashbookWidget({ onOpenAddAccount, onOpenAdjustBalance }
   ];
 
   return (
-    <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-6 rounded-2xl space-y-4 min-w-0">
+    <div className="bg-white/80 dark:bg-slate-900/70 backdrop-blur-3xl shadow-xl dark:shadow-black/40 border border-white/60 dark:border-slate-800 p-5 sm:p-6 rounded-3xl space-y-4 min-w-0 transition-colors duration-300">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between min-w-0 gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shrink-0 shadow-md shadow-blue-600/20">
+          <div className="w-10 h-10 rounded-xl bg-blue-600 dark:bg-blue-500 text-white flex items-center justify-center font-bold shrink-0 shadow-md shadow-blue-600/20">
             <Landmark className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <h3 className="font-extrabold text-base text-gray-900 flex items-center gap-2 truncate">
+            <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2 truncate">
               Cash & Bank Balances
             </h3>
-            <p className="text-xs text-gray-500 truncate">Dynamic Liquid Cashbook Accounts ({accounts.length})</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">Dynamic Liquid Cashbook Accounts ({accounts.length})</p>
           </div>
         </div>
 
@@ -87,10 +87,11 @@ export default function CashbookWidget({ onOpenAddAccount, onOpenAdjustBalance }
           {onOpenAddAccount && (
             <button
               onClick={onOpenAddAccount}
-              className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl bg-white/80 hover:bg-white text-blue-700 hover:text-blue-800 border border-blue-200/80 hover:border-blue-300 text-xs font-bold transition-all cursor-pointer shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl bg-white/90 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800 text-xs font-bold transition-all cursor-pointer shadow-xs focus-visible:ring-2 focus-visible:ring-blue-500"
               title="Add Bank or Wallet Account"
+              aria-label="Add Bank or Wallet Account"
             >
-              <Plus className="w-4 h-4 text-blue-600" />
+              <Plus className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               <span className="hidden sm:inline">+ Add Bank/Wallet</span>
               <span className="sm:hidden">+ Bank/Wallet</span>
             </button>
@@ -99,10 +100,11 @@ export default function CashbookWidget({ onOpenAddAccount, onOpenAdjustBalance }
           {onOpenAdjustBalance && (
             <button
               onClick={onOpenAdjustBalance}
-              className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl bg-white/80 hover:bg-white text-purple-700 hover:text-purple-800 border border-purple-200/80 hover:border-purple-300 text-xs font-bold transition-all cursor-pointer shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl bg-white/90 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800 text-xs font-bold transition-all cursor-pointer shadow-xs focus-visible:ring-2 focus-visible:ring-purple-500"
               title="Adjust Cash Balances / Record Transfer"
+              aria-label="Adjust Cash Balances or Record Transfer"
             >
-              <BookOpen className="w-4 h-4 text-purple-600" />
+              <BookOpen className="w-4 h-4 text-purple-600 dark:text-purple-400" />
               <span className="hidden sm:inline">+ Adjust Balances</span>
               <span className="sm:hidden">+ Adjust</span>
             </button>
@@ -111,20 +113,20 @@ export default function CashbookWidget({ onOpenAddAccount, onOpenAdjustBalance }
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-white/70 hover:bg-white text-gray-500 hover:text-gray-900 border border-gray-200 transition-all cursor-pointer shrink-0 shadow-xs"
+            className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-white/90 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white border border-slate-200 dark:border-slate-700 transition-all cursor-pointer shrink-0 shadow-xs focus-visible:ring-2 focus-visible:ring-blue-500"
             title="Refresh Cashbook"
             aria-label="Refresh Cashbook"
           >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-blue-600' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-blue-600 dark:text-blue-400' : ''}`} />
           </button>
         </div>
       </div>
 
       {isLoading ? (
         <div className="flex flex-wrap gap-4 py-2">
-          <div className="flex-1 min-w-[220px] h-20 bg-gray-100/60 animate-pulse rounded-xl" />
-          <div className="flex-1 min-w-[220px] h-20 bg-gray-100/60 animate-pulse rounded-xl" />
-          <div className="flex-1 min-w-[220px] h-20 bg-gray-100/60 animate-pulse rounded-xl" />
+          <div className="flex-1 min-w-[220px] h-20 bg-slate-100 dark:bg-slate-800/60 animate-pulse rounded-2xl" />
+          <div className="flex-1 min-w-[220px] h-20 bg-slate-100 dark:bg-slate-800/60 animate-pulse rounded-2xl" />
+          <div className="flex-1 min-w-[220px] h-20 bg-slate-100 dark:bg-slate-800/60 animate-pulse rounded-2xl" />
         </div>
       ) : (
         <div className="space-y-4 min-w-0">
@@ -132,7 +134,7 @@ export default function CashbookWidget({ onOpenAddAccount, onOpenAdjustBalance }
           {/* FLUID, AUTO-DISTRIBUTING FLEX LAYOUT */}
           <div className="flex flex-wrap gap-4 min-w-0">
             {accounts.length === 0 ? (
-              <p className="text-xs text-gray-400 w-full py-4 text-center">No cash or bank accounts found.</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 w-full py-4 text-center">No cash or bank accounts found.</p>
             ) : (
               accounts.map((acc, index) => {
                 const style = iconBadges[index % iconBadges.length];
@@ -140,16 +142,16 @@ export default function CashbookWidget({ onOpenAddAccount, onOpenAdjustBalance }
                 return (
                   <div 
                     key={acc.id || index} 
-                    className="flex-1 min-w-[220px] sm:min-w-[240px] p-4 rounded-xl bg-white/70 backdrop-blur-md border border-gray-200/80 shadow-xs hover:shadow-md transition-all flex items-center justify-between min-w-0 gap-3"
+                    className="flex-1 min-w-[220px] sm:min-w-[240px] p-4 rounded-2xl bg-white/80 dark:bg-slate-800/70 backdrop-blur-md border border-slate-200/80 dark:border-slate-700/80 shadow-xs hover:shadow-md transition-all flex items-center justify-between min-w-0 gap-3"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className={`w-9 h-9 rounded-xl ${style.iconBg} text-white flex items-center justify-center font-bold shrink-0 shadow-sm`}>
                         <IconComponent className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
-                        <span className="text-xs font-bold text-gray-700 block truncate">{acc.name}</span>
-                        <p className="text-base sm:text-lg font-black text-gray-900 mt-0.5 truncate">
-                          {acc.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-xs font-bold text-gray-500">{primaryCurrency}</span>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block truncate">{acc.name}</span>
+                        <p className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-0.5 truncate">
+                          {acc.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{primaryCurrency}</span>
                         </p>
                       </div>
                     </div>
@@ -160,8 +162,8 @@ export default function CashbookWidget({ onOpenAddAccount, onOpenAdjustBalance }
           </div>
 
           {/* TOTAL LIQUID CASH SUMMARY BANNER */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center px-5 py-3.5 rounded-xl bg-gray-900 text-white shadow-md min-w-0 gap-2 sm:gap-4">
-            <span className="text-xs font-bold text-gray-300 truncate uppercase tracking-wider flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center px-5 py-3.5 rounded-2xl bg-slate-900 dark:bg-slate-950 text-white border border-slate-800 shadow-md min-w-0 gap-2 sm:gap-4">
+            <span className="text-xs font-bold text-slate-300 truncate uppercase tracking-wider flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-400" /> Total Liquid Cash Available
             </span>
             <span className="text-base sm:text-lg font-black text-emerald-400 truncate">

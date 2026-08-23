@@ -86,6 +86,30 @@ export default function ChartOfAccountsManager() {
   const [tAccountLines, setTAccountLines] = useState<any[]>([]);
   const [isTAccountLoading, setIsTAccountLoading] = useState(false);
 
+  // Close modals on Escape key and lock body scroll
+  useEffect(() => {
+    const isAnyModalOpen = isModalOpen || Boolean(editingAccount) || isJournalModalOpen || Boolean(selectedTAccount);
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setIsModalOpen(false);
+        setEditingAccount(null);
+        setIsJournalModalOpen(false);
+        setSelectedTAccount(null);
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = 'unset';
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isModalOpen, editingAccount, isJournalModalOpen, selectedTAccount]);
+
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!

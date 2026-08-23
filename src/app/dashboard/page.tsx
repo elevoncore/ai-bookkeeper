@@ -150,25 +150,37 @@ export default function DashboardPage() {
     };
   }, [supabase, userId]);
 
+  // Close mobile drawer on Escape key
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        if (mobileChatOpen) setMobileChatOpen(false);
+        if (logModalTxId) setLogModalTxId(null);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [mobileChatOpen, logModalTxId]);
+
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
+      <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-300">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          <span className="text-xs font-semibold text-gray-500">Loading AI Financial Engine...</span>
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600 dark:text-blue-400" />
+          <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Loading AI Financial Engine...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen bg-slate-50 font-sans text-slate-900 transition-colors duration-300">
+    <div className="relative min-h-screen bg-slate-50 dark:bg-[#090d16] font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
       
       {/* Global Evolving Background Glows */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute -top-[10%] -left-[10%] w-[50vw] h-[50vw] max-w-[800px] max-h-[800px] rounded-full bg-purple-500/20 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '10s' }} />
-        <div className="absolute top-[40%] -right-[10%] w-[40vw] h-[40vw] max-w-[600px] max-h-[600px] rounded-full bg-fuchsia-500/20 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '14s', animationDelay: '2s' }} />
-        <div className="absolute -bottom-[20%] left-[20%] w-[60vw] h-[60vw] max-w-[900px] max-h-[900px] rounded-full bg-indigo-500/10 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '18s', animationDelay: '4s' }} />
+        <div className="absolute -top-[10%] -left-[10%] w-[50vw] h-[50vw] max-w-[800px] max-h-[800px] rounded-full bg-purple-500/10 dark:bg-purple-600/15 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '10s' }} />
+        <div className="absolute top-[40%] -right-[10%] w-[40vw] h-[40vw] max-w-[600px] max-h-[600px] rounded-full bg-fuchsia-500/10 dark:bg-fuchsia-600/15 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '14s', animationDelay: '2s' }} />
+        <div className="absolute -bottom-[20%] left-[20%] w-[60vw] h-[60vw] max-w-[900px] max-h-[900px] rounded-full bg-indigo-500/10 dark:bg-indigo-600/10 blur-[120px] lg:blur-[160px] animate-pulse" style={{ animationDuration: '18s', animationDelay: '4s' }} />
       </div>
 
       {/* Main Content Wrapper */}
@@ -182,7 +194,7 @@ export default function DashboardPage() {
         />
 
         {/* MAIN DASHBOARD SPLIT CONTAINER */}
-        <main className="flex-1 w-full max-w-[1700px] mx-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 w-full max-w-[1700px] mx-auto p-3 sm:p-6 lg:p-8">
         
         {/* DESKTOP SPLIT VIEW: Stats on Left, AI Chat on Right */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start min-h-screen pb-12">
@@ -235,15 +247,17 @@ export default function DashboardPage() {
       <div className="lg:hidden">
         <button
           onClick={() => setMobileChatOpen(!mobileChatOpen)}
-          className="fixed bottom-6 right-6 z-50 px-4 py-3 min-h-[44px] bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full shadow-2xl hover:scale-105 transition-all flex items-center gap-2 font-bold text-xs cursor-pointer"
+          className="fixed bottom-6 right-6 z-50 px-4 py-3 min-h-[44px] bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full shadow-2xl hover:scale-105 transition-all flex items-center gap-2 font-bold text-xs cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500"
+          aria-label="Open AI Assistant Chat"
+          aria-expanded={mobileChatOpen}
         >
           <MessageSquare className="w-5 h-5" />
           <span>AI Assistant</span>
         </button>
 
         {mobileChatOpen && (
-          <div className="fixed inset-0 z-[100] w-screen h-screen bg-black/50 backdrop-blur-sm flex flex-col justify-end p-2 sm:p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl h-[85dvh] max-h-[85dvh] w-full max-w-lg mx-auto flex flex-col shadow-2xl overflow-hidden relative">
+          <div className="fixed inset-0 z-[100] w-screen h-screen bg-black/60 backdrop-blur-sm flex flex-col justify-end p-2 sm:p-4 animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-label="AI Assistant Mobile Chat">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl h-[85dvh] max-h-[85dvh] w-full max-w-lg mx-auto flex flex-col shadow-2xl overflow-hidden relative border border-slate-200 dark:border-slate-800">
               <AiChatPanel
                 chartOfAccounts={chartOfAccounts}
                 onDataChanged={fetchFinancials}

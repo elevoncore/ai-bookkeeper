@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
+import ThemeToggle from '@/components/ThemeToggle';
 
 export default function Navbar() {
   const scrollTo = (id: string) => {
@@ -58,17 +59,19 @@ export default function Navbar() {
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <ThemeToggle />
+
           <Link 
             href="/login"
-            className="text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors hidden sm:block px-2"
+            className="text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors hidden sm:block px-2 min-h-[44px] flex items-center"
           >
             Log in
           </Link>
 
           <Link 
             href="/dashboard"
-            className="group inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-purple-600 hover:bg-purple-700 text-white font-semibold text-sm transition-all shadow-xs hover:shadow-purple-500/20 cursor-pointer"
+            className="group inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 min-h-[44px] rounded-full bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs sm:text-sm transition-all shadow-md hover:shadow-purple-500/20 cursor-pointer focus-visible:ring-2 focus-visible:ring-purple-500"
           >
             <span>Dashboard</span>
             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
