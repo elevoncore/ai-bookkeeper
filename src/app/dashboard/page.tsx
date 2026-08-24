@@ -258,6 +258,7 @@ export default function DashboardPage() {
           setActiveTab={setActiveTab} 
           userEmail={userEmail}
           pendingCount={pendingItems.length}
+          pendingItems={pendingItems}
         />
 
         {/* MAIN DASHBOARD SPLIT CONTAINER */}
