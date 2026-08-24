@@ -63,9 +63,9 @@ function SettingsContent() {
     }
   }, [tabParam]);
 
-  // Fetch authenticated user profile
+  // Fetch authenticated user profile and app settings
   useEffect(() => {
-    async function loadUserData() {
+    async function loadUserDataAndSettings() {
       setIsLoading(true);
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -80,14 +80,64 @@ function SettingsContent() {
             setDisplayName(fallback.charAt(0).toUpperCase() + fallback.slice(1));
           }
         }
+
+        // Fetch backend user settings
+        const res = await fetch('/api/settings');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.settings) {
+            const s = data.settings;
+            if (s.currency) setCurrency(s.currency);
+            if (s.timezone) setTimezone(s.timezone);
+            if (s.accounting_basis) setAccountingBasis(s.accounting_basis);
+            if (s.fiscal_year_start) setFiscalYearStart(s.fiscal_year_start);
+            if (typeof s.ai_require_manual_verification === 'boolean') setRequireManualApproval(s.ai_require_manual_verification);
+            if (typeof s.ai_strict_cogs_realization === 'boolean') setAutoRealizeCogs(s.ai_strict_cogs_realization);
+            if (s.ai_ambiguity_strictness) setAiStrictness(s.ai_ambiguity_strictness);
+          }
+        }
       } catch (err) {
-        console.error("Error loading settings user:", err);
+        console.error("Error loading settings:", err);
       } finally {
         setIsLoading(false);
       }
     }
-    loadUserData();
+    loadUserDataAndSettings();
   }, []);
+
+  async function persistSettings(customValues?: any) {
+    setIsSaving(true);
+    try {
+      const payload = {
+        currency,
+        timezone,
+        accounting_basis: accountingBasis,
+        fiscal_year_start: fiscalYearStart,
+        ai_require_manual_verification: requireManualApproval,
+        ai_strict_cogs_realization: autoRealizeCogs,
+        ai_ambiguity_strictness: aiStrictness,
+        ...customValues
+      };
+
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to save settings to database');
+      }
+
+      const data = await res.json();
+      toast.success("App preferences saved successfully!");
+      return data.settings;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to persist settings");
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   function handleTabChange(tab: SettingsTab) {
     setActiveTab(tab);
@@ -124,11 +174,7 @@ function SettingsContent() {
   }
 
   function handleSaveAppSettings() {
-    setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
-      toast.success("App preferences saved successfully!");
-    }, 600);
+    persistSettings();
   }
 
   const initials = displayName 
@@ -396,7 +442,11 @@ function SettingsContent() {
                       </label>
                       <select
                         value={currency}
-                        onChange={(e) => setCurrency(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCurrency(val);
+                          persistSettings({ currency: val });
+                        }}
                         className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white cursor-pointer"
                       >
                         <option value="PKR">PKR (₨) — Pakistani Rupee</option>
@@ -414,7 +464,11 @@ function SettingsContent() {
                       </label>
                       <select
                         value={timezone}
-                        onChange={(e) => setTimezone(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTimezone(val);
+                          persistSettings({ timezone: val });
+                        }}
                         className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white cursor-pointer"
                       >
                         <option value="Asia/Karachi">Asia/Karachi (UTC+05:00 PKT)</option>
@@ -431,7 +485,11 @@ function SettingsContent() {
                       </label>
                       <select
                         value={accountingBasis}
-                        onChange={(e) => setAccountingBasis(e.target.value as any)}
+                        onChange={(e) => {
+                          const val = e.target.value as any;
+                          setAccountingBasis(val);
+                          persistSettings({ accounting_basis: val });
+                        }}
                         className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white cursor-pointer"
                       >
                         <option value="accrual">Accrual Basis (Recognize upon invoice/bill issue)</option>
@@ -445,7 +503,11 @@ function SettingsContent() {
                       </label>
                       <select
                         value={fiscalYearStart}
-                        onChange={(e) => setFiscalYearStart(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFiscalYearStart(val);
+                          persistSettings({ fiscal_year_start: val });
+                        }}
                         className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white cursor-pointer"
                       >
                         <option value="July">July 1st (Standard PK / AU)</option>
@@ -476,7 +538,11 @@ function SettingsContent() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setRequireManualApproval(!requireManualApproval)}
+                        onClick={() => {
+                          const nextVal = !requireManualApproval;
+                          setRequireManualApproval(nextVal);
+                          persistSettings({ ai_require_manual_verification: nextVal });
+                        }}
                         className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors shrink-0 ${
                           requireManualApproval ? 'bg-blue-600' : 'bg-slate-300'
                         }`}
@@ -497,7 +563,11 @@ function SettingsContent() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setAutoRealizeCogs(!autoRealizeCogs)}
+                        onClick={() => {
+                          const nextVal = !autoRealizeCogs;
+                          setAutoRealizeCogs(nextVal);
+                          persistSettings({ ai_strict_cogs_realization: nextVal });
+                        }}
                         className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors shrink-0 ${
                           autoRealizeCogs ? 'bg-blue-600' : 'bg-slate-300'
                         }`}
@@ -521,7 +591,10 @@ function SettingsContent() {
                         ].map((opt) => (
                           <div
                             key={opt.id}
-                            onClick={() => setAiStrictness(opt.id as any)}
+                            onClick={() => {
+                              setAiStrictness(opt.id as any);
+                              persistSettings({ ai_ambiguity_strictness: opt.id });
+                            }}
                             className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
                               aiStrictness === opt.id
                                 ? 'border-blue-500 bg-blue-50/50 shadow-xs'
