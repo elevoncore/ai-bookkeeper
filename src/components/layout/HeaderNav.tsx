@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { createBrowserClient } from '@supabase/ssr';
 import { 
   Receipt, 
@@ -303,20 +304,22 @@ export default function HeaderNav({
                     <p className="text-xs font-bold text-slate-900 truncate">{userEmail}</p>
                   </div>
                   <div className="py-1">
-                    <button
+                    <Link
+                      href="/dashboard/settings?tab=account"
                       role="menuitem"
-                      onClick={() => { setActiveTab('overview'); setShowUserDropdown(false); }}
-                      className="w-full text-left px-4 py-2.5 min-h-[44px] text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                      onClick={() => setShowUserDropdown(false)}
+                      className="w-full text-left px-4 py-2.5 min-h-[44px] text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
                     >
                       <UserIcon className="w-4 h-4 text-slate-400" /> My Account
-                    </button>
-                    <button
+                    </Link>
+                    <Link
+                      href="/dashboard/settings?tab=app"
                       role="menuitem"
-                      onClick={() => { setActiveTab('reports'); setShowUserDropdown(false); }}
-                      className="w-full text-left px-4 py-2.5 min-h-[44px] text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                      onClick={() => setShowUserDropdown(false)}
+                      className="w-full text-left px-4 py-2.5 min-h-[44px] text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
                     >
                       <Settings className="w-4 h-4 text-slate-400" /> App Settings
-                    </button>
+                    </Link>
                   </div>
 
                   <div className="pt-1 border-t border-slate-100">
