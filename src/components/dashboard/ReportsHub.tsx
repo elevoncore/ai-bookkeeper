@@ -29,6 +29,7 @@ import {
  Legend
 } from 'recharts';
 import ChartOfAccountsManager from './ChartOfAccountsManager';
+import ExportDataModal from './ExportDataModal';
 import { fetchWithCache, invalidateCache } from '@/lib/cache';
 
 type Tab = 'chart_of_accounts' | 'cashbook' | 'pnl' | 'balance_sheet' | 'trial_balance' | 'ledger';
@@ -39,6 +40,7 @@ export default function ReportsHub() {
  const [financials, setFinancials] = useState<any>(null);
  const [balanceSheet, setBalanceSheet] = useState<any>(null);
  const [isLoading, setIsLoading] = useState(true);
+ const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
  // Balance Sheet As-Of-Date State
  const [asOfDate, setAsOfDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -230,10 +232,18 @@ export default function ReportsHub() {
  </p>
  </div>
 
- <button className="flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-sm font-semibold transition-all cursor-pointer shrink-0">
- <Download className="w-4 h-4" /> Export CSV
+ <button 
+  onClick={() => setIsExportModalOpen(true)}
+  className="flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-sm font-semibold transition-all cursor-pointer shrink-0"
+ >
+ <Download className="w-4 h-4" /> Export Data
  </button>
  </div>
+
+ <ExportDataModal 
+   isOpen={isExportModalOpen} 
+   onClose={() => setIsExportModalOpen(false)} 
+ />
 
  {/* AI CONTROLLER INSIGHTS BANNER */}
  <div className="bg-gradient-to-r from-purple-900/90 via-indigo-900/90 to-slate-900/90 backdrop-blur-2xl border border-purple-500/30 p-6 rounded-2xl text-white shadow-xl relative overflow-hidden">
