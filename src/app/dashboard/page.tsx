@@ -241,7 +241,7 @@ export default function DashboardPage() {
   }, [mobileChatOpen, logModalTxId]);
 
   return (
-    <div className="relative min-h-screen bg-[#f8fafc] text-slate-900 overflow-x-hidden font-sans">
+    <div className="relative min-h-screen bg-[#f8fafc] text-slate-900 overflow-x-clip font-sans">
       
       {/* Dynamic Background Blurs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
@@ -303,7 +303,7 @@ export default function DashboardPage() {
             </div>
 
             {/* RIGHT SIDEBAR: Conversational AI Assistant Chat */}
-            <div className="hidden lg:block lg:col-span-5 xl:col-span-4 h-[calc(100vh-8rem)] sticky top-28 pb-4 z-20">
+            <div className="hidden lg:block lg:col-span-5 xl:col-span-4 sticky top-24 sm:top-28 h-[calc(100dvh-7.5rem)] sm:h-[calc(100dvh-8rem)] max-h-[calc(100dvh-7.5rem)] sm:max-h-[calc(100dvh-8rem)] self-start z-20">
               <AiChatPanel
                 chartOfAccounts={chartOfAccounts}
                 onDataChanged={fetchFinancials}

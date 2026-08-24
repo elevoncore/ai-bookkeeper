@@ -893,7 +893,7 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
  <div ref={chatBottomRef} />
  </div>
 
- <div className="p-3 bg-white/85 backdrop-blur-2xl border-t border-slate-100 sticky bottom-0 z-10">
+ <div className="p-3 bg-white/85 backdrop-blur-2xl border-t border-slate-100 shrink-0 z-10">
  {imagePreview(imageBase64, clearImage)}
  <form onSubmit={handleSendMessage} className="flex items-center gap-2">
  <input 
