@@ -241,7 +241,7 @@ export default function DashboardPage() {
   }, [mobileChatOpen, logModalTxId]);
 
   return (
-    <div className="relative min-h-screen bg-[#f8fafc] text-slate-900 overflow-x-clip font-sans">
+    <div className="relative h-screen max-h-screen w-screen overflow-hidden bg-[#f8fafc] text-slate-900 font-sans flex flex-col">
       
       {/* Dynamic Background Blurs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
@@ -251,7 +251,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Content Wrapper */}
-      <div className="relative z-10 flex flex-col min-h-screen pt-24 sm:pt-28">
+      <div className="relative z-10 flex flex-col h-full max-h-full overflow-hidden pt-24 sm:pt-28">
         {/* GLOBAL HEADER */}
         <HeaderNav 
           activeTab={activeTab} 
@@ -261,13 +261,13 @@ export default function DashboardPage() {
         />
 
         {/* MAIN DASHBOARD SPLIT CONTAINER */}
-        <main className="flex-1 w-full max-w-[1700px] mx-auto p-3 sm:p-6 lg:p-8">
+        <main className="flex-1 w-full max-w-[1700px] mx-auto p-3 sm:p-6 lg:p-8 min-h-0 overflow-hidden flex flex-col">
           
-          {/* DESKTOP SPLIT VIEW: Stats on Left, AI Chat on Right */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start min-h-screen pb-12">
+          {/* DESKTOP SPLIT VIEW: Stats on Left (Scrollable), AI Chat on Right (Fixed Pane) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full min-h-0 flex-1 overflow-hidden">
             
-            {/* LEFT CONTENT AREA */}
-            <div className="lg:col-span-7 xl:col-span-8 space-y-6 min-w-0">
+            {/* LEFT CONTENT AREA (INDEPENDENTLY SCROLLABLE) */}
+            <div className="lg:col-span-7 xl:col-span-8 h-full min-h-0 overflow-y-auto custom-scrollbar space-y-6 pr-1 pb-16 min-w-0">
               {activeTab === 'overview' && (
                 isLoading ? (
                   <OverviewSkeleton />
@@ -302,8 +302,8 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* RIGHT SIDEBAR: Conversational AI Assistant Chat */}
-            <div className="hidden lg:block lg:col-span-5 xl:col-span-4 sticky top-24 sm:top-28 h-[calc(100dvh-7.5rem)] sm:h-[calc(100dvh-8rem)] max-h-[calc(100dvh-7.5rem)] sm:max-h-[calc(100dvh-8rem)] self-start z-20">
+            {/* RIGHT SIDEBAR: Conversational AI Assistant Chat (FIXED DUAL PANE) */}
+            <div className="hidden lg:flex lg:col-span-5 xl:col-span-4 h-full min-h-0 shrink-0 pb-4 min-w-0 flex-col">
               <AiChatPanel
                 chartOfAccounts={chartOfAccounts}
                 onDataChanged={fetchFinancials}
