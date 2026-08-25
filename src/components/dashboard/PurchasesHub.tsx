@@ -261,7 +261,6 @@ export default function PurchasesHub() {
         const { data: newAcc } = await supabase.from('accounts').insert({
           user_id: user.id,
           name: 'Supplier Advances / Prepaid Expenses',
-          code: '1350',
           type: 'asset',
           is_system: true
         }).select('id').single();
@@ -374,7 +373,6 @@ export default function PurchasesHub() {
         const { data: newAcc } = await supabase.from('accounts').insert({
           user_id: user.id,
           name: 'Interest Expense',
-          code: '5050',
           type: 'expense',
           is_system: true
         }).select('id').single();

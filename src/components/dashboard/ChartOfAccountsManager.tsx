@@ -21,7 +21,8 @@ import {
  Coins,
  Wallet,
  Receipt,
- Percent
+ Percent,
+ ArrowLeftRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { parseToCents } from '@/utils/currency';
@@ -93,6 +94,14 @@ export default function ChartOfAccountsManager() {
  const [loanDescription, setLoanDescription] = useState<string>('Loan Repayment & Interest Service');
  const [isLoanSubmitting, setIsLoanSubmitting] = useState(false);
 
+ // Simple Transfer Modal State
+ const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+ const [transferFromAccountId, setTransferFromAccountId] = useState('');
+ const [transferToAccountId, setTransferToAccountId] = useState('');
+ const [transferAmount, setTransferAmount] = useState('');
+ const [transferDescription, setTransferDescription] = useState('');
+ const [isTransferSubmitting, setIsTransferSubmitting] = useState(false);
+
  // T-Account Drill-Down Modal State
  const [selectedTAccount, setSelectedTAccount] = useState<AccountRow | null>(null);
  const [tAccountLines, setTAccountLines] = useState<any[]>([]);
@@ -100,7 +109,7 @@ export default function ChartOfAccountsManager() {
 
  // Close modals on Escape key and lock body scroll
  useEffect(() => {
- const isAnyModalOpen = isModalOpen || Boolean(editingAccount) || isJournalModalOpen || Boolean(selectedTAccount) || isLoanModalOpen;
+ const isAnyModalOpen = isModalOpen || Boolean(editingAccount) || isJournalModalOpen || Boolean(selectedTAccount) || isLoanModalOpen || isTransferModalOpen;
  if (isAnyModalOpen) {
  document.body.style.overflow = 'hidden';
  } else {
@@ -114,6 +123,7 @@ export default function ChartOfAccountsManager() {
  setIsJournalModalOpen(false);
  setSelectedTAccount(null);
  setIsLoanModalOpen(false);
+ setIsTransferModalOpen(false);
  }
  }
  document.addEventListener('keydown', handleKeyDown);
@@ -121,7 +131,7 @@ export default function ChartOfAccountsManager() {
  document.body.style.overflow = 'unset';
  document.removeEventListener('keydown', handleKeyDown);
  };
- }, [isModalOpen, editingAccount, isJournalModalOpen, selectedTAccount, isLoanModalOpen]);
+ }, [isModalOpen, editingAccount, isJournalModalOpen, selectedTAccount, isLoanModalOpen, isTransferModalOpen]);
 
  const supabase = createBrowserClient(
  process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -134,7 +144,7 @@ export default function ChartOfAccountsManager() {
 
  // Lock background scroll when any modal is open
  useEffect(() => {
- if (isModalOpen || editingAccount || isJournalModalOpen || selectedTAccount) {
+ if (isModalOpen || editingAccount || isJournalModalOpen || selectedTAccount || isLoanModalOpen || isTransferModalOpen) {
  document.body.style.overflow = 'hidden';
  } else {
  document.body.style.overflow = 'unset';
@@ -142,7 +152,7 @@ export default function ChartOfAccountsManager() {
  return () => {
  document.body.style.overflow = 'unset';
  };
- }, [isModalOpen, editingAccount, isJournalModalOpen, selectedTAccount]);
+ }, [isModalOpen, editingAccount, isJournalModalOpen, selectedTAccount, isLoanModalOpen, isTransferModalOpen]);
 
  async function handleOpenTAccount(acc: AccountRow) {
  setSelectedTAccount(acc);
@@ -486,6 +496,65 @@ export default function ChartOfAccountsManager() {
  await fetchAccountsWithBalances();
  }
 
+ async function handlePostTransfer(e: React.FormEvent) {
+ e.preventDefault();
+
+ if (!transferFromAccountId) {
+ return toast.error("Please select a Transfer From account.");
+ }
+ if (!transferToAccountId) {
+ return toast.error("Please select a Transfer To account.");
+ }
+ if (transferFromAccountId === transferToAccountId) {
+ return toast.error("Transfer From and Transfer To accounts cannot be the same.");
+ }
+ const amountNum = Number(transferAmount);
+ if (!transferAmount || isNaN(amountNum) || amountNum <= 0) {
+ return toast.error("Transfer amount must be greater than zero.");
+ }
+ if (!transferDescription.trim()) {
+ return toast.error("Transfer description is required.");
+ }
+
+ setIsTransferSubmitting(true);
+ const { data: { user } } = await supabase.auth.getUser();
+ if (!user) {
+ toast.error("User session not found.");
+ setIsTransferSubmitting(false);
+ return;
+ }
+
+ // Transfer To: Debited, Transfer From: Credited
+ const formattedLines = [
+ { account_id: transferToAccountId, debit: amountNum, credit: 0 },
+ { account_id: transferFromAccountId, debit: 0, credit: amountNum }
+ ];
+
+ const result = await createJournalEntryAtomic(supabase, {
+ user_id: user.id,
+ date: new Date().toISOString().split('T')[0],
+ description: transferDescription.trim(),
+ lines: formattedLines,
+ created_by_source: 'MANUAL'
+ });
+
+ if (result.error) {
+ toast.error(`Transfer Failed: ${result.error}`);
+ setIsTransferSubmitting(false);
+ return;
+ }
+
+ toast.success("Funds transferred successfully!");
+ setTransferFromAccountId('');
+ setTransferToAccountId('');
+ setTransferAmount('');
+ setTransferDescription('');
+ setIsTransferModalOpen(false);
+ setIsTransferSubmitting(false);
+
+ await fetchAccountsWithBalances();
+ }
+
  // Filtered accounts
  const filteredAccounts = useMemo(() => {
  return accounts.filter(a => {
@@ -604,6 +673,12 @@ export default function ChartOfAccountsManager() {
  className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-600/20 transition-all cursor-pointer"
  >
  <BookOpen className="w-4 h-4" /> + New Journal Entry
+ </button>
+ <button
+ onClick={() => setIsTransferModalOpen(true)}
+ className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+ >
+ <ArrowLeftRight className="w-4 h-4" /> + Transfer Funds
  </button>
  <button
  onClick={() => setIsModalOpen(true)}
@@ -1159,6 +1234,113 @@ export default function ChartOfAccountsManager() {
  className="px-5 py-2.5 min-h-[44px] rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-500 shadow-md shadow-purple-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-40"
  >
  {isJournalSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Post Journal Entry"}
+ </button>
+ </div>
+ </div>
+ </div>,
+ document.body
+ )}
+
+ {/* SIMPLE TRANSFER FUNDS MODAL */}
+ {mounted && isTransferModalOpen && createPortal(
+ <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+ <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-lg max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+ <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+ <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+ <ArrowLeftRight className="w-5 h-5 text-indigo-600" /> Transfer Funds
+ </h3>
+ <button
+ onClick={() => setIsTransferModalOpen(false)}
+ className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+ aria-label="Close modal"
+ >
+ <X className="w-5 h-5" />
+ </button>
+ </div>
+
+ <form id="transferForm" onSubmit={handlePostTransfer} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
+ <div>
+ <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Transfer From (Source)</label>
+ <select
+ required
+ value={transferFromAccountId}
+ onChange={(e) => setTransferFromAccountId(e.target.value)}
+ className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
+ >
+ <option value="">Select source account...</option>
+ {accounts
+ .filter(a => ['asset', 'liability', 'equity'].includes(a.type))
+ .sort((a, b) => a.name.localeCompare(b.name))
+ .map(acc => (
+ <option key={acc.id} value={acc.id}>
+ {acc.name} ({acc.type.toUpperCase()}) — Balance: {acc.balance.toLocaleString()} PKR
+ </option>
+ ))}
+ </select>
+ </div>
+
+ <div>
+ <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Transfer To (Destination)</label>
+ <select
+ required
+ value={transferToAccountId}
+ onChange={(e) => setTransferToAccountId(e.target.value)}
+ className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
+ >
+ <option value="">Select destination account...</option>
+ {accounts
+ .filter(a => ['asset', 'liability', 'equity'].includes(a.type))
+ .sort((a, b) => a.name.localeCompare(b.name))
+ .map(acc => (
+ <option key={acc.id} value={acc.id}>
+ {acc.name} ({acc.type.toUpperCase()}) — Balance: {acc.balance.toLocaleString()} PKR
+ </option>
+ ))}
+ </select>
+ </div>
+
+ <div>
+ <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Amount (PKR)</label>
+ <input
+ type="number"
+ step="0.01"
+ min="0.01"
+ required
+ placeholder="0.00"
+ value={transferAmount}
+ onChange={(e) => setTransferAmount(e.target.value)}
+ className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
+ />
+ </div>
+
+ <div>
+ <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Description / Memo</label>
+ <input
+ type="text"
+ required
+ placeholder="e.g. Moved cash to petty drawer"
+ value={transferDescription}
+ onChange={(e) => setTransferDescription(e.target.value)}
+ className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
+ />
+ </div>
+ </form>
+
+ <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+ <button
+ type="button"
+ onClick={() => setIsTransferModalOpen(false)}
+ className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
+ >
+ Cancel
+ </button>
+ <button
+ type="submit"
+ form="transferForm"
+ disabled={isTransferSubmitting || !transferFromAccountId || !transferToAccountId || !transferAmount || !transferDescription.trim()}
+ className="px-5 py-2.5 min-h-[44px] rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-40"
+ >
+ {isTransferSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Execute Transfer"}
  </button>
  </div>
  </div>

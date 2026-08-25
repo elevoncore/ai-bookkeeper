@@ -608,7 +608,6 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
       const { data: newAcc } = await supabase.from('accounts').insert({
         user_id: user.id,
         name: 'Customer Advances / Unearned Revenue',
-        code: '2100',
         type: 'liability',
         is_system: true
       }).select('id').single();
@@ -1324,6 +1323,73 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  required
  />
  </div>
+
+              {/* APPLY ADVANCE ACCORDION (NEW INVOICE ONLY) */}
+              {!isEditing && newInvoice.customer_id && (() => {
+                const availableAdvance = getCustomerAdvanceBalance(newInvoice.customer_id);
+                if (availableAdvance <= 0) return null;
+                const invAmt = parseFloat(newInvoice.amount) || 0;
+                const applyAmt = parseFloat(advanceAmountToApply) || 0;
+
+                return (
+                  <div className="p-4 bg-indigo-50/70 border border-indigo-200 rounded-xl space-y-3 mt-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="w-4 h-4 text-indigo-600 shrink-0" />
+                        <div>
+                          <span className="text-xs font-bold text-indigo-950 block">Apply Customer Advance</span>
+                          <span className="text-[11px] text-indigo-700 font-medium">
+                            Available unapplied deposit: <strong>{availableAdvance.toLocaleString()} PKR</strong>
+                          </span>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={applyAdvanceToInvoice}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setApplyAdvanceToInvoice(checked);
+                            if (checked) {
+                              setAdvanceAmountToApply(Math.min(availableAdvance, invAmt || availableAdvance).toString());
+                            } else {
+                              setAdvanceAmountToApply('');
+                            }
+                          }}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                      </label>
+                    </div>
+
+                    {applyAdvanceToInvoice && (
+                      <div className="pt-2 border-t border-indigo-200/60 space-y-2">
+                        <div>
+                          <label className="block text-[11px] font-bold text-indigo-900 mb-1">
+                            Advance Amount to Apply (PKR)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            max={Math.min(availableAdvance, invAmt || availableAdvance)}
+                            value={advanceAmountToApply}
+                            onChange={(e) => setAdvanceAmountToApply(e.target.value)}
+                            placeholder={`Max: ${Math.min(availableAdvance, invAmt || availableAdvance).toLocaleString()}`}
+                            className="w-full border border-indigo-200 bg-white rounded-lg px-3 py-2 text-xs font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        {invAmt > 0 && applyAmt > 0 && (
+                          <p className="text-[11px] text-indigo-800 font-medium">
+                            {applyAmt >= invAmt
+                              ? "✓ Invoice will be fully paid with advance! (Status: PAID)"
+                              : `Remaining balance due: ${(invAmt - applyAmt).toLocaleString()} PKR (Status: PARTIALLY PAID)`}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
  </form>
 
  <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">

@@ -91,11 +91,11 @@ export async function POST(request: Request) {
   // Context Injection: Fetch user's existing product catalog for entity resolution & deduplication
   const { data: existingProducts } = await supabase
     .from("products")
-    .select("id, name")
+    .select("id, name, cost, price, is_inventory_tracked")
     .eq("user_id", user.id);
 
   const catalogListString = existingProducts && existingProducts.length > 0
-    ? existingProducts.map((p: any) => `- ID: ${p.id} | Name: "${p.name}"`).join("\n")
+    ? existingProducts.map((p: any) => `- ID: ${p.id} | Name: "${p.name}" | Price: ${p.price || 0} PKR | Cost: ${p.cost || 0} PKR | Tracked: ${!!p.is_inventory_tracked}`).join("\n")
     : "No existing products in catalog.";
 
   // Context Injection: Fetch user settings from Supabase/cache
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
   } else if (userSettings.ai_ambiguity_strictness === 'balanced') {
     ambiguityRuleInstruction = `9. Asset vs Inventory Ambiguity Rule (BALANCED MODE): The user has configured Balanced Ambiguity Strictness. For routine purchases (< 10,000 ${userSettings.currency}), auto-map them to 'General Operating Expense' or 'Fixed Assets - Office/Equipment' without pausing (set is_complete: true). For large or high-value items (> 50,000 ${userSettings.currency}) where intent is completely unclear, set "is_complete": false and ask for clarification.`;
   } else {
-    ambiguityRuleInstruction = `9. Asset vs Inventory Ambiguity Rule (STRICT MODE - TRAP ACTIVE): The user has configured Strict Ambiguity Strictness. If a user buys or purchases an item that could be either for internal office/business use OR for resale to customers (e.g., furniture, computers, tables, laptops, chairs, desks, printers, vehicles, or equipment e.g. "I bought a table for 5,000 PKR" or "Bought a computer for 50,000" or "Bought 5 desks"), and the prompt DOES NOT explicitly specify whether it is for office use or for resale inventory, you MUST NOT guess or assume, and MUST NOT stage a transaction. You MUST set "is_complete": false, and ask for explicit clarification in "conversational_response" and "clarification_question" (e.g., "Did you buy this table for internal office use (Fixed Asset) or for resale to customers (Inventory)?").`;
+    ambiguityRuleInstruction = `9. Asset vs Inventory Ambiguity Rule (STRICT MODE - TRAP ACTIVE): The user has configured Strict Ambiguity Strictness. If a user buys or purchases an item that could be either for internal office/business use OR for resale to customers (e.g., furniture, computers, tables, laptops, chairs, desks, printers, vehicles, or equipment e.g. "I bought a table for 5,000 PKR" or "Bought a computer for 50,000" or "Bought 5 desks"), and the prompt DOES NOT explicitly specify whether it is for office use or for resale inventory, you MUST NOT guess or assume, and MUST NOT stage a transaction. You MUST set "is_complete": false, and ask for explicit clarification in "conversational_response" and "clarification_question" (e.g., "Did you buy this table for internal office use (Fixed Asset) or for resale to customers (Inventory)?"). EXCEPTION: If the user explicitly mentions that the item is being sold or immediately sold (e.g., "bought a phone and immediately sold it" or "purchased for a customer and sold it"), the resale intent is explicit. You MUST NOT ask clarification questions and instead set is_complete: true and stage the balanced 4-line journal entry immediately.`;
   }
 
   const cogsInstruction = userSettings.ai_strict_cogs_realization
@@ -135,9 +135,9 @@ export async function POST(request: Request) {
   INTENTS:
   - LOG_BILL: User received a bill, or incurred a direct expense (e.g. utilities, rent) from a Vendor/Payee. Do not force product names for generic expenses; treat the vendor as the payee.
   - LOG_INVOICE: User sent an invoice, or received alternative income from a Customer/Client.
-  - LOG_PAYMENT_MADE: User paid a bill.
-  - LOG_PAYMENT_RECEIVED: User received a payment from a customer.
-  - LOG_JOURNAL_ENTRY: User is logging capital contributions, owner drawings, bank transfers, loans received, loan repayments, equity additions, or general adjustments (e.g., "investing 100,000 ${defaultCurrency} into bank as capital", "received a 500,000 ${defaultCurrency} loan from the bank", "repaid 50,000 ${defaultCurrency} loan principal and 5,000 ${defaultCurrency} interest").
+  - LOG_PAYMENT_MADE: User paid a bill. (Note: If the user refers to a specific bill number or you want to stage a manual card for review, use LOG_JOURNAL_ENTRY.)
+  - LOG_PAYMENT_RECEIVED: User received a payment. (Note: If the prompt contains a specific invoice number e.g. "INV-1234", or you want to stage a manual receipt review card, you MUST use LOG_JOURNAL_ENTRY.)
+  - LOG_JOURNAL_ENTRY: User is logging capital contributions, owner drawings, bank transfers, loans received, loan repayments, customer advance payments, supplier advance payments, invoice payments, or general adjustments.
   - LOG_INVENTORY_ADJUSTMENT: User reports physical stock count discrepancy or stocktake adjustment (e.g., "I counted 10 items", "5 bananas spilled/spoiled", "Monthly stocktake").
   - UPDATE_TRANSACTION: User wants to update or modify an existing transaction.
   - QUERY_FINANCES: General cash flow or spending queries.
@@ -154,7 +154,7 @@ export async function POST(request: Request) {
   - OPERATING EXPENSES: Map electricity/water/utility bills to 'Utilities', office rent to 'Rent Expense', server/cloud hosting to 'Software & Hosting', interest charges to 'Interest Expense', and general/office supplies to 'General Operating Expense'.
   - If a user prompt mentions multiple expenses (e.g. "rent and AWS bill together"), you MUST split them into separate line items in "line_items" and assign each item its specific account category.
   - You must place the exact account name in the "account_name" field of each line item.
-  5. Journal Entry Balancing & Loan/Equity Workflows (CRITICAL for LOG_JOURNAL_ENTRY): If intent is LOG_JOURNAL_ENTRY, you MUST output balanced debit and credit lines in "line_items" using exact Chart of Accounts names: ['Main Bank Account', 'Petty Cash', 'Accounts Receivable', 'Inventory Asset', 'Fixed Assets - Office/Equipment', 'Fixed Assets - Equipment/Furniture', 'Accounts Payable', 'Sales Tax Payable', 'Loan Payable', 'Long-Term Loan Payable', 'Owners Equity', 'Owner Drawings', 'Retained Earnings', 'Sales Revenue', 'Service Revenue', 'Cost of Goods Sold', 'Rent Expense', 'Utilities', 'Software & Hosting', 'Interest Expense', 'General Operating Expense'].
+  5. Journal Entry Balancing & Loan/Equity Workflows (CRITICAL for LOG_JOURNAL_ENTRY): If intent is LOG_JOURNAL_ENTRY, you MUST output balanced debit and credit lines in "line_items" using exact Chart of Accounts names: ['Main Bank Account', 'Petty Cash', 'Accounts Receivable', 'Inventory Asset', 'Fixed Assets - Office/Equipment', 'Fixed Assets - Equipment/Furniture', 'Accounts Payable', 'Sales Tax Payable', 'Loan Payable', 'Long-Term Loan Payable', 'Owners Equity', 'Owner Drawings', 'Retained Earnings', 'Sales Revenue', 'Service Revenue', 'Cost of Goods Sold', 'Rent Expense', 'Utilities', 'Software & Hosting', 'Interest Expense', 'General Operating Expense', 'Customer Advances / Unearned Revenue', 'Supplier Advances / Prepaid Expenses'].
   - Capital Investment e.g. "Investing 100,000 ${defaultCurrency} into bank as owner capital":
     - Line 1 (DEBIT): description: "Capital Investment", account_name: "Main Bank Account", total: 100000, is_debit: true
     - Line 2 (CREDIT): description: "Owner Equity Contribution", account_name: "Owners Equity", total: 100000, is_debit: false
@@ -170,10 +170,10 @@ export async function POST(request: Request) {
     - Line 1 (DEBIT): description: "Prepaid Supplier Advance", account_name: "Supplier Advances / Prepaid Expenses", total: 30000, is_debit: true
     - Line 2 (CREDIT): description: "Advance Paid from Bank", account_name: "Main Bank Account", total: 30000, is_debit: false
     - CRITICAL: Supplier advances DEBIT "Supplier Advances / Prepaid Expenses" (Asset increases) and CREDIT Cash/Bank.
-  - Repaying a Loan with Interest Split e.g. "Paid 10,000 ${defaultCurrency} to HBL Loan, 2,000 is interest" or "Repaid 50,000 ${defaultCurrency} loan principal and 5,000 ${defaultCurrency} interest":
-    - Line 1 (DEBIT): description: "Loan Principal Repayment", account_name: "Loan Payable", total: 8000, is_debit: true
-    - Line 2 (DEBIT): description: "Interest Expense", account_name: "Interest Expense", total: 2000, is_debit: true
-    - Line 3 (CREDIT): description: "Cash Paid for Principal and Interest", account_name: "Main Bank Account", total: 10000, is_debit: false
+  - Repaying a Loan with Interest Split e.g. "Paid 20,000 to my HBL Loan from the main bank. 5,000 of that was interest":
+    - Line 1 (DEBIT): description: "Loan Principal Repayment", account_name: "Loan Payable", total: 15000, is_debit: true
+    - Line 2 (DEBIT): description: "Interest Expense", account_name: "Interest Expense", total: 5000, is_debit: true
+    - Line 3 (CREDIT): description: "Cash Paid for Principal and Interest", account_name: "Main Bank Account", total: 20000, is_debit: false
     - CRITICAL: Repaying a loan DECREASES the specific Loan liability (DEBIT principal), INVOICES Interest Expense (DEBIT fee), and DECREASES Main Bank Account (CREDIT total). Total Debits MUST equal Total Credits.
   - Bank/Cash Transfer e.g. "Transfer 5,000 from Bank to Petty Cash" or "Deposited cash into bank":
     - Line 1 (DEBIT): description: "Transfer to Receiving Account", account_name: "Petty Cash", total: 5000, is_debit: true
@@ -182,14 +182,22 @@ export async function POST(request: Request) {
     - Line 1 (DEBIT): description: "Owner Personal Withdrawal", account_name: "Owner Drawings", total: 10000, is_debit: true
     - Line 2 (CREDIT): description: "Withdrawal from Cash/Bank", account_name: "Petty Cash", total: 10000, is_debit: false
     - CRITICAL: Owner drawings DEBIT "Owner Drawings" (Equity deduction) and CREDIT "Petty Cash" or "Main Bank Account" (Cash decrease).
-  - Quick Cash Sale / Walk-In Customer Sale e.g. "I sold a desk to a walk-in customer for 5,000 ${defaultCurrency} cash" or "Sold a soda for 150 ${defaultCurrency} cash" or "Cash sale 3,000 ${defaultCurrency} for services":
-    - Line 1 (DEBIT): description: "Cash Sale Proceeds", account_name: "Petty Cash", total: 5000, is_debit: true
-    - Line 2 (CREDIT): description: "Sales Revenue", account_name: "Sales Revenue", total: 5000, is_debit: false
-    - CRITICAL: A quick cash sale or walk-in customer sale does NOT require a customer name or invoice creation. Stage a direct LOG_JOURNAL_ENTRY (Debit Petty Cash/Main Bank, Credit Sales Revenue). NEVER set is_complete: false or ask for a customer name when the user indicates a walk-in cash sale!
-  - Customer Payment / Partial Invoice Payment e.g. "Faizan paid 10,000 towards his 50,000 invoice" or "Received 10,000 payment from Faizan":
-    - Line 1 (DEBIT): description: "Customer Payment Received", account_name: "Main Bank Account", total: 10000, is_debit: true
-    - Line 2 (CREDIT): description: "Reduce Accounts Receivable", account_name: "Accounts Receivable", total: 10000, is_debit: false
-    - CRITICAL: Customer invoice payments DEBIT "Main Bank Account" (Cash increases) and CREDIT "Accounts Receivable" (A/R asset decreases for the exact payment amount). DO NOT create a new sale/revenue or mark whole invoice as paid if partial.
+  - Quick Cash Sale / Walk-In Customer Sale (with inventory/COGS tracking) e.g. "I sold a laptop to a walk-in customer for 50,000 cash":
+    - Line 1 (DEBIT): description: "Cash Sale Proceeds", account_name: "Petty Cash", total: 50000, is_debit: true
+    - Line 2 (CREDIT): description: "Sales Revenue", account_name: "Sales Revenue", total: 50000, is_debit: false
+    - Line 3 (DEBIT): description: "Cost of Goods Sold (Laptop)", account_name: "Cost of Goods Sold", total: 1000, is_debit: true
+    - Line 4 (CREDIT): description: "Inventory Reduction (Laptop)", account_name: "Inventory Asset", total: 1000, is_debit: false
+    - CRITICAL: If the product is tracked (like Laptop, which has cost 1000 in catalog), you MUST add Line 3 (Debit Cost of Goods Sold) and Line 4 (Credit Inventory Asset) using the cost from the catalog to record perpetual inventory adjustments!
+  - Pass-Through Ad-Hoc Sale e.g. "I bought a used phone for 10k and immediately sold it to a walk-in for 15k cash":
+    - Line 1 (DEBIT): description: "Walk-in Cash Sale Proceeds", account_name: "Petty Cash" (or "Main Bank Account"), total: 15000, is_debit: true
+    - Line 2 (CREDIT): description: "Sales Revenue", account_name: "Sales Revenue", total: 15000, is_debit: false
+    - Line 3 (DEBIT): description: "Cost of Goods Sold (Used Phone)", account_name: "Cost of Goods Sold", total: 10000, is_debit: true
+    - Line 4 (CREDIT): description: "Cash Paid for Acquisition", account_name: "Petty Cash" (or "Main Bank Account"), total: 10000, is_debit: false
+    - CRITICAL: Bypass the ambiguity trap for these sales since the resale intent is explicit! Total Debits must equal Total Credits.
+  - Customer Payment / Partial Invoice Payment e.g. "I received 5,000 PKR cash towards invoice INV-1234":
+    - Line 1 (DEBIT): description: "Cash/Bank Payment Received", account_name: "Main Bank Account" (or "Petty Cash"), total: 5000, is_debit: true
+    - Line 2 (CREDIT): description: "Reduce Accounts Receivable", account_name: "Accounts Receivable", total: 5000, is_debit: false
+    - CRITICAL: Must be staged as LOG_JOURNAL_ENTRY. Write the exact invoice code (e.g. INV-1234) in the description of both lines so the user knows which invoice it targets.
   - Vendor / Supplier Bill Payment e.g. "Paid 15,000 to Acme Supplies for bill" or "Partial payment 15,000 towards vendor bill":
     - Line 1 (DEBIT): description: "Reduce Accounts Payable", account_name: "Accounts Payable", total: 15000, is_debit: true
     - Line 2 (CREDIT): description: "Vendor Payment from Bank", account_name: "Main Bank Account", total: 15000, is_debit: false
