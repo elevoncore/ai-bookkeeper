@@ -641,6 +641,7 @@ export default function ChartOfAccountsManager() {
  setIsModalOpen(true);
  }}
  onOpenAdjustBalance={() => setIsJournalModalOpen(true)}
+ onOpenTransferCash={() => setIsTransferModalOpen(true)}
  />
 
  {/* HEADER BAR */}
@@ -673,12 +674,6 @@ export default function ChartOfAccountsManager() {
  className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-600/20 transition-all cursor-pointer"
  >
  <BookOpen className="w-4 h-4" /> + New Journal Entry
- </button>
- <button
- onClick={() => setIsTransferModalOpen(true)}
- className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
- >
- <ArrowLeftRight className="w-4 h-4" /> + Transfer Funds
  </button>
  <button
  onClick={() => setIsModalOpen(true)}
@@ -1247,7 +1242,7 @@ export default function ChartOfAccountsManager() {
  <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-lg max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
  <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
- <ArrowLeftRight className="w-5 h-5 text-indigo-600" /> Transfer Funds
+ <ArrowLeftRight className="w-5 h-5 text-indigo-600" /> Transfer Cash
  </h3>
  <button
  onClick={() => setIsTransferModalOpen(false)}
@@ -1260,40 +1255,40 @@ export default function ChartOfAccountsManager() {
 
  <form id="transferForm" onSubmit={handlePostTransfer} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
  <div>
- <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Transfer From (Source)</label>
+ <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Transfer From (Source Cash Account)</label>
  <select
  required
  value={transferFromAccountId}
  onChange={(e) => setTransferFromAccountId(e.target.value)}
  className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
  >
- <option value="">Select source account...</option>
+ <option value="">Select source cash account...</option>
  {accounts
- .filter(a => ['asset', 'liability', 'equity'].includes(a.type))
+ .filter(a => a.is_cash_account)
  .sort((a, b) => a.name.localeCompare(b.name))
  .map(acc => (
  <option key={acc.id} value={acc.id}>
- {acc.name} ({acc.type.toUpperCase()}) — Balance: {acc.balance.toLocaleString()} PKR
+ {acc.name} — Balance: {acc.balance.toLocaleString()} PKR
  </option>
  ))}
  </select>
  </div>
 
  <div>
- <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Transfer To (Destination)</label>
+ <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Transfer To (Destination Cash Account)</label>
  <select
  required
  value={transferToAccountId}
  onChange={(e) => setTransferToAccountId(e.target.value)}
  className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
  >
- <option value="">Select destination account...</option>
+ <option value="">Select destination cash account...</option>
  {accounts
- .filter(a => ['asset', 'liability', 'equity'].includes(a.type))
+ .filter(a => a.is_cash_account)
  .sort((a, b) => a.name.localeCompare(b.name))
  .map(acc => (
  <option key={acc.id} value={acc.id}>
- {acc.name} ({acc.type.toUpperCase()}) — Balance: {acc.balance.toLocaleString()} PKR
+ {acc.name} — Balance: {acc.balance.toLocaleString()} PKR
  </option>
  ))}
  </select>

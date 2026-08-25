@@ -175,9 +175,10 @@ export async function POST(request: Request) {
     - Line 2 (DEBIT): description: "Interest Expense", account_name: "Interest Expense", total: 5000, is_debit: true
     - Line 3 (CREDIT): description: "Cash Paid for Principal and Interest", account_name: "Main Bank Account", total: 20000, is_debit: false
     - CRITICAL: Repaying a loan DECREASES the specific Loan liability (DEBIT principal), INVOICES Interest Expense (DEBIT fee), and DECREASES Main Bank Account (CREDIT total). Total Debits MUST equal Total Credits.
-  - Bank/Cash Transfer e.g. "Transfer 5,000 from Bank to Petty Cash" or "Deposited cash into bank":
-    - Line 1 (DEBIT): description: "Transfer to Receiving Account", account_name: "Petty Cash", total: 5000, is_debit: true
-    - Line 2 (CREDIT): description: "Transfer from Sending Account", account_name: "Main Bank Account", total: 5000, is_debit: false
+  - Bank/Cash Transfer (Cash-to-Cash Only) e.g. "Transfer 5,000 from Main Bank to Petty Cash" or "Move 2,000 from Simple Cash to Secondary Cash":
+    - Line 1 (DEBIT): description: "Transfer to Receiving Cash Account", account_name: "Petty Cash", total: 5000, is_debit: true
+    - Line 2 (CREDIT): description: "Transfer from Sending Cash Account", account_name: "Main Bank Account", total: 5000, is_debit: false
+    - CRITICAL: A bank/cash transfer MUST ONLY involve liquid cash or bank asset accounts (e.g. 'Main Bank Account', 'Petty Cash', 'Simple Cash', 'Secondary Cash'). You MUST NOT map this to generic asset, liability, or equity accounts. DEBIT the receiving cash account and CREDIT the sending cash account.
   - Owner Drawings e.g. "I withdrew 10,000 ${defaultCurrency} for personal use" or "Owner drew 10,000 ${defaultCurrency}":
     - Line 1 (DEBIT): description: "Owner Personal Withdrawal", account_name: "Owner Drawings", total: 10000, is_debit: true
     - Line 2 (CREDIT): description: "Withdrawal from Cash/Bank", account_name: "Petty Cash", total: 10000, is_debit: false

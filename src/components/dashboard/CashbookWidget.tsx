@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Building2, Coins, Landmark, RefreshCw, Wallet, ShieldCheck, Plus, BookOpen } from 'lucide-react';
+import { Building2, Coins, Landmark, RefreshCw, Wallet, ShieldCheck, Plus, BookOpen, ArrowLeftRight } from 'lucide-react';
 import { fetchWithCache, invalidateCache } from '@/lib/cache';
 
 interface CashAccount {
@@ -25,9 +25,10 @@ interface CashbookData {
 interface CashbookWidgetProps {
  onOpenAddAccount?: () => void;
  onOpenAdjustBalance?: () => void;
+ onOpenTransferCash?: () => void;
 }
 
-export default function CashbookWidget({ onOpenAddAccount, onOpenAdjustBalance }: CashbookWidgetProps) {
+export default function CashbookWidget({ onOpenAddAccount, onOpenAdjustBalance, onOpenTransferCash }: CashbookWidgetProps) {
  const [data, setData] = useState<CashbookData | null>(null);
  const [isLoading, setIsLoading] = useState(true);
  const [isRefreshing, setIsRefreshing] = useState(false);
@@ -110,6 +111,19 @@ export default function CashbookWidget({ onOpenAddAccount, onOpenAdjustBalance }
  <BookOpen className="w-4 h-4 text-purple-600 " />
  <span className="hidden sm:inline">+ Adjust Balances</span>
  <span className="sm:hidden">+ Adjust</span>
+ </button>
+ )}
+
+ {onOpenTransferCash && (
+ <button
+ onClick={onOpenTransferCash}
+ className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl bg-white/90 hover:bg-white text-indigo-700 border border-indigo-200/80 text-xs font-bold transition-all cursor-pointer shadow-xs focus-visible:ring-2 focus-visible:ring-indigo-500"
+ title="Transfer Cash between Cash/Bank Accounts"
+ aria-label="Transfer Cash between Cash/Bank Accounts"
+ >
+ <ArrowLeftRight className="w-4 h-4 text-indigo-600 " />
+ <span className="hidden sm:inline">+ Transfer Cash</span>
+ <span className="sm:hidden">+ Transfer</span>
  </button>
  )}
 
