@@ -30,6 +30,23 @@ export default function SalesHub() {
  const [paymentData, setPaymentData] = useState({ invoice_id: '', amount: '', date: new Date().toISOString().split('T')[0], method: 'Bank Transfer' });
  const [isSubmitting, setIsSubmitting] = useState(false);
 
+ // Customer Advance Modal State
+ const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
+ const [advanceData, setAdvanceData] = useState({
+   customer_id: '',
+   amount: '',
+   date: new Date().toISOString().split('T')[0],
+   method: 'Bank Transfer',
+   deposit_account_id: '',
+   notes: ''
+ });
+ const [isAdvanceSubmitting, setIsAdvanceSubmitting] = useState(false);
+ const [paymentsReceived, setPaymentsReceived] = useState<any[]>([]);
+
+ // Advance Application on New Invoice State
+ const [applyAdvanceToInvoice, setApplyAdvanceToInvoice] = useState(false);
+ const [advanceAmountToApply, setAdvanceAmountToApply] = useState('');
+
  // Quick Cash Sale State (Walk-in Customer)
  const [isQuickSaleModalOpen, setIsQuickSaleModalOpen] = useState(false);
  const [quickSaleData, setQuickSaleData] = useState({
@@ -51,7 +68,7 @@ export default function SalesHub() {
 
  // Lock background scroll when any modal is open
  useEffect(() => {
- if (isInvoiceModalOpen || isPaymentModalOpen || isCustomerModalOpen || isProductModalOpen || isQuickSaleModalOpen || selectedCustomerStatement) {
+ if (isInvoiceModalOpen || isPaymentModalOpen || isCustomerModalOpen || isProductModalOpen || isQuickSaleModalOpen || selectedCustomerStatement || isAdvanceModalOpen) {
  document.body.style.overflow = 'hidden';
  } else {
  document.body.style.overflow = 'unset';
@@ -59,7 +76,19 @@ export default function SalesHub() {
  return () => {
  document.body.style.overflow = 'unset';
  };
- }, [isInvoiceModalOpen, isPaymentModalOpen, isCustomerModalOpen, isProductModalOpen, isQuickSaleModalOpen, selectedCustomerStatement]);
+ }, [isInvoiceModalOpen, isPaymentModalOpen, isCustomerModalOpen, isProductModalOpen, isQuickSaleModalOpen, selectedCustomerStatement, isAdvanceModalOpen]);
+
+ function getCustomerAdvanceBalance(customerId: string): number {
+   if (!customerId) return 0;
+   const customerPayments = paymentsReceived.filter(p => p.customer_id === customerId);
+   const totalAdvancesReceived = customerPayments
+     .filter(p => p.is_advance)
+     .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+   const totalAdvancesApplied = customerPayments
+     .filter(p => p.payment_method === 'advance_settlement')
+     .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+   return Math.max(0, totalAdvancesReceived - totalAdvancesApplied);
+ }
 
  function getEntityId(prefix: string, item: any) {
  if (item.code) return item.code;
@@ -170,52 +199,56 @@ export default function SalesHub() {
  }, [activeTab]);
 
  async function fetchData() {
- setIsLoading(true);
- const { data: { user } } = await supabase.auth.getUser();
- if (!user) return;
+    setIsLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
- if (activeTab === 'invoices') {
- const { data: invData } = await supabase
- .from('invoices')
- .select('*, customers(id, name, email, phone), invoice_lines(description, quantity, total, products(cost, is_inventory_tracked))')
- .eq('user_id', user.id)
- .order('created_at', { ascending: false });
- if (invData) setInvoices(invData);
- } else if (activeTab === 'customers') {
- const { data: custData } = await supabase
- .from('customers')
- .select('*')
- .eq('user_id', user.id)
- .order('name', { ascending: true });
- if (custData) setCustomers(custData);
- } else if (activeTab === 'products') {
- const { data: prodData } = await supabase
- .from('products')
- .select('*')
- .eq('user_id', user.id)
- .order('name', { ascending: true });
- if (prodData) setProducts(prodData);
- }
- 
- setIsLoading(false);
- }
+    const [payRes, custRes, prodRes, accRes] = await Promise.all([
+      supabase.from('payments_received').select('*').eq('user_id', user.id),
+      supabase.from('customers').select('*').eq('user_id', user.id).order('name'),
+      supabase.from('products').select('*').eq('user_id', user.id).order('name'),
+      supabase.from('accounts').select('*').eq('user_id', user.id).order('name')
+    ]);
 
- // Pre-fetch auxiliary data for modals
- useEffect(() => {
- async function getAuxData() {
- const { data: { user } } = await supabase.auth.getUser();
- if (!user) return;
- const [custRes, prodRes, accRes] = await Promise.all([
- supabase.from('customers').select('*').eq('user_id', user.id).order('name'),
- supabase.from('products').select('*').eq('user_id', user.id).order('name'),
- supabase.from('accounts').select('*').eq('user_id', user.id).order('name')
- ]);
- if (custRes.data) setCustomers(custRes.data);
- if (prodRes.data) setProducts(prodRes.data);
- if (accRes.data) setAccounts(accRes.data);
- }
- getAuxData();
- }, []);
+    if (payRes.data) setPaymentsReceived(payRes.data);
+    if (custRes.data) setCustomers(custRes.data);
+    if (prodRes.data) setProducts(prodRes.data);
+    if (accRes.data) setAccounts(accRes.data);
+
+    if (activeTab === 'invoices') {
+      const { data: invData } = await supabase
+        .from('invoices')
+        .select('*, customers(id, name, email, phone), invoice_lines(description, quantity, total, products(cost, is_inventory_tracked))')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (invData) setInvoices(invData);
+    } else if (activeTab === 'customers') {
+      if (custRes.data) setCustomers(custRes.data);
+    } else if (activeTab === 'products') {
+      if (prodRes.data) setProducts(prodRes.data);
+    }
+    
+    setIsLoading(false);
+  }
+
+  // Pre-fetch auxiliary data for modals
+  useEffect(() => {
+    async function getAuxData() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const [custRes, prodRes, accRes, payRes] = await Promise.all([
+        supabase.from('customers').select('*').eq('user_id', user.id).order('name'),
+        supabase.from('products').select('*').eq('user_id', user.id).order('name'),
+        supabase.from('accounts').select('*').eq('user_id', user.id).order('name'),
+        supabase.from('payments_received').select('*').eq('user_id', user.id)
+      ]);
+      if (custRes.data) setCustomers(custRes.data);
+      if (prodRes.data) setProducts(prodRes.data);
+      if (accRes.data) setAccounts(accRes.data);
+      if (payRes.data) setPaymentsReceived(payRes.data);
+    }
+    getAuxData();
+  }, []);
 
  async function handleQuickCashSale(e: React.FormEvent) {
  e.preventDefault();
@@ -439,16 +472,192 @@ export default function SalesHub() {
  p_original_amount: Math.round(safeAmountCents) / 100
  });
 
- if (createError) {
- toast.error(`Error: ${createError.message}`, { id: toastId });
- } else {
- try { await supabase.from('invoices').update({ is_ai_verified: true, created_by_source: 'MANUAL', is_manually_edited: false }).eq('id', insertedId); } catch (_) {}
- toast.success("Invoice created successfully!", { id: toastId });
- closeModal();
- fetchData();
- }
- }
- }
+  if (createError) {
+    toast.error(`Error: ${createError.message}`, { id: toastId });
+  } else {
+    try { await supabase.from('invoices').update({ is_ai_verified: true, created_by_source: 'MANUAL', is_manually_edited: false }).eq('id', insertedId); } catch (_) {}
+
+    // Apply Advance if toggled
+    if (applyAdvanceToInvoice && insertedId) {
+      const applyAmt = parseFloat(advanceAmountToApply) || 0;
+      if (applyAmt > 0) {
+        // 1. Try atomic RPC
+        const { error: applyError } = await supabase.rpc('apply_customer_advance_atomic', {
+          p_user_id: user.id,
+          p_customer_id: newInvoice.customer_id,
+          p_invoice_id: insertedId,
+          p_amount: applyAmt,
+          p_date: newInvoice.issue_date
+        });
+
+        if (!applyError) {
+          toast.success(`Invoice created and ${applyAmt.toLocaleString()} PKR advance applied!`, { id: toastId });
+        } else {
+          // JS Fallback: Update invoice & create payment and journal entries
+          const invoiceTotal = Math.round(safeAmountCents) / 100;
+          const newPaid = applyAmt;
+          const newBalance = Math.max(0, invoiceTotal - applyAmt);
+          const newStatus = newBalance <= 0 ? 'paid' : 'partial';
+
+          await supabase.from('invoices').update({
+            amount_paid: newPaid,
+            balance_due: newBalance,
+            status: newStatus
+          }).eq('id', insertedId);
+
+          await supabase.from('payments_received').insert({
+            user_id: user.id,
+            invoice_id: insertedId,
+            customer_id: newInvoice.customer_id,
+            amount: applyAmt,
+            date: newInvoice.issue_date,
+            payment_method: 'advance_settlement',
+            is_advance: false,
+            notes: 'Settled from Customer Advance deposit'
+          });
+
+          const custAdvAcc = accounts.find(a => a.type === 'liability' && a.name.toLowerCase().includes('customer advance'));
+          const arAcc = accounts.find(a => a.type === 'asset' && (a.name.toLowerCase().includes('receivable') || a.name.toLowerCase().includes('a/r')));
+
+          if (custAdvAcc && arAcc) {
+            await createJournalEntryAtomic(supabase, {
+              user_id: user.id,
+              date: newInvoice.issue_date,
+              description: `Customer Advance Applied to Invoice ${insertedId.substring(0, 8)}`,
+              lines: [
+                { account_id: custAdvAcc.id, debit: applyAmt, credit: 0 },
+                { account_id: arAcc.id, debit: 0, credit: applyAmt }
+              ],
+              created_by_source: 'MANUAL'
+            });
+          }
+          toast.success(`Invoice created and ${applyAmt.toLocaleString()} PKR advance applied! (Status: ${newStatus.toUpperCase()})`, { id: toastId });
+        }
+      } else {
+        toast.success("Invoice created successfully!", { id: toastId });
+      }
+    } else {
+      toast.success("Invoice created successfully!", { id: toastId });
+    }
+
+    closeModal();
+    fetchData();
+  }
+}
+}
+
+// --- LOG CUSTOMER ADVANCE DEPOSIT HANDLER ---
+async function handleLogCustomerAdvance(e: React.FormEvent) {
+  e.preventDefault();
+  if (isAdvanceSubmitting) return;
+
+  const amountNum = parseFloat(advanceData.amount);
+  if (isNaN(amountNum) || amountNum <= 0) {
+    return toast.error("Advance amount must be greater than zero.");
+  }
+  if (!advanceData.customer_id) {
+    return toast.error("Please select a customer.");
+  }
+  if (!advanceData.deposit_account_id) {
+    return toast.error("Please select a deposit bank or cash account.");
+  }
+
+  setIsAdvanceSubmitting(true);
+  const toastId = toast.loading("Recording customer advance deposit...");
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    setIsAdvanceSubmitting(false);
+    return toast.error("Not authenticated", { id: toastId });
+  }
+
+  // 1. Try atomic RPC
+  const { error: rpcError } = await supabase.rpc('log_customer_advance_atomic', {
+    p_user_id: user.id,
+    p_customer_id: advanceData.customer_id,
+    p_amount: amountNum,
+    p_date: advanceData.date,
+    p_method: advanceData.method,
+    p_deposit_account_id: advanceData.deposit_account_id,
+    p_notes: advanceData.notes || null
+  });
+
+  if (!rpcError) {
+    toast.success(`Customer advance of ${amountNum.toLocaleString()} PKR recorded into Unearned Revenue!`, { id: toastId });
+    setIsAdvanceSubmitting(false);
+    setIsAdvanceModalOpen(false);
+    setAdvanceData({
+      customer_id: '',
+      amount: '',
+      date: new Date().toISOString().split('T')[0],
+      method: 'Bank Transfer',
+      deposit_account_id: '',
+      notes: ''
+    });
+    fetchData();
+    return;
+  }
+
+  // Fallback if RPC not yet created
+  try {
+    const cust = customers.find(c => c.id === advanceData.customer_id);
+    const custName = cust?.name || 'Customer';
+
+    let custAdvAcc = accounts.find(a => a.type === 'liability' && a.name.toLowerCase().includes('customer advance'));
+    let custAdvAccId = custAdvAcc?.id;
+    if (!custAdvAccId) {
+      const { data: newAcc } = await supabase.from('accounts').insert({
+        user_id: user.id,
+        name: 'Customer Advances / Unearned Revenue',
+        code: '2100',
+        type: 'liability',
+        is_system: true
+      }).select('id').single();
+      custAdvAccId = newAcc?.id;
+    }
+
+    const { data: payRecord, error: payErr } = await supabase.from('payments_received').insert({
+      user_id: user.id,
+      invoice_id: null,
+      customer_id: advanceData.customer_id,
+      amount: amountNum,
+      date: advanceData.date,
+      payment_method: advanceData.method,
+      is_advance: true,
+      notes: advanceData.notes || 'Customer advance deposit'
+    }).select('id').single();
+
+    if (payErr) throw payErr;
+
+    if (custAdvAccId) {
+      await createJournalEntryAtomic(supabase, {
+        user_id: user.id,
+        date: advanceData.date,
+        description: `Customer Advance Deposit from ${custName}`,
+        lines: [
+          { account_id: advanceData.deposit_account_id, debit: amountNum, credit: 0 },
+          { account_id: custAdvAccId, debit: 0, credit: amountNum }
+        ],
+        created_by_source: 'MANUAL'
+      });
+    }
+
+    toast.success(`Customer advance of ${amountNum.toLocaleString()} PKR recorded into Unearned Revenue!`, { id: toastId });
+    setIsAdvanceSubmitting(false);
+    setIsAdvanceModalOpen(false);
+    setAdvanceData({
+      customer_id: '',
+      amount: '',
+      date: new Date().toISOString().split('T')[0],
+      method: 'Bank Transfer',
+      deposit_account_id: '',
+      notes: ''
+    });
+    fetchData();
+  } catch (err: any) {
+    toast.error(err.message || "Failed to log advance", { id: toastId });
+    setIsAdvanceSubmitting(false);
+  }
+}
 
  async function handleDeleteInvoice(id: string) {
  const inv = invoices.find(i => i.id === id);
@@ -700,39 +909,67 @@ export default function SalesHub() {
  )}
  </div>
 
- <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
- {activeTab === 'invoices' && (
- <button
- onClick={() => {
- const defaultCashAcc = accounts.find(a => 
- a.is_cash_account || 
- a.name.toLowerCase().includes('petty cash') || 
- a.name.toLowerCase().includes('cash') || 
- a.name.toLowerCase().includes('main bank')
- );
- setQuickSaleData({
- date: new Date().toISOString().split('T')[0],
- amount: '',
- description: '',
- product_id: '',
- quantity: '1',
- cost: '',
- account_id: defaultCashAcc?.id || ''
- });
- setIsQuickSaleModalOpen(true);
- }}
- className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
- >
- <Zap className="w-4 h-4 font-bold" />
- + Quick Cash Sale
- </button>
- )}
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {activeTab === 'invoices' && (
+            <>
+              <button
+                onClick={() => {
+                  const defaultBankAcc = accounts.find(a => 
+                    a.is_cash_account || 
+                    a.name.toLowerCase().includes('main bank') || 
+                    a.name.toLowerCase().includes('petty cash') ||
+                    a.type === 'asset'
+                  );
+                  setAdvanceData({
+                    customer_id: '',
+                    amount: '',
+                    date: new Date().toISOString().split('T')[0],
+                    method: 'Bank Transfer',
+                    deposit_account_id: defaultBankAcc?.id || '',
+                    notes: ''
+                  });
+                  setIsAdvanceModalOpen(true);
+                }}
+                className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
+              >
+                <DollarSign className="w-4 h-4 font-bold" />
+                + Customer Advance
+              </button>
+
+              <button
+                onClick={() => {
+                  const defaultCashAcc = accounts.find(a => 
+                    a.is_cash_account || 
+                    a.name.toLowerCase().includes('petty cash') || 
+                    a.name.toLowerCase().includes('cash') || 
+                    a.name.toLowerCase().includes('main bank')
+                  );
+                  setQuickSaleData({
+                    date: new Date().toISOString().split('T')[0],
+                    amount: '',
+                    description: '',
+                    product_id: '',
+                    quantity: '1',
+                    cost: '',
+                    account_id: defaultCashAcc?.id || ''
+                  });
+                  setIsQuickSaleModalOpen(true);
+                }}
+                className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+              >
+                <Zap className="w-4 h-4 font-bold" />
+                + Quick Cash Sale
+              </button>
+            </>
+          )}
 
  <button 
  onClick={() => {
  if (activeTab === 'invoices') {
  setIsEditing(false);
  setNewInvoice({ id: '', customer_id: '', issue_date: '', amount: '' });
+ setApplyAdvanceToInvoice(false);
+ setAdvanceAmountToApply('');
  setIsInvoiceModalOpen(true);
  } else if (activeTab === 'products') {
  setEditingProduct({ id: '', name: '', price: '0', cost: '0', is_inventory_tracked: true });
@@ -782,13 +1019,14 @@ export default function SalesHub() {
  </tr>
  )}
  {activeTab === 'customers' && (
- <tr>
- <th className="px-6 py-4">Customer ID</th>
- <th className="px-6 py-4">Name (Click for Statement)</th>
- <th className="px-6 py-4">Email</th>
- <th className="px-6 py-4">Phone</th>
- <th className="px-6 py-4">Added</th>
- </tr>
+              <tr>
+                <th className="px-6 py-4">Customer ID</th>
+                <th className="px-6 py-4">Name (Click for Statement)</th>
+                <th className="px-6 py-4">Email</th>
+                <th className="px-6 py-4">Phone</th>
+                <th className="px-6 py-4 text-right">Available Advance</th>
+                <th className="px-6 py-4">Added</th>
+              </tr>
  )}
  {activeTab === 'products' && (
  <tr>
@@ -976,6 +1214,15 @@ export default function SalesHub() {
  </td>
  <td className="px-6 py-4 text-gray-500">{c.email || '-'}</td>
  <td className="px-6 py-4 text-gray-500">{c.phone || '-'}</td>
+ <td className="px-6 py-4 text-right">
+ {getCustomerAdvanceBalance(c.id) > 0 ? (
+ <span className="font-bold text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg">
+ {getCustomerAdvanceBalance(c.id).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+ </span>
+ ) : (
+ <span className="text-gray-400 text-xs">-</span>
+ )}
+ </td>
  <td className="px-6 py-4 text-gray-400 text-xs">{new Date(c.created_at).toLocaleDateString()}</td>
  </tr>
  );
@@ -1234,89 +1481,138 @@ export default function SalesHub() {
 
  {/* STATEMENT CONTENT */}
  <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 bg-white">
- 
- {/* STATEMENT KPI CARDS */}
- {(() => {
- const custInvoices = invoices.filter(inv => inv.customer_id === selectedCustomerStatement.id || inv.customers?.name === selectedCustomerStatement.name);
- const totalInvoiced = custInvoices.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
- const totalPaid = custInvoices.reduce((sum, inv) => sum + Number(inv.amount_paid || (inv.total_amount - (inv.balance_due ?? 0))), 0);
- const outstandingBalance = Math.max(0, totalInvoiced - totalPaid);
+          {/* STATEMENT KPI CARDS */}
+          {(() => {
+            const custInvoices = invoices.filter(inv => inv.customer_id === selectedCustomerStatement.id || inv.customers?.name === selectedCustomerStatement.name);
+            const totalInvoiced = custInvoices.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
+            const totalPaid = custInvoices.reduce((sum, inv) => sum + Number(inv.amount_paid || (inv.total_amount - (inv.balance_due ?? 0))), 0);
+            const outstandingBalance = Math.max(0, totalInvoiced - totalPaid);
+            const availableAdvance = getCustomerAdvanceBalance(selectedCustomerStatement.id);
+            const custAdvances = paymentsReceived.filter(p => p.customer_id === selectedCustomerStatement.id && p.is_advance);
 
- return (
- <>
- <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
- <div className="p-4 rounded-xl bg-blue-50 border border-blue-200">
- <span className="text-xs font-bold text-blue-700 uppercase tracking-wider block">Total Invoiced</span>
- <p className="text-xl font-black text-blue-950 mt-1">{totalInvoiced.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</p>
- </div>
- <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
- <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">Total Paid</span>
- <p className="text-xl font-black text-emerald-950 mt-1">{totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</p>
- </div>
- <div className="p-4 rounded-xl bg-rose-50 border border-rose-200">
- <span className="text-xs font-bold text-rose-700 uppercase tracking-wider block">Outstanding Balance (AR)</span>
- <p className="text-xl font-black text-rose-950 mt-1">{outstandingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</p>
- </div>
- </div>
+            return (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <div className="p-4 rounded-xl bg-blue-50 border border-blue-200">
+                    <span className="text-xs font-bold text-blue-700 uppercase tracking-wider block">Total Invoiced</span>
+                    <p className="text-xl font-black text-blue-950 mt-1">{totalInvoiced.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                    <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">Total Paid</span>
+                    <p className="text-xl font-black text-emerald-950 mt-1">{totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-rose-50 border border-rose-200">
+                    <span className="text-xs font-bold text-rose-700 uppercase tracking-wider block">Outstanding (AR)</span>
+                    <p className="text-xl font-black text-rose-950 mt-1">{outstandingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-200">
+                    <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider block">Available Advance</span>
+                    <p className="text-xl font-black text-indigo-950 mt-1">{availableAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</p>
+                  </div>
+                </div>
 
- {/* TRANSACTIONS TABLE */}
- <div className="space-y-2">
- <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Invoice & Payment History</h3>
- <div className="border border-gray-200 rounded-xl overflow-hidden shadow-xs">
- <table className="w-full text-left text-xs whitespace-nowrap">
- <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-200">
- <tr>
- <th className="px-4 py-3">Invoice ID</th>
- <th className="px-4 py-3">Issue Date</th>
- <th className="px-4 py-3">Items / Particulars</th>
- <th className="px-4 py-3 text-right">Invoiced Amount</th>
- <th className="px-4 py-3 text-right">Paid Amount</th>
- <th className="px-4 py-3 text-right">Balance Due</th>
- <th className="px-4 py-3 text-center">Status</th>
- </tr>
- </thead>
- <tbody className="divide-y divide-gray-100 text-gray-700">
- {custInvoices.length === 0 ? (
- <tr>
- <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
- No invoices found for this customer.
- </td>
- </tr>
- ) : (
- custInvoices.map((inv) => {
- const paid = Number(inv.amount_paid || (inv.total_amount - (inv.balance_due ?? 0)));
- const due = Number(inv.balance_due ?? (inv.total_amount - paid));
- const isPaid = inv.status === 'paid' || due <= 0;
- const isPartial = !isPaid && paid > 0;
+                {/* ADVANCE RECEIPTS SECTION (IF ANY) */}
+                {custAdvances.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <DollarSign className="w-3.5 h-3.5 text-indigo-600" /> Advance Receipts & Deposits History
+                    </h3>
+                    <div className="border border-indigo-100 rounded-xl overflow-hidden shadow-xs bg-indigo-50/30">
+                      <table className="w-full text-left text-xs whitespace-nowrap">
+                        <thead className="bg-indigo-50/80 text-indigo-900 font-semibold border-b border-indigo-100">
+                          <tr>
+                            <th className="px-4 py-2.5">Date</th>
+                            <th className="px-4 py-2.5">Method</th>
+                            <th className="px-4 py-2.5">Notes / Particulars</th>
+                            <th className="px-4 py-2.5 text-right">Advance Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-indigo-100/60 text-gray-700">
+                          {custAdvances.map((adv) => (
+                            <tr key={adv.id} className="hover:bg-indigo-50/50">
+                              <td className="px-4 py-2.5 text-gray-600 font-medium">{adv.date}</td>
+                              <td className="px-4 py-2.5"><span className="px-2 py-0.5 rounded bg-white text-indigo-700 font-bold border border-indigo-200 text-[10px]">{adv.payment_method || 'Bank Transfer'}</span></td>
+                              <td className="px-4 py-2.5 text-gray-700">{adv.notes || 'Customer advance deposit'}</td>
+                              <td className="px-4 py-2.5 text-right font-extrabold text-indigo-700">{Number(adv.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
 
- return (
- <tr key={inv.id} className="hover:bg-gray-50">
- <td className="px-4 py-3 font-mono font-bold text-blue-700">{getEntityId('INV', inv)}</td>
- <td className="px-4 py-3 text-gray-500">{inv.issue_date}</td>
- <td className="px-4 py-3 text-gray-800 truncate max-w-xs">{inv.invoice_lines?.map((l: any) => l.description).join(', ') || 'Invoice'}</td>
- <td className="px-4 py-3 text-right font-bold text-gray-900">{Number(inv.total_amount).toLocaleString()} PKR</td>
- <td className="px-4 py-3 text-right font-bold text-emerald-600">{paid > 0 ? `${paid.toLocaleString()} PKR` : '-'}</td>
- <td className="px-4 py-3 text-right font-bold text-rose-600">{due > 0 ? `${due.toLocaleString()} PKR` : '0 PKR'}</td>
- <td className="px-4 py-3 text-center">
- {isPaid ? (
- <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-emerald-100 text-emerald-800">PAID</span>
- ) : isPartial ? (
- <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-amber-100 text-amber-800">PARTIALLY PAID</span>
- ) : (
- <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-blue-100 text-blue-800">OPEN</span>
- )}
- </td>
- </tr>
- );
- })
- )}
- </tbody>
- </table>
- </div>
- </div>
- </>
- );
- })()}
+                <div className="flex justify-end gap-2 mt-4">
+                  <button 
+                    onClick={() => {
+                      setSelectedCustomerStatement(null);
+                      setIsAdvanceModalOpen(true);
+                      setAdvanceData({ ...advanceData, customer_id: selectedCustomerStatement.id });
+                    }}
+                    className="text-xs font-bold bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition-colors"
+                  >
+                    Receive Advance
+                  </button>
+                </div>
+
+                {/* TRANSACTIONS TABLE */}
+                <div className="space-y-2">
+                  <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Invoice & Payment History</h3>
+                  <div className="border border-gray-200 rounded-xl overflow-hidden shadow-xs">
+                    <table className="w-full text-left text-xs whitespace-nowrap">
+                      <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3">Invoice ID</th>
+                          <th className="px-4 py-3">Issue Date</th>
+                          <th className="px-4 py-3">Items / Particulars</th>
+                          <th className="px-4 py-3 text-right">Invoiced Amount</th>
+                          <th className="px-4 py-3 text-right">Paid Amount</th>
+                          <th className="px-4 py-3 text-right">Balance Due</th>
+                          <th className="px-4 py-3 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 text-gray-700">
+                        {custInvoices.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                              No invoices found for this customer.
+                            </td>
+                          </tr>
+                        ) : (
+                          custInvoices.map((inv) => {
+                            const paid = Number(inv.amount_paid || (inv.total_amount - (inv.balance_due ?? 0)));
+                            const due = Number(inv.balance_due ?? (inv.total_amount - paid));
+                            const isPaid = inv.status === 'paid' || due <= 0;
+                            const isPartial = !isPaid && paid > 0;
+
+                            return (
+                              <tr key={inv.id} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 font-mono font-bold text-blue-700">{getEntityId('INV', inv)}</td>
+                                <td className="px-4 py-3 text-gray-500">{inv.issue_date}</td>
+                                <td className="px-4 py-3 text-gray-800 truncate max-w-xs">{inv.invoice_lines?.map((l: any) => l.description).join(', ') || 'Invoice'}</td>
+                                <td className="px-4 py-3 text-right font-bold text-gray-900">{Number(inv.total_amount).toLocaleString()} PKR</td>
+                                <td className="px-4 py-3 text-right font-bold text-emerald-600">{paid > 0 ? `${paid.toLocaleString()} PKR` : '-'}</td>
+                                <td className="px-4 py-3 text-right font-bold text-rose-600">{due > 0 ? `${due.toLocaleString()} PKR` : '0 PKR'}</td>
+                                <td className="px-4 py-3 text-center">
+                                  {isPaid ? (
+                                    <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-emerald-100 text-emerald-800">PAID</span>
+                                  ) : isPartial ? (
+                                    <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-amber-100 text-amber-800">PARTIALLY PAID</span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-blue-100 text-blue-800">OPEN</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
 
  </div>
 
@@ -1721,77 +2017,241 @@ export default function SalesHub() {
  )}
 
  {/* Deposit Account (Petty Cash / Bank) */}
- <div className="space-y-1">
- <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Deposit Cash / Bank Account *</label>
- <select
- value={quickSaleData.account_id}
- onChange={e => setQuickSaleData({...quickSaleData, account_id: e.target.value})}
- className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-sm cursor-pointer"
- >
- {accounts
- .filter(a => a.is_cash_account || a.type === 'asset')
- .map(acc => (
- <option key={acc.id} value={acc.id}>
- {acc.name} ({acc.type}) {acc.is_cash_account ? '⭐ Cash/Bank' : ''}
- </option>
- ))}
- </select>
- </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Deposit Cash / Bank Account *</label>
+                <select
+                  value={quickSaleData.account_id}
+                  onChange={e => setQuickSaleData({...quickSaleData, account_id: e.target.value})}
+                  className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-sm cursor-pointer"
+                >
+                  {accounts
+                    .filter(a => a.is_cash_account || a.type === 'asset')
+                    .map(acc => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name} ({acc.type}) {acc.is_cash_account ? '⭐ Cash/Bank' : ''}
+                      </option>
+                    ))}
+                </select>
+              </div>
 
- {/* Double Entry Notice */}
- <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs flex gap-2 items-start">
- <Zap className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
- <div>
- <span className="font-bold block">Double-Entry Accounting:</span>
- <span>
- Debit: <strong>Deposit Account</strong> (+ Cash) &bull; Credit: <strong>Sales Revenue</strong> (+ Income).
- {(() => {
- const acq = parseFloat(quickSaleData.cost) || 0;
- if (!quickSaleData.product_id && acq > 0) {
- return (
- <span className="block mt-0.5 text-blue-900 font-semibold">
- + Debit: <strong>Cost of Goods Sold</strong> ({acq.toLocaleString()} PKR) &bull; Credit: <strong>Deposit Account</strong> ({acq.toLocaleString()} PKR) [Net Cash: +{( (parseFloat(quickSaleData.amount) || 0) - acq).toLocaleString()} PKR]
- </span>
- );
- }
- if (quickSaleData.product_id && products.find(p => p.id === quickSaleData.product_id)?.is_inventory_tracked) {
- return (
- <span className="block mt-0.5 text-emerald-800">
- + Debit: <strong>Cost of Goods Sold</strong> (Expense) &bull; Credit: <strong>Inventory Asset</strong> (Asset).
- </span>
- );
- }
- return null;
- })()}
- </span>
- </div>
- </div>
- </form>
+              {/* Double Entry Notice */}
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs flex gap-2 items-start">
+                <Zap className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block">Double-Entry Accounting:</span>
+                  <span>
+                    Debit: <strong>Deposit Account</strong> (+ Cash) &bull; Credit: <strong>Sales Revenue</strong> (+ Income).
+                    {(() => {
+                      const acq = parseFloat(quickSaleData.cost) || 0;
+                      if (!quickSaleData.product_id && acq > 0) {
+                        return (
+                          <span className="block mt-0.5 text-blue-900 font-semibold">
+                            + Debit: <strong>Cost of Goods Sold</strong> ({acq.toLocaleString()} PKR) &bull; Credit: <strong>Deposit Account</strong> ({acq.toLocaleString()} PKR) [Net Cash: +{((parseFloat(quickSaleData.amount) || 0) - acq).toLocaleString()} PKR]
+                          </span>
+                        );
+                      }
+                      if (quickSaleData.product_id && products.find(p => p.id === quickSaleData.product_id)?.is_inventory_tracked) {
+                        return (
+                          <span className="block mt-0.5 text-emerald-800">
+                            + Debit: <strong>Cost of Goods Sold</strong> (Expense) &bull; Credit: <strong>Inventory Asset</strong> (Asset).
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </span>
+                </div>
+              </div>
+            </form>
 
- {/* Modal Footer */}
- <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
- <button 
- type="button" 
- onClick={() => setIsQuickSaleModalOpen(false)} 
- className="px-4 py-2.5 min-h-[44px] border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
- >
- Cancel
- </button>
- <button 
- type="submit" 
- form="quickCashSaleForm" 
- disabled={isSubmitting}
- className="px-6 py-2.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50 flex items-center gap-2"
- >
- {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
- Log Cash Sale
- </button>
- </div>
- </div>
- </div>,
- document.body
- )}
+            {/* Modal Footer */}
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button 
+                type="button" 
+                onClick={() => setIsQuickSaleModalOpen(false)} 
+                className="px-4 py-2.5 min-h-[44px] border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                form="quickCashSaleForm" 
+                disabled={isSubmitting}
+                className="px-6 py-2.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50 flex items-center gap-2"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                Log Cash Sale
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
- </div>
- );
+      {/* CUSTOMER ADVANCE MODAL (UNEARNED REVENUE / DEPOSIT) */}
+      {mounted && isAdvanceModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-[calc(100%-2rem)] max-w-xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200 border border-gray-100">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-indigo-50 to-blue-50 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
+                  <DollarSign className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-gray-900 text-base sm:text-lg">
+                    Log Customer Advance / Deposit
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Staged to "Customer Advances / Unearned Revenue" (Liability).
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAdvanceModalOpen(false)}
+                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form id="customerAdvanceForm" onSubmit={handleLogCustomerAdvance} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
+              {/* CUSTOMER SELECT */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  Customer *
+                </label>
+                <select
+                  required
+                  value={advanceData.customer_id}
+                  onChange={(e) => setAdvanceData({ ...advanceData, customer_id: e.target.value })}
+                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="">Select a Customer</option>
+                  {customers.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {getCustomerAdvanceBalance(c.id) > 0 ? `(Current Advance: ${getCustomerAdvanceBalance(c.id).toLocaleString()} PKR)` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ADVANCE AMOUNT */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  Advance Amount (PKR) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  placeholder="e.g. 50000"
+                  value={advanceData.amount}
+                  onChange={(e) => setAdvanceData({ ...advanceData, amount: e.target.value })}
+                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* DEPOSIT ACCOUNT */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  Deposit Into (Bank / Cash Account) *
+                </label>
+                <select
+                  required
+                  value={advanceData.deposit_account_id}
+                  onChange={(e) => setAdvanceData({ ...advanceData, deposit_account_id: e.target.value })}
+                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="">Select Deposit Account</option>
+                  {accounts.filter(a => a.is_cash_account || a.type === 'asset').map(a => (
+                    <option key={a.id} value={a.id}>
+                      {a.name} ({a.type}) {a.is_cash_account ? '⭐ Cash/Bank' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* DATE */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    Receipt Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={advanceData.date}
+                    onChange={(e) => setAdvanceData({ ...advanceData, date: e.target.value })}
+                    className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* METHOD */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    Payment Method
+                  </label>
+                  <select
+                    value={advanceData.method}
+                    onChange={(e) => setAdvanceData({ ...advanceData, method: e.target.value })}
+                    className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                  >
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Online">Online Payment</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* NOTES */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  Notes / Particulars
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Upfront advance for upcoming project"
+                  value={advanceData.notes}
+                  onChange={(e) => setAdvanceData({ ...advanceData, notes: e.target.value })}
+                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* DOUBLE ENTRY INFO */}
+              <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-900 text-xs">
+                <span className="font-bold block">Double-Entry Accounting Entry:</span>
+                <span>
+                  Debit: <strong>Deposit Account</strong> (+ Asset) &bull; Credit: <strong>Customer Advances / Unearned Revenue</strong> (+ Liability).
+                </span>
+              </div>
+            </form>
+
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsAdvanceModalOpen(false)}
+                className="px-4 py-2.5 min-h-[44px] border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors cursor-pointer text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="customerAdvanceForm"
+                disabled={isAdvanceSubmitting}
+                className="px-5 py-2.5 min-h-[44px] bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-500/20 cursor-pointer text-sm flex items-center gap-2 disabled:opacity-50"
+              >
+                {isAdvanceSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <DollarSign className="w-4 h-4" />}
+                Log Customer Advance
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+    </div>
+  );
 }

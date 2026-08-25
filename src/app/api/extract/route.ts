@@ -162,11 +162,19 @@ export async function POST(request: Request) {
     - Line 1 (DEBIT): description: "Bank Loan Proceeds", account_name: "Main Bank Account", total: 500000, is_debit: true
     - Line 2 (CREDIT): description: "Loan Principal Obligation", account_name: "Loan Payable", total: 500000, is_debit: false
     - CRITICAL: Receiving a loan INCREASES Main Bank Account (DEBIT) and INCREASES Loan Payable (CREDIT).
-  - Repaying a Loan with Interest e.g. "Repaid 50,000 ${defaultCurrency} loan principal and 5,000 ${defaultCurrency} interest":
-    - Line 1 (DEBIT): description: "Loan Principal Repayment", account_name: "Loan Payable", total: 50000, is_debit: true
-    - Line 2 (DEBIT): description: "Interest Expense", account_name: "Interest Expense", total: 5000, is_debit: true
-    - Line 3 (CREDIT): description: "Cash Paid for Principal and Interest", account_name: "Main Bank Account", total: 55000, is_debit: false
-    - CRITICAL: Repaying a loan DECREASES Loan Payable (DEBIT), INVOICES Interest Expense (DEBIT), and DECREASES Main Bank Account (CREDIT for total cash paid = principal + interest). Total Debits MUST equal Total Credits.
+  - Customer Advance Deposit / Unearned Revenue e.g. "Received 50,000 ${defaultCurrency} advance deposit from Customer John" or "Customer paid 50,000 ${defaultCurrency} upfront before job":
+    - Line 1 (DEBIT): description: "Advance Received into Bank", account_name: "Main Bank Account", total: 50000, is_debit: true
+    - Line 2 (CREDIT): description: "Customer Advance Deposit", account_name: "Customer Advances / Unearned Revenue", total: 50000, is_debit: false
+    - CRITICAL: Customer advances DEBIT Cash/Bank and CREDIT "Customer Advances / Unearned Revenue" (Liability increases). Do NOT credit Sales Revenue until earned.
+  - Supplier Advance Payment / Prepaid Expense e.g. "Paid 30,000 ${defaultCurrency} advance to Supplier Acme" or "Prepaid vendor 30,000 ${defaultCurrency} for materials":
+    - Line 1 (DEBIT): description: "Prepaid Supplier Advance", account_name: "Supplier Advances / Prepaid Expenses", total: 30000, is_debit: true
+    - Line 2 (CREDIT): description: "Advance Paid from Bank", account_name: "Main Bank Account", total: 30000, is_debit: false
+    - CRITICAL: Supplier advances DEBIT "Supplier Advances / Prepaid Expenses" (Asset increases) and CREDIT Cash/Bank.
+  - Repaying a Loan with Interest Split e.g. "Paid 10,000 ${defaultCurrency} to HBL Loan, 2,000 is interest" or "Repaid 50,000 ${defaultCurrency} loan principal and 5,000 ${defaultCurrency} interest":
+    - Line 1 (DEBIT): description: "Loan Principal Repayment", account_name: "Loan Payable", total: 8000, is_debit: true
+    - Line 2 (DEBIT): description: "Interest Expense", account_name: "Interest Expense", total: 2000, is_debit: true
+    - Line 3 (CREDIT): description: "Cash Paid for Principal and Interest", account_name: "Main Bank Account", total: 10000, is_debit: false
+    - CRITICAL: Repaying a loan DECREASES the specific Loan liability (DEBIT principal), INVOICES Interest Expense (DEBIT fee), and DECREASES Main Bank Account (CREDIT total). Total Debits MUST equal Total Credits.
   - Bank/Cash Transfer e.g. "Transfer 5,000 from Bank to Petty Cash" or "Deposited cash into bank":
     - Line 1 (DEBIT): description: "Transfer to Receiving Account", account_name: "Petty Cash", total: 5000, is_debit: true
     - Line 2 (CREDIT): description: "Transfer from Sending Account", account_name: "Main Bank Account", total: 5000, is_debit: false

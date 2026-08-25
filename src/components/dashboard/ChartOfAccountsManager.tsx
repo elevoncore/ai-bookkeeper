@@ -19,11 +19,13 @@ import {
  Landmark,
  Building2,
  Coins,
- Wallet
+ Wallet,
+ Receipt,
+ Percent
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { parseToCents } from '@/utils/currency';
-import { createJournalEntryAtomic } from '@/utils/journalEntry';
+import { createJournalEntryAtomic, JournalLineItem } from '@/utils/journalEntry';
 import CashbookWidget from '@/components/dashboard/CashbookWidget';
 
 interface AccountRow {
@@ -81,6 +83,16 @@ export default function ChartOfAccountsManager() {
  ]);
  const [isJournalSubmitting, setIsJournalSubmitting] = useState(false);
 
+ // Loan Repayment & Interest Splitter Modal State
+ const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
+ const [loanAccountId, setLoanAccountId] = useState('');
+ const [loanTotalAmount, setLoanTotalAmount] = useState('');
+ const [loanInterestAmount, setLoanInterestAmount] = useState('');
+ const [loanPaymentAccountId, setLoanPaymentAccountId] = useState('');
+ const [loanDate, setLoanDate] = useState<string>(new Date().toISOString().split('T')[0]);
+ const [loanDescription, setLoanDescription] = useState<string>('Loan Repayment & Interest Service');
+ const [isLoanSubmitting, setIsLoanSubmitting] = useState(false);
+
  // T-Account Drill-Down Modal State
  const [selectedTAccount, setSelectedTAccount] = useState<AccountRow | null>(null);
  const [tAccountLines, setTAccountLines] = useState<any[]>([]);
@@ -88,7 +100,7 @@ export default function ChartOfAccountsManager() {
 
  // Close modals on Escape key and lock body scroll
  useEffect(() => {
- const isAnyModalOpen = isModalOpen || Boolean(editingAccount) || isJournalModalOpen || Boolean(selectedTAccount);
+ const isAnyModalOpen = isModalOpen || Boolean(editingAccount) || isJournalModalOpen || Boolean(selectedTAccount) || isLoanModalOpen;
  if (isAnyModalOpen) {
  document.body.style.overflow = 'hidden';
  } else {
@@ -101,6 +113,7 @@ export default function ChartOfAccountsManager() {
  setEditingAccount(null);
  setIsJournalModalOpen(false);
  setSelectedTAccount(null);
+ setIsLoanModalOpen(false);
  }
  }
  document.addEventListener('keydown', handleKeyDown);
@@ -108,7 +121,7 @@ export default function ChartOfAccountsManager() {
  document.body.style.overflow = 'unset';
  document.removeEventListener('keydown', handleKeyDown);
  };
- }, [isModalOpen, editingAccount, isJournalModalOpen, selectedTAccount]);
+ }, [isModalOpen, editingAccount, isJournalModalOpen, selectedTAccount, isLoanModalOpen]);
 
  const supabase = createBrowserClient(
  process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -575,6 +588,18 @@ export default function ChartOfAccountsManager() {
 
  <div className="flex flex-wrap gap-2">
  <button
+ onClick={() => {
+ const defaultLoan = accounts.find(a => a.type === 'liability' && (a.name.toLowerCase().includes('loan') || a.code?.startsWith('25')));
+ if (defaultLoan) setLoanAccountId(defaultLoan.id);
+ const defaultBank = accounts.find(a => a.is_cash_account || a.name.toLowerCase().includes('bank') || a.type === 'asset');
+ if (defaultBank) setLoanPaymentAccountId(defaultBank.id);
+ setIsLoanModalOpen(true);
+ }}
+ className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+ >
+ <Receipt className="w-4 h-4" /> Record Loan Payment
+ </button>
+ <button
  onClick={() => setIsJournalModalOpen(true)}
  className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-600/20 transition-all cursor-pointer"
  >
@@ -803,6 +828,34 @@ export default function ChartOfAccountsManager() {
  <option value="revenue">Revenue (e.g. Sales, Service Income)</option>
  <option value="expense">Expense (e.g. Utilities, COGS)</option>
  </select>
+
+ {newAccountType === 'liability' && (
+   <div className="p-3.5 mt-4 rounded-xl bg-amber-50/70 border border-amber-200/80 space-y-2">
+     <span className="text-[11px] font-extrabold text-amber-900 uppercase tracking-wider block">
+       Quick Loan / Liability Sub-Account Presets
+     </span>
+     <div className="flex flex-wrap gap-1.5">
+       {[
+         { name: 'Loan - HBL Bank', code: '2520' },
+         { name: 'Loan - Meezan Bank', code: '2530' },
+         { name: 'Vehicle Loan Payable', code: '2540' },
+         { name: 'Short-Term Credit Facility', code: '2550' }
+       ].map(preset => (
+         <button
+           key={preset.name}
+           type="button"
+           onClick={() => {
+             setNewAccountName(preset.name);
+             setNewAccountCode(preset.code);
+           }}
+           className="px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-amber-100 hover:text-amber-900 border border-amber-200 rounded-lg text-amber-800 transition-colors shadow-2xs cursor-pointer"
+         >
+           + {preset.name}
+         </button>
+       ))}
+     </div>
+   </div>
+ )}
  </div>
 
  {/* DYNAMIC BANK OR CASH ACCOUNT TOGGLE */}
