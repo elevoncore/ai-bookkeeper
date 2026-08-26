@@ -6,51 +6,51 @@ CREATE OR REPLACE FUNCTION initialize_default_accounts(p_user_id UUID)
 RETURNS VOID AS $$
 BEGIN
   -- Assets
-  INSERT INTO accounts (user_id, name, code, type, is_system, is_cash_account)
+  INSERT INTO accounts (user_id, name, type, is_system, is_cash_account)
   VALUES 
-    (p_user_id, 'Main Bank Account', '1010', 'asset', true, true),
-    (p_user_id, 'Petty Cash', '1020', 'asset', true, true),
-    (p_user_id, 'Accounts Receivable', '1200', 'asset', true, false),
-    (p_user_id, 'Supplier Advances / Prepaid Expenses', '1350', 'asset', true, false),
-    (p_user_id, 'Inventory Asset', '1300', 'asset', true, false),
-    (p_user_id, 'Fixed Assets - Office/Equipment', '1510', 'asset', true, false),
-    (p_user_id, 'Fixed Assets - Equipment/Furniture', '1520', 'asset', true, false)
+    (p_user_id, 'Main Bank Account', 'asset', true, true),
+    (p_user_id, 'Petty Cash', 'asset', true, true),
+    (p_user_id, 'Accounts Receivable', 'asset', true, false),
+    (p_user_id, 'Supplier Advances / Prepaid Expenses', 'asset', true, false),
+    (p_user_id, 'Inventory Asset', 'asset', true, false),
+    (p_user_id, 'Fixed Assets - Office/Equipment', 'asset', true, false),
+    (p_user_id, 'Fixed Assets - Equipment/Furniture', 'asset', true, false)
   ON CONFLICT (user_id, name) DO NOTHING;
 
   -- Liabilities
-  INSERT INTO accounts (user_id, name, code, type, is_system, is_cash_account)
+  INSERT INTO accounts (user_id, name, type, is_system, is_cash_account)
   VALUES 
-    (p_user_id, 'Accounts Payable', '2010', 'liability', true, false),
-    (p_user_id, 'Customer Advances / Unearned Revenue', '2100', 'liability', true, false),
-    (p_user_id, 'Sales Tax Payable', '2020', 'liability', true, false),
-    (p_user_id, 'Loan Payable', '2500', 'liability', true, false),
-    (p_user_id, 'Long-Term Loan Payable', '2510', 'liability', true, false)
+    (p_user_id, 'Accounts Payable', 'liability', true, false),
+    (p_user_id, 'Customer Advances / Unearned Revenue', 'liability', true, false),
+    (p_user_id, 'Sales Tax Payable', 'liability', true, false),
+    (p_user_id, 'Loan Payable', 'liability', true, false),
+    (p_user_id, 'Long-Term Loan Payable', 'liability', true, false)
   ON CONFLICT (user_id, name) DO NOTHING;
 
   -- Equity
-  INSERT INTO accounts (user_id, name, code, type, is_system, is_cash_account)
+  INSERT INTO accounts (user_id, name, type, is_system, is_cash_account)
   VALUES 
-    (p_user_id, 'Owners Equity', '3010', 'equity', true, false),
-    (p_user_id, 'Owner Drawings', '3020', 'equity', true, false),
-    (p_user_id, 'Retained Earnings', '3030', 'equity', true, false)
+    (p_user_id, 'Owners Equity', 'equity', true, false),
+    (p_user_id, 'Owner Drawings', 'equity', true, false),
+    (p_user_id, 'Retained Earnings', 'equity', true, false)
   ON CONFLICT (user_id, name) DO NOTHING;
 
   -- Revenue
-  INSERT INTO accounts (user_id, name, code, type, is_system, is_cash_account)
+  INSERT INTO accounts (user_id, name, type, is_system, is_cash_account)
   VALUES 
-    (p_user_id, 'Sales Revenue', '4010', 'revenue', true, false),
-    (p_user_id, 'Service Revenue', '4020', 'revenue', true, false)
+    (p_user_id, 'Sales Revenue', 'revenue', true, false),
+    (p_user_id, 'Service Revenue', 'revenue', true, false)
   ON CONFLICT (user_id, name) DO NOTHING;
 
   -- Expenses
-  INSERT INTO accounts (user_id, name, code, type, is_system, is_cash_account)
+  INSERT INTO accounts (user_id, name, type, is_system, is_cash_account)
   VALUES 
-    (p_user_id, 'Cost of Goods Sold', '5010', 'expense', true, false),
-    (p_user_id, 'Rent Expense', '5020', 'expense', true, false),
-    (p_user_id, 'Utilities', '5030', 'expense', true, false),
-    (p_user_id, 'Software & Hosting', '5040', 'expense', true, false),
-    (p_user_id, 'Interest Expense', '5050', 'expense', true, false),
-    (p_user_id, 'General Operating Expense', '5900', 'expense', true, false)
+    (p_user_id, 'Cost of Goods Sold', 'expense', true, false),
+    (p_user_id, 'Rent Expense', 'expense', true, false),
+    (p_user_id, 'Utilities', 'expense', true, false),
+    (p_user_id, 'Software & Hosting', 'expense', true, false),
+    (p_user_id, 'Interest Expense', 'expense', true, false),
+    (p_user_id, 'General Operating Expense', 'expense', true, false)
   ON CONFLICT (user_id, name) DO NOTHING;
 
 END;
