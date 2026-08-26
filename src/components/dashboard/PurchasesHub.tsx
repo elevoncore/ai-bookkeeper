@@ -7,6 +7,7 @@ import { Plus, Search, Receipt, Truck, Edit2, Trash2, Loader2, X, AlertCircle, D
 import toast from 'react-hot-toast';
 import { parseToCents } from '@/utils/currency';
 import { createJournalEntryAtomic, JournalLineItem } from '@/utils/journalEntry';
+import CreatableSelect from '@/components/ui/CreatableSelect';
 
 export default function PurchasesHub() {
  const [mounted, setMounted] = useState(false);
@@ -1060,28 +1061,30 @@ export default function PurchasesHub() {
  
  <form id="billForm" onSubmit={handleSaveBill} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
  <div>
- <div className="flex justify-between items-center mb-1">
- <label className="block text-xs font-bold text-gray-700">Vendor / Supplier *</label>
- <button 
- type="button" 
- onClick={() => {
- setNewSupplier({ name: '', email: '', phone: '' });
- setIsSupplierModalOpen(true);
- }}
- className="text-xs text-indigo-600 hover:text-indigo-800 font-bold hover:underline cursor-pointer"
- >
- + Add New Supplier
- </button>
- </div>
- <select 
- className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
- value={newBill.supplier_id}
- onChange={e => setNewBill({...newBill, supplier_id: e.target.value})}
- required
- >
- <option value="">Select a Supplier</option>
- {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
- </select>
+ <label className="block text-xs font-bold text-gray-700 mb-1">Vendor / Supplier *</label>
+ <CreatableSelect
+   options={suppliers}
+   value={newBill.supplier_id}
+   onChange={(id) => setNewBill({ ...newBill, supplier_id: id })}
+   onCreateNew={async (name) => {
+     const { data: { user } } = await supabase.auth.getUser();
+     if (!user) return null;
+     const { data, error } = await supabase
+       .from('suppliers')
+       .insert({ user_id: user.id, name, created_by_source: 'MANUAL' })
+       .select('*')
+       .single();
+     if (error) {
+       toast.error(`Failed to create supplier: ${error.message}`);
+       return null;
+     }
+     toast.success(`Supplier "${name}" created!`);
+     setSuppliers(prev => [...prev, data]);
+     return data;
+   }}
+   placeholder="Select or type to create supplier..."
+   entityType="supplier"
+ />
  </div>
 
  <div>
@@ -1548,19 +1551,29 @@ export default function PurchasesHub() {
                 <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
                   Supplier *
                 </label>
-                <select
-                  required
+                <CreatableSelect
+                  options={suppliers}
                   value={advanceData.supplier_id}
-                  onChange={(e) => setAdvanceData({ ...advanceData, supplier_id: e.target.value })}
-                  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer"
-                >
-                  <option value="">Select a Supplier</option>
-                  {suppliers.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} {getSupplierAdvanceBalance(s.id) > 0 ? `(Current Advance: ${getSupplierAdvanceBalance(s.id).toLocaleString()} PKR)` : ''}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(id) => setAdvanceData({ ...advanceData, supplier_id: id })}
+                  onCreateNew={async (name) => {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) return null;
+                    const { data, error } = await supabase
+                      .from('suppliers')
+                      .insert({ user_id: user.id, name, created_by_source: 'MANUAL' })
+                      .select('*')
+                      .single();
+                    if (error) {
+                      toast.error(`Failed to create supplier: ${error.message}`);
+                      return null;
+                    }
+                    toast.success(`Supplier "${name}" created!`);
+                    setSuppliers(prev => [...prev, data]);
+                    return data;
+                  }}
+                  placeholder="Select or type to create supplier..."
+                  entityType="supplier"
+                />
               </div>
 
               {/* ADVANCE AMOUNT */}

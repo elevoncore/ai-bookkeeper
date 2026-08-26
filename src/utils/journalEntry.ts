@@ -7,6 +7,7 @@ export interface JournalLineItem {
  credit?: number;
  amount?: number;
  is_debit?: boolean;
+ description?: string;
 }
 
 export interface PostJournalEntryParams {

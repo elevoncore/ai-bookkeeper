@@ -27,6 +27,7 @@ import {
 import toast from 'react-hot-toast';
 import { parseToCents } from '@/utils/currency';
 import { createJournalEntryAtomic, JournalLineItem } from '@/utils/journalEntry';
+import CreatableSelect from '@/components/ui/CreatableSelect';
 import CashbookWidget from '@/components/dashboard/CashbookWidget';
 
 interface AccountRow {
@@ -83,6 +84,14 @@ export default function ChartOfAccountsManager() {
  { account_id: '', debit: '', credit: '' }
  ]);
  const [isJournalSubmitting, setIsJournalSubmitting] = useState(false);
+
+  // Receive Loan (Inflow) Modal State
+  const [isReceiveLoanModalOpen, setIsReceiveLoanModalOpen] = useState(false);
+  const [receiveLoanAccountId, setReceiveLoanAccountId] = useState('');
+  const [receiveLoanBankAccountId, setReceiveLoanBankAccountId] = useState('');
+  const [receiveLoanAmount, setReceiveLoanAmount] = useState('');
+  const [receiveLoanDescription, setReceiveLoanDescription] = useState('Loan Inflow');
+  const [isReceiveLoanSubmitting, setIsReceiveLoanSubmitting] = useState(false);
 
  // Loan Repayment & Interest Splitter Modal State
  const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
@@ -543,7 +552,6 @@ export default function ChartOfAccountsManager() {
  setIsTransferSubmitting(false);
  return;
  }
-
  toast.success("Funds transferred successfully!");
  setTransferFromAccountId('');
  setTransferToAccountId('');
@@ -553,6 +561,152 @@ export default function ChartOfAccountsManager() {
  setIsTransferSubmitting(false);
 
  await fetchAccountsWithBalances();
+ }
+
+ // Receive Loan Handler
+ async function handlePostReceiveLoan(e: React.FormEvent) {
+   e.preventDefault();
+   if (!receiveLoanBankAccountId || !receiveLoanAccountId || !receiveLoanAmount || parseFloat(receiveLoanAmount) <= 0) {
+     toast.error("Please fill in all required fields with a valid amount.");
+     return;
+   }
+
+   setIsReceiveLoanSubmitting(true);
+   try {
+     const { data: { user } } = await supabase.auth.getUser();
+     if (!user) throw new Error("User session not found");
+
+     const amountNum = parseFloat(receiveLoanAmount);
+     const bankAcc = accounts.find(a => a.id === receiveLoanBankAccountId);
+     const loanAcc = accounts.find(a => a.id === receiveLoanAccountId);
+
+     const lines: JournalLineItem[] = [
+       {
+         account_id: receiveLoanBankAccountId,
+         debit: amountNum,
+         credit: 0,
+         description: `Loan Proceeds into ${bankAcc?.name || 'Bank'}`
+       },
+       {
+         account_id: receiveLoanAccountId,
+         debit: 0,
+         credit: amountNum,
+         description: `Loan Borrowed from ${loanAcc?.name || 'Loan Liability'}`
+       }
+     ];
+
+     const { success, error } = await createJournalEntryAtomic(supabase, {
+       user_id: user.id,
+       date: new Date().toISOString().split('T')[0],
+       description: receiveLoanDescription || `Received Loan Inflow into ${bankAcc?.name || 'Bank'}`,
+       reference_type: 'LOAN_INFLOW',
+       lines: lines
+     });
+
+     if (!success || error) {
+       toast.error(`Failed to record loan inflow: ${error || 'Unknown error'}`);
+       return;
+     }
+
+     toast.success(`Received Loan of ${amountNum.toLocaleString()} PKR recorded into Ledger!`);
+     setIsReceiveLoanModalOpen(false);
+     setReceiveLoanAmount('');
+     setReceiveLoanDescription('Loan Inflow');
+     await fetchAccountsWithBalances();
+   } catch (err: any) {
+     toast.error(`Error recording loan: ${err.message}`);
+   } finally {
+     setIsReceiveLoanSubmitting(false);
+   }
+ }
+
+ // Record Loan Payment Handler
+ async function handlePostLoanPayment(e: React.FormEvent) {
+   e.preventDefault();
+   if (!loanPaymentAccountId || !loanAccountId || !loanTotalAmount || parseFloat(loanTotalAmount) <= 0) {
+     toast.error("Please fill in all required fields with a valid amount.");
+     return;
+   }
+
+   const totalNum = parseFloat(loanTotalAmount);
+   const interestNum = loanInterestAmount ? parseFloat(loanInterestAmount) : 0;
+
+   if (interestNum < 0) {
+     toast.error("Interest amount cannot be negative.");
+     return;
+   }
+
+   if (interestNum > totalNum) {
+     toast.error("Interest amount cannot exceed total payment amount.");
+     return;
+   }
+
+   const principalNum = totalNum - interestNum;
+
+   setIsLoanSubmitting(true);
+   try {
+     const { data: { user } } = await supabase.auth.getUser();
+     if (!user) throw new Error("User session not found");
+
+     let interestAcc = accounts.find(a => a.type === 'expense' && (a.name.toLowerCase().includes('interest') || a.code === '5050'));
+     if (!interestAcc) {
+       interestAcc = accounts.find(a => a.type === 'expense');
+     }
+
+     const bankAcc = accounts.find(a => a.id === loanPaymentAccountId);
+     const loanAcc = accounts.find(a => a.id === loanAccountId);
+
+     const lines: JournalLineItem[] = [];
+
+     if (principalNum > 0) {
+       lines.push({
+         account_id: loanAccountId,
+         debit: principalNum,
+         credit: 0,
+         description: `Loan Principal Reduction (${loanAcc?.name || 'Loan'})`
+       });
+     }
+
+     if (interestNum > 0 && interestAcc) {
+       lines.push({
+         account_id: interestAcc.id,
+         debit: interestNum,
+         credit: 0,
+         description: `Loan Interest Expense (${loanAcc?.name || 'Loan'})`
+       });
+     }
+
+     lines.push({
+       account_id: loanPaymentAccountId,
+       debit: 0,
+       credit: totalNum,
+       description: `Loan Repayment Outflow from ${bankAcc?.name || 'Bank'}`
+     });
+
+     const { success, error } = await createJournalEntryAtomic(supabase, {
+       user_id: user.id,
+       date: loanDate || new Date().toISOString().split('T')[0],
+       description: loanDescription || `Loan Payment for ${loanAcc?.name || 'Loan'}`,
+       reference_type: 'LOAN_REPAYMENT',
+       lines: lines
+     });
+
+     if (!success || error) {
+       toast.error(`Failed to record loan payment: ${error || 'Unknown error'}`);
+       return;
+     }
+
+     toast.success(`Loan payment of ${totalNum.toLocaleString()} PKR recorded into Ledger!`);
+     setIsLoanModalOpen(false);
+     setLoanTotalAmount('');
+     setLoanInterestAmount('');
+     setLoanDescription('Loan Repayment & Interest Service');
+     await fetchAccountsWithBalances();
+   } catch (err: any) {
+     toast.error(`Error recording loan payment: ${err.message}`);
+   } finally {
+     setIsLoanSubmitting(false);
+   }
  }
 
  // Filtered accounts
@@ -656,19 +810,31 @@ export default function ChartOfAccountsManager() {
  </p>
  </div>
 
- <div className="flex flex-wrap gap-2">
- <button
- onClick={() => {
- const defaultLoan = accounts.find(a => a.type === 'liability' && (a.name.toLowerCase().includes('loan') || a.code?.startsWith('25')));
- if (defaultLoan) setLoanAccountId(defaultLoan.id);
- const defaultBank = accounts.find(a => a.is_cash_account || a.name.toLowerCase().includes('bank') || a.type === 'asset');
- if (defaultBank) setLoanPaymentAccountId(defaultBank.id);
- setIsLoanModalOpen(true);
- }}
- className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
- >
- <Receipt className="w-4 h-4" /> Record Loan Payment
- </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => {
+              const defaultBank = accounts.find(a => a.is_cash_account || a.name.toLowerCase().includes('bank') || a.type === 'asset');
+              if (defaultBank) setReceiveLoanBankAccountId(defaultBank.id);
+              const defaultLoan = accounts.find(a => a.type === 'liability' && (a.name.toLowerCase().includes('loan') || a.code?.startsWith('25')));
+              if (defaultLoan) setReceiveLoanAccountId(defaultLoan.id);
+              setIsReceiveLoanModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-600/20 transition-all cursor-pointer"
+          >
+            <Landmark className="w-4 h-4" /> + Receive Loan
+          </button>
+          <button
+            onClick={() => {
+              const defaultLoan = accounts.find(a => a.type === 'liability' && (a.name.toLowerCase().includes('loan') || a.code?.startsWith('25')));
+              if (defaultLoan) setLoanAccountId(defaultLoan.id);
+              const defaultBank = accounts.find(a => a.is_cash_account || a.name.toLowerCase().includes('bank') || a.type === 'asset');
+              if (defaultBank) setLoanPaymentAccountId(defaultBank.id);
+              setIsLoanModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+          >
+            <Receipt className="w-4 h-4" /> Record Loan Payment
+          </button>
  <button
  onClick={() => setIsJournalModalOpen(true)}
  className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-600/20 transition-all cursor-pointer"
@@ -1336,6 +1502,271 @@ export default function ChartOfAccountsManager() {
  className="px-5 py-2.5 min-h-[44px] rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-40"
  >
  {isTransferSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Execute Transfer"}
+ </button>
+ </div>
+ </div>
+ </div>,
+ document.body
+ )}
+
+ {/* RECEIVE LOAN (INFLOW) MODAL */}
+ {mounted && isReceiveLoanModalOpen && createPortal(
+ <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+ <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-lg max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+ <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+ <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+ <Landmark className="w-5 h-5 text-blue-600" /> Receive Loan (Inflow)
+ </h3>
+ <button
+ onClick={() => setIsReceiveLoanModalOpen(false)}
+ className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+ aria-label="Close modal"
+ >
+ <X className="w-5 h-5" />
+ </button>
+ </div>
+
+ <form id="receiveLoanForm" onSubmit={handlePostReceiveLoan} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
+ <div>
+ <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Destination Cash / Bank Account *</label>
+ <select
+ required
+ value={receiveLoanBankAccountId}
+ onChange={(e) => setReceiveLoanBankAccountId(e.target.value)}
+ className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-blue-600"
+ >
+ <option value="">Select bank or cash account...</option>
+ {accounts
+ .filter(a => a.is_cash_account || a.type === 'asset')
+ .map(acc => (
+ <option key={acc.id} value={acc.id}>
+ {acc.name} — Balance: {acc.balance.toLocaleString()} PKR
+ </option>
+ ))}
+ </select>
+ </div>
+
+ <div>
+ <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Loan Liability Account *</label>
+ <CreatableSelect
+ options={accounts.filter(a => a.type === 'liability')}
+ value={receiveLoanAccountId}
+ onChange={(id) => setReceiveLoanAccountId(id)}
+ onCreateNew={async (name) => {
+ const { data: { user } } = await supabase.auth.getUser();
+ if (!user) return null;
+ const { data, error } = await supabase
+ .from('accounts')
+ .insert({ user_id: user.id, name, type: 'liability', is_system: false, is_cash_account: false })
+ .select('*')
+ .single();
+ if (error) {
+ toast.error(`Failed to create loan account: ${error.message}`);
+ return null;
+ }
+ toast.success(`Loan Account "${name}" created!`);
+ setAccounts(prev => [...prev, data]);
+ return data;
+ }}
+ placeholder="Select or type to create loan sub-account (e.g. Loan - Ali)..."
+ entityType="account"
+ />
+ </div>
+
+ <div>
+ <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Loan Amount (PKR) *</label>
+ <input
+ type="number"
+ step="0.01"
+ min="0.01"
+ required
+ placeholder="0.00"
+ value={receiveLoanAmount}
+ onChange={(e) => setReceiveLoanAmount(e.target.value)}
+ className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-blue-600"
+ />
+ </div>
+
+ <div>
+ <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Description / Memo</label>
+ <input
+ type="text"
+ required
+ placeholder="e.g. Received loan proceeds into main bank"
+ value={receiveLoanDescription}
+ onChange={(e) => setReceiveLoanDescription(e.target.value)}
+ className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-blue-600"
+ />
+ </div>
+ </form>
+
+ <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+ <button
+ type="button"
+ onClick={() => setIsReceiveLoanModalOpen(false)}
+ className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
+ >
+ Cancel
+ </button>
+ <button
+ type="submit"
+ form="receiveLoanForm"
+ disabled={isReceiveLoanSubmitting || !receiveLoanBankAccountId || !receiveLoanAccountId || !receiveLoanAmount}
+ className="px-5 py-2.5 min-h-[44px] rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 shadow-md shadow-blue-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-40"
+ >
+ {isReceiveLoanSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Record Loan Inflow"}
+ </button>
+ </div>
+ </div>
+ </div>,
+ document.body
+ )}
+
+ {/* RECORD LOAN PAYMENT (AMORTIZATION SPLIT) MODAL */}
+ {mounted && isLoanModalOpen && createPortal(
+ <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+ <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-lg max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+ <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+ <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+ <Receipt className="w-5 h-5 text-emerald-600" /> Record Loan Payment & Interest Split
+ </h3>
+ <button
+ onClick={() => setIsLoanModalOpen(false)}
+ className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+ aria-label="Close modal"
+ >
+ <X className="w-5 h-5" />
+ </button>
+ </div>
+
+ <form id="loanPaymentForm" onSubmit={handlePostLoanPayment} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
+ <div>
+ <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Source Cash / Bank Account *</label>
+ <select
+ required
+ value={loanPaymentAccountId}
+ onChange={(e) => setLoanPaymentAccountId(e.target.value)}
+ className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-emerald-600"
+ >
+ <option value="">Select source cash/bank account...</option>
+ {accounts
+ .filter(a => a.is_cash_account || a.type === 'asset')
+ .map(acc => (
+ <option key={acc.id} value={acc.id}>
+ {acc.name} — Balance: {acc.balance.toLocaleString()} PKR
+ </option>
+ ))}
+ </select>
+ </div>
+
+ <div>
+ <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Loan Liability Account *</label>
+ <CreatableSelect
+ options={accounts.filter(a => a.type === 'liability')}
+ value={loanAccountId}
+ onChange={(id) => setLoanAccountId(id)}
+ onCreateNew={async (name) => {
+ const { data: { user } } = await supabase.auth.getUser();
+ if (!user) return null;
+ const { data, error } = await supabase
+ .from('accounts')
+ .insert({ user_id: user.id, name, type: 'liability', is_system: false, is_cash_account: false })
+ .select('*')
+ .single();
+ if (error) {
+ toast.error(`Failed to create loan account: ${error.message}`);
+ return null;
+ }
+ toast.success(`Loan Account "${name}" created!`);
+ setAccounts(prev => [...prev, data]);
+ return data;
+ }}
+ placeholder="Select or type to create loan sub-account (e.g. Loan - Ali)..."
+ entityType="account"
+ />
+ </div>
+
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+ <div>
+ <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Total Payment (PKR) *</label>
+ <input
+ type="number"
+ step="0.01"
+ min="0.01"
+ required
+ placeholder="0.00"
+ value={loanTotalAmount}
+ onChange={(e) => setLoanTotalAmount(e.target.value)}
+ className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-emerald-600"
+ />
+ </div>
+
+ <div>
+ <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Interest Amount (PKR)</label>
+ <input
+ type="number"
+ step="0.01"
+ min="0"
+ placeholder="0.00"
+ value={loanInterestAmount}
+ onChange={(e) => setLoanInterestAmount(e.target.value)}
+ className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-emerald-600"
+ />
+ </div>
+ </div>
+
+ {/* LIVE MATH AMORTIZATION BREAKDOWN */}
+ {loanTotalAmount && parseFloat(loanTotalAmount) > 0 && (
+ <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs space-y-1">
+ <div className="flex justify-between text-gray-700 font-medium">
+ <span>Principal Reduction (Debt Decrease):</span>
+ <span className="font-bold text-emerald-800">
+ {(parseFloat(loanTotalAmount) - (parseFloat(loanInterestAmount) || 0)).toLocaleString()} PKR
+ </span>
+ </div>
+ <div className="flex justify-between text-gray-700 font-medium">
+ <span>Interest Expense (Cost of Debt):</span>
+ <span className="font-bold text-amber-700">
+ {(parseFloat(loanInterestAmount) || 0).toLocaleString()} PKR
+ </span>
+ </div>
+ <div className="flex justify-between text-gray-900 font-extrabold pt-1 border-t border-emerald-200">
+ <span>Total Cash Outflow:</span>
+ <span className="text-gray-900">
+ {parseFloat(loanTotalAmount).toLocaleString()} PKR
+ </span>
+ </div>
+ </div>
+ )}
+
+ <div>
+ <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Description / Memo</label>
+ <input
+ type="text"
+ required
+ placeholder="e.g. Monthly loan installment payment"
+ value={loanDescription}
+ onChange={(e) => setLoanDescription(e.target.value)}
+ className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-emerald-600"
+ />
+ </div>
+ </form>
+
+ <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+ <button
+ type="button"
+ onClick={() => setIsLoanModalOpen(false)}
+ className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
+ >
+ Cancel
+ </button>
+ <button
+ type="submit"
+ form="loanPaymentForm"
+ disabled={isLoanSubmitting || !loanPaymentAccountId || !loanAccountId || !loanTotalAmount}
+ className="px-5 py-2.5 min-h-[44px] rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-40"
+ >
+ {isLoanSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Post Loan Payment"}
  </button>
  </div>
  </div>
