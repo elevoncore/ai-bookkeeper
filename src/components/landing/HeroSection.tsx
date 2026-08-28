@@ -7,85 +7,43 @@ import { ArrowRight } from 'lucide-react';
 export default function HeroSection() {
   return (
     <section id="hero" className="relative pt-28 sm:pt-36 lg:pt-40 pb-16 lg:pb-24 min-h-[90vh] flex items-center overflow-hidden transition-colors duration-300">
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 z-10 w-full">
-        {/* SPLIT SCREEN GRID: Left Column (~45% / 5-span), Right Column (~55% / 7-span) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-          
-          {/* LEFT COLUMN (~45% width): Text & CTAs */}
-          <div className="lg:col-span-5 flex flex-col items-start text-left space-y-7 animate-in fade-in duration-500">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 z-10 w-full">
+
+          {/* CENTERED CONTENT */}
+          <div className="flex flex-col items-center justify-center text-center space-y-8 animate-in fade-in zoom-in-95 duration-700 max-w-4xl mx-auto z-10 relative pt-10 sm:pt-16">
             
-            {/* Large Left-Aligned Headline */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[#111827] tracking-tight leading-[1.08] font-sans">
+            {/* Large Centered Headline */}
+            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold text-[#111827] tracking-tight leading-[1.1] font-sans drop-shadow-sm">
               Next-Generation <br />
-              <span className="text-purple-600">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-600">
                 AI Bookkeeping
               </span>
             </h1>
 
-            {/* Left-Aligned Paragraph */}
-            <p className="text-base sm:text-lg text-[#4B5563] leading-relaxed max-w-lg font-medium">
+            {/* Centered Paragraph */}
+            <p className="text-base sm:text-lg lg:text-xl text-[#4B5563] leading-relaxed max-w-2xl font-medium">
               Let the AI handle data entry, verify transactions, and build reports while you maintain complete financial control.
             </p>
 
-            {/* Side-by-Side Left-Aligned CTA Buttons */}
-            <div className="flex flex-row items-center gap-4 pt-1">
+            {/* Centered CTA Buttons */}
+            <div className="flex flex-row items-center justify-center gap-4 pt-4">
               <Link 
                 href="/dashboard"
-                className="inline-flex justify-center items-center gap-2 px-7 py-3.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-base rounded-full shadow-lg shadow-purple-500/25 hover:shadow-purple-500/35 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+                className="inline-flex justify-center items-center gap-2 px-8 py-4 bg-purple-600 hover:bg-purple-700 text-white font-bold text-base rounded-full shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:-translate-y-1 transition-all duration-300 cursor-pointer whitespace-nowrap border border-purple-500/50"
               >
                 <span>Enter Dashboard</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-5 h-5" />
               </Link>
               
               <button 
                 onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
-                className="inline-flex justify-center items-center px-7 py-3.5 bg-white hover:bg-slate-50 text-slate-700 font-bold text-base rounded-full border-2 border-slate-200 hover:border-slate-300 transition-all duration-200 cursor-pointer shadow-xs"
+                className="inline-flex justify-center items-center px-8 py-4 bg-white/80 backdrop-blur-md hover:bg-white text-slate-700 font-bold text-base rounded-full border-2 border-slate-200 hover:border-slate-300 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md whitespace-nowrap"
               >
                 Explore Features
               </button>
             </div>
 
           </div>
-
-          {/* RIGHT COLUMN (~55% width): Real App Product Dashboard Screenshot */}
-          <div className="lg:col-span-7 relative w-full flex items-center justify-center animate-in fade-in duration-700">
-            {/* Floating App Panel Browser Frame */}
-            <div className="relative w-full rounded-2xl border border-slate-200/90 bg-white shadow-2xl overflow-hidden transition-all duration-300">
-              
-              {/* Window Control Bar */}
-              <div className="px-4 py-2.5 bg-slate-100/90 border-b border-slate-200/80 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-rose-400" />
-                  <div className="w-3 h-3 rounded-full bg-amber-400" />
-                  <div className="w-3 h-3 rounded-full bg-emerald-400" />
-                </div>
-                <div className="flex items-center gap-2 px-3 py-0.5 rounded-full bg-white border border-slate-200 text-[11px] font-medium text-slate-500 shadow-2xs">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span>app.inscribe.ai/dashboard</span>
-                </div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider hidden sm:block">
-                  Live System
-                </div>
-              </div>
-
-              {/* Realistic Real App Screenshot Panel */}
-              <div className="relative w-full aspect-[16/9] bg-slate-50 overflow-hidden">
-                <Image
-                  src="/app_dashboard_screenshot.png"
-                  alt="Actual live SME AI Bookkeeper product dashboard UI screenshot displaying revenue, expenses, net position, cash flow, and AI assistant chat"
-                  fill
-                  sizes="(max-width: 1200px) 100vw, 1200px"
-                  className="object-cover object-top hover:scale-[1.01] transition-transform duration-500"
-                  priority
-                  fetchPriority="high"
-                />
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
       </div>
     </section>
   );

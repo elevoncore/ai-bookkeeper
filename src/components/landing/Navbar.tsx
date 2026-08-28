@@ -19,9 +19,9 @@ export default function Navbar() {
  initial={{ opacity: 0, y: -20 }}
  animate={{ opacity: 1, y: 0 }}
  transition={{ duration: 0.8, delay: 0, ease: easing }}
- className="fixed top-5 left-0 right-0 z-50 flex justify-center px-4"
+ className="fixed top-6 left-0 right-0 z-50 flex justify-center px-4"
  >
- <nav className="flex items-center justify-between gap-6 sm:gap-8 px-6 py-3 bg-white/85 backdrop-blur-xl border border-slate-200/80 rounded-full shadow-sm transition-all w-full max-w-6xl">
+ <nav className="flex items-center justify-between gap-4 sm:gap-6 px-2.5 sm:px-3 py-1.5 bg-white/20 backdrop-blur-[40px] border border-white/60 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.06)] transition-all w-max min-w-[280px]">
  
  {/* Brand Logo */}
  <Link href="/" className="flex items-center gap-2.5 group">
@@ -58,10 +58,10 @@ export default function Navbar() {
  </div>
 
  {/* Action Controls */}
- <div className="flex items-center gap-2 sm:gap-4">
+ <div className="flex items-center gap-3 sm:gap-4">
  <Link 
  href="/login"
- className="text-sm font-semibold text-slate-700 hover:text-purple-600 transition-colors hidden sm:block px-2 min-h-[44px] flex items-center"
+ className="text-sm font-bold text-slate-600 hover:text-purple-600 transition-colors hidden sm:flex items-center justify-center px-2 py-2"
  >
  Log in
  </Link>
