@@ -917,8 +917,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
                   const defaultBankAcc = accounts.find(a => 
                     a.is_cash_account || 
                     a.name.toLowerCase().includes('main bank') || 
-                    a.name.toLowerCase().includes('petty cash') ||
-                    a.type === 'asset'
+                    a.name.toLowerCase().includes('petty cash')
                   );
                   setAdvanceData({
                     customer_id: '',
@@ -1331,60 +1330,70 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
                 if (availableAdvance <= 0) return null;
                 const invAmt = parseFloat(newInvoice.amount) || 0;
                 const applyAmt = parseFloat(advanceAmountToApply) || 0;
+                const maxApplicable = Math.min(availableAdvance, invAmt || availableAdvance);
 
                 return (
-                  <div className="p-4 bg-indigo-50/70 border border-indigo-200 rounded-xl space-y-3 mt-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <div className="p-4 bg-indigo-50 border-2 border-indigo-200 rounded-xl space-y-3 mt-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-start gap-2.5">
+                        <DollarSign className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
                         <div>
-                          <span className="text-xs font-bold text-indigo-950 block">Apply Customer Advance</span>
-                          <span className="text-[11px] text-indigo-700 font-medium">
-                            Available unapplied deposit: <strong>{availableAdvance.toLocaleString()} PKR</strong>
+                          <span className="text-xs font-black text-indigo-950 uppercase tracking-wider block">
+                            Customer Advance Available: {availableAdvance.toLocaleString()} PKR
+                          </span>
+                          <span className="text-[11px] text-indigo-700 font-medium block mt-0.5">
+                            You owe this customer goods/services worth {availableAdvance.toLocaleString()} PKR. Apply this deposit to deduct from invoice balance.
                           </span>
                         </div>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={applyAdvanceToInvoice}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            setApplyAdvanceToInvoice(checked);
-                            if (checked) {
-                              setAdvanceAmountToApply(Math.min(availableAdvance, invAmt || availableAdvance).toString());
-                            } else {
-                              setAdvanceAmountToApply('');
-                            }
+                      {!applyAdvanceToInvoice ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setApplyAdvanceToInvoice(true);
+                            setAdvanceAmountToApply(maxApplicable.toString());
                           }}
-                          className="sr-only peer"
-                        />
-                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
-                      </label>
+                          className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5"
+                        >
+                          ⚡ Apply {maxApplicable.toLocaleString()} PKR Advance
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setApplyAdvanceToInvoice(false);
+                            setAdvanceAmountToApply('');
+                          }}
+                          className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer"
+                        >
+                          Remove Advance
+                        </button>
+                      )}
                     </div>
 
                     {applyAdvanceToInvoice && (
-                      <div className="pt-2 border-t border-indigo-200/60 space-y-2">
-                        <div>
-                          <label className="block text-[11px] font-bold text-indigo-900 mb-1">
-                            Advance Amount to Apply (PKR)
+                      <div className="pt-3 border-t border-indigo-200 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <label className="block text-[11px] font-bold text-indigo-900 uppercase">
+                            Amount to Deduct (PKR):
                           </label>
                           <input
                             type="number"
                             step="0.01"
-                            max={Math.min(availableAdvance, invAmt || availableAdvance)}
+                            max={maxApplicable}
                             value={advanceAmountToApply}
                             onChange={(e) => setAdvanceAmountToApply(e.target.value)}
-                            placeholder={`Max: ${Math.min(availableAdvance, invAmt || availableAdvance).toLocaleString()}`}
-                            className="w-full border border-indigo-200 bg-white rounded-lg px-3 py-2 text-xs font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder={`Max: ${maxApplicable.toLocaleString()}`}
+                            className="w-44 border border-indigo-300 bg-white rounded-lg px-3 py-1.5 text-xs font-black text-indigo-950 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </div>
                         {invAmt > 0 && applyAmt > 0 && (
-                          <p className="text-[11px] text-indigo-800 font-medium">
-                            {applyAmt >= invAmt
-                              ? "✓ Invoice will be fully paid with advance! (Status: PAID)"
-                              : `Remaining balance due: ${(invAmt - applyAmt).toLocaleString()} PKR (Status: PARTIALLY PAID)`}
-                          </p>
+                          <div className="p-2.5 bg-white rounded-lg border border-indigo-100 text-xs text-indigo-950 font-bold flex justify-between">
+                            <span>Invoice Total: {invAmt.toLocaleString()} PKR &minus; Advance Applied: {applyAmt.toLocaleString()} PKR</span>
+                            <span className="text-emerald-700 font-extrabold">
+                              {applyAmt >= invAmt ? "✓ Fully Covered (PAID)" : `Net Balance Due: ${(invAmt - applyAmt).toLocaleString()} PKR`}
+                            </span>
+                          </div>
                         )}
                       </div>
                     )}
@@ -1572,9 +1581,16 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
                     <span className="text-xs font-bold text-rose-700 uppercase tracking-wider block">Outstanding (AR)</span>
                     <p className="text-xl font-black text-rose-950 mt-1">{outstandingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</p>
                   </div>
-                  <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-200">
-                    <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider block">Available Advance</span>
-                    <p className="text-xl font-black text-indigo-950 mt-1">{availableAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</p>
+                  <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-200 flex flex-col justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider block">Available Advance</span>
+                      <p className="text-xl font-black text-indigo-950 mt-1">{availableAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</p>
+                    </div>
+                    {availableAdvance > 0 && (
+                      <p className="text-[11px] text-indigo-800 font-semibold mt-1.5 leading-snug">
+                        You owe this customer goods/services worth {availableAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR.
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -2092,7 +2108,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
                   className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-sm cursor-pointer"
                 >
                   {accounts
-                    .filter(a => a.is_cash_account || a.type === 'asset')
+                    .filter(a => a.is_cash_account || ((a.name.toLowerCase().includes('bank') || a.name.toLowerCase().includes('cash')) && !a.name.toLowerCase().includes('receivable') && !a.name.toLowerCase().includes('advance') && !a.name.toLowerCase().includes('inventory') && !a.name.toLowerCase().includes('fixed')))
                     .map(acc => (
                       <option key={acc.id} value={acc.id}>
                         {acc.name} ({acc.type}) {acc.is_cash_account ? '⭐ Cash/Bank' : ''}
@@ -2240,7 +2256,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
                   className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                 >
                   <option value="">Select Deposit Account</option>
-                  {accounts.filter(a => a.is_cash_account || a.type === 'asset').map(a => (
+                  {accounts.filter(a => a.is_cash_account || ((a.name.toLowerCase().includes('bank') || a.name.toLowerCase().includes('cash')) && !a.name.toLowerCase().includes('receivable') && !a.name.toLowerCase().includes('advance') && !a.name.toLowerCase().includes('inventory') && !a.name.toLowerCase().includes('fixed'))).map(a => (
                     <option key={a.id} value={a.id}>
                       {a.name} ({a.type}) {a.is_cash_account ? '⭐ Cash/Bank' : ''}
                     </option>

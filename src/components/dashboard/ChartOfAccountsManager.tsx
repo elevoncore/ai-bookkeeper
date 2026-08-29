@@ -813,7 +813,7 @@ export default function ChartOfAccountsManager() {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => {
-              const defaultBank = accounts.find(a => a.is_cash_account || a.name.toLowerCase().includes('bank') || a.type === 'asset');
+              const defaultBank = accounts.find(a => a.is_cash_account || a.name.toLowerCase().includes('bank') || a.name.toLowerCase().includes('cash'));
               if (defaultBank) setReceiveLoanBankAccountId(defaultBank.id);
               const defaultLoan = accounts.find(a => a.type === 'liability' && (a.name.toLowerCase().includes('loan') || a.code?.startsWith('25')));
               if (defaultLoan) setReceiveLoanAccountId(defaultLoan.id);
@@ -827,7 +827,7 @@ export default function ChartOfAccountsManager() {
             onClick={() => {
               const defaultLoan = accounts.find(a => a.type === 'liability' && (a.name.toLowerCase().includes('loan') || a.code?.startsWith('25')));
               if (defaultLoan) setLoanAccountId(defaultLoan.id);
-              const defaultBank = accounts.find(a => a.is_cash_account || a.name.toLowerCase().includes('bank') || a.type === 'asset');
+              const defaultBank = accounts.find(a => a.is_cash_account || a.name.toLowerCase().includes('bank') || a.name.toLowerCase().includes('cash'));
               if (defaultBank) setLoanPaymentAccountId(defaultBank.id);
               setIsLoanModalOpen(true);
             }}
@@ -880,6 +880,33 @@ export default function ChartOfAccountsManager() {
  </div>
  </div>
 
+      {/* AGGREGATE FINANCIAL POSITION (5 CATEGORY TOTALS) */}
+      {!isLoading && accounts.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+          {[
+            { type: 'asset', label: 'Total Assets', bg: 'bg-blue-50/90 border-blue-200 text-blue-950', badge: 'text-blue-700' },
+            { type: 'liability', label: 'Total Liabilities', bg: 'bg-red-50/90 border-red-200 text-red-950', badge: 'text-red-700' },
+            { type: 'equity', label: 'Total Equity', bg: 'bg-purple-50/90 border-purple-200 text-purple-950', badge: 'text-purple-700' },
+            { type: 'revenue', label: 'Total Revenue', bg: 'bg-emerald-50/90 border-emerald-200 text-emerald-950', badge: 'text-emerald-700' },
+            { type: 'expense', label: 'Total Expenses', bg: 'bg-amber-50/90 border-amber-200 text-amber-950', badge: 'text-amber-700' },
+          ].map((cat) => {
+            const catTotal = accounts
+              .filter(a => a.type === cat.type)
+              .reduce((sum, a) => sum + Number(a.balance || 0), 0);
+
+            return (
+              <div key={cat.type} className={`p-4 rounded-2xl border ${cat.bg} shadow-sm flex flex-col justify-between`}>
+                <span className={`text-[11px] font-black uppercase tracking-wider block ${cat.badge}`}>
+                  {cat.label}
+                </span>
+                <p className="text-lg sm:text-xl font-black mt-1">
+                  {catTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-[10px] font-bold opacity-60">PKR</span>
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
  {/* MAIN DATA TABLE */}
  {isLoading ? (
  <div className="flex flex-col items-center justify-center py-20 text-gray-400">
@@ -992,6 +1019,17 @@ export default function ChartOfAccountsManager() {
  ))
  )}
  </tbody>
+              <tfoot className="bg-gray-50/90 border-t-2 border-gray-200 text-xs font-black text-gray-900">
+                <tr>
+                  <td colSpan={4} className="px-6 py-3.5 uppercase tracking-wider text-gray-700">
+                    Grand Total {group.label}
+                  </td>
+                  <td className="px-6 py-3.5 text-right font-black text-sm text-gray-900">
+                    {group.items.reduce((sum, acc) => sum + Number(acc.balance || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-[10px] font-bold text-gray-500">PKR</span>
+                  </td>
+                  <td className="px-6 py-3.5"></td>
+                </tr>
+              </tfoot>
  </table>
  </div>
  </div>
@@ -1537,7 +1575,7 @@ export default function ChartOfAccountsManager() {
  >
  <option value="">Select bank or cash account...</option>
  {accounts
- .filter(a => a.is_cash_account || a.type === 'asset')
+ .filter(a => a.is_cash_account || ((a.name.toLowerCase().includes('bank') || a.name.toLowerCase().includes('cash')) && !a.name.toLowerCase().includes('receivable') && !a.name.toLowerCase().includes('advance') && !a.name.toLowerCase().includes('inventory') && !a.name.toLowerCase().includes('fixed')))
  .map(acc => (
  <option key={acc.id} value={acc.id}>
  {acc.name} — Balance: {acc.balance.toLocaleString()} PKR
@@ -1650,7 +1688,7 @@ export default function ChartOfAccountsManager() {
  >
  <option value="">Select source cash/bank account...</option>
  {accounts
- .filter(a => a.is_cash_account || a.type === 'asset')
+ .filter(a => a.is_cash_account || ((a.name.toLowerCase().includes('bank') || a.name.toLowerCase().includes('cash')) && !a.name.toLowerCase().includes('receivable') && !a.name.toLowerCase().includes('advance') && !a.name.toLowerCase().includes('inventory') && !a.name.toLowerCase().includes('fixed')))
  .map(acc => (
  <option key={acc.id} value={acc.id}>
  {acc.name} — Balance: {acc.balance.toLocaleString()} PKR

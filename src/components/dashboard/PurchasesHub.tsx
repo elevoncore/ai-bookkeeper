@@ -740,8 +740,7 @@ export default function PurchasesHub() {
                   const defaultCashAcc = chartOfAccounts.find(a => 
                     a.is_cash_account || 
                     a.name.toLowerCase().includes('main bank') || 
-                    a.name.toLowerCase().includes('petty cash') ||
-                    a.type === 'asset'
+                    a.name.toLowerCase().includes('petty cash')
                   );
                   setAdvanceData({
                     supplier_id: '',
@@ -1405,9 +1404,16 @@ export default function PurchasesHub() {
                   <span className="text-xs font-bold text-rose-700 uppercase tracking-wider block">Outstanding (AP)</span>
                   <p className="text-xl font-black text-rose-950 mt-1">{outstandingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</p>
                 </div>
-                <div className="p-4 rounded-xl bg-purple-50 border border-purple-200">
-                  <span className="text-xs font-bold text-purple-700 uppercase tracking-wider block">Available Advance</span>
-                  <p className="text-xl font-black text-purple-950 mt-1">{availableAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</p>
+                <div className="p-4 rounded-xl bg-purple-50 border border-purple-200 flex flex-col justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-purple-700 uppercase tracking-wider block">Available Advance</span>
+                    <p className="text-xl font-black text-purple-950 mt-1">{availableAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR</p>
+                  </div>
+                  {availableAdvance > 0 && (
+                    <p className="text-[11px] text-purple-800 font-semibold mt-1.5 leading-snug">
+                      This supplier owes you goods/services worth {availableAdvance.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR.
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -1605,7 +1611,7 @@ export default function PurchasesHub() {
                   className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer"
                 >
                   <option value="">Select Payment Account</option>
-                  {chartOfAccounts.filter(a => a.is_cash_account || a.type === 'asset').map(a => (
+                  {chartOfAccounts.filter(a => a.is_cash_account || ((a.name.toLowerCase().includes('bank') || a.name.toLowerCase().includes('cash')) && !a.name.toLowerCase().includes('receivable') && !a.name.toLowerCase().includes('payable') && !a.name.toLowerCase().includes('advance') && !a.name.toLowerCase().includes('inventory') && !a.name.toLowerCase().includes('fixed'))).map(a => (
                     <option key={a.id} value={a.id}>
                       {a.name} ({a.type}) {a.is_cash_account ? '⭐ Cash/Bank' : ''}
                     </option>
@@ -1818,7 +1824,7 @@ export default function PurchasesHub() {
                   className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                 >
                   <option value="">Select Payment Source</option>
-                  {chartOfAccounts.filter(a => a.is_cash_account || a.type === 'asset').map(a => (
+                  {chartOfAccounts.filter(a => a.is_cash_account || ((a.name.toLowerCase().includes('bank') || a.name.toLowerCase().includes('cash')) && !a.name.toLowerCase().includes('receivable') && !a.name.toLowerCase().includes('payable') && !a.name.toLowerCase().includes('advance') && !a.name.toLowerCase().includes('inventory') && !a.name.toLowerCase().includes('fixed'))).map(a => (
                     <option key={a.id} value={a.id}>
                       {a.name} ({a.type}) {a.is_cash_account ? '⭐ Cash/Bank' : ''}
                     </option>
