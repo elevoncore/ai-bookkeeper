@@ -54,6 +54,8 @@ export default function PurchasesHub() {
  const [isLoanSubmitting, setIsLoanSubmitting] = useState(false);
 
  const [selectedSupplierStatement, setSelectedSupplierStatement] = useState<any>(null);
+  const [applyAdvanceToBill, setApplyAdvanceToBill] = useState(false);
+  const [advanceAmountToApply, setAdvanceAmountToApply] = useState('');
  const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
  const [newSupplier, setNewSupplier] = useState({ name: '', email: '', phone: '' });
 
@@ -465,42 +467,85 @@ export default function PurchasesHub() {
  closeModal();
  fetchData();
  } else {
- const { data: createdBill, error: billError } = await supabase
- .from('bills')
- .insert({
- user_id: user.id,
- supplier_id: newBill.supplier_id,
- issue_date: newBill.issue_date,
- total_amount: numericAmount,
- balance_due: numericAmount,
- external_reference_number: extRef,
- status: 'unpaid',
- is_ai_verified: false,
- created_by_source: 'MANUAL'
- })
- .select()
- .single();
+      const applyAmt = applyAdvanceToBill ? parseFloat(advanceAmountToApply) || 0 : 0;
+      const initialBalance = Math.max(0, numericAmount - applyAmt);
+      const initialStatus = initialBalance <= 0 ? 'paid' : (applyAmt > 0 ? 'partial' : 'unpaid');
 
- if (billError) throw billError;
+      const { data: createdBill, error: billError } = await supabase
+        .from('bills')
+        .insert({
+          user_id: user.id,
+          supplier_id: newBill.supplier_id,
+          issue_date: newBill.issue_date,
+          total_amount: numericAmount,
+          balance_due: initialBalance,
+          amount_paid: applyAmt,
+          external_reference_number: extRef,
+          status: initialStatus,
+          is_ai_verified: false,
+          created_by_source: 'MANUAL'
+        })
+        .select()
+        .single();
 
- let targetAccountId = newBill.account_id;
- if (!targetAccountId) {
- const expAccount = chartOfAccounts.find(a => a.type === 'expense' || a.name.toLowerCase().includes('expense'));
- targetAccountId = expAccount?.id || null;
- }
+      if (billError) throw billError;
 
- if (targetAccountId && createdBill) {
- await supabase.from('bill_lines').insert({
- bill_id: createdBill.id,
- account_id: targetAccountId,
- description: "Manual expense bill",
- quantity: 1,
- unit_price: numericAmount,
- total: numericAmount
- });
- }
- toast.success("Bill created successfully!");
- }
+      let targetAccountId = newBill.account_id;
+      if (!targetAccountId) {
+        const expAccount = chartOfAccounts.find(a => a.type === 'expense' || a.name.toLowerCase().includes('expense'));
+        targetAccountId = expAccount?.id || null;
+      }
+
+      if (targetAccountId && createdBill) {
+        await supabase.from('bill_lines').insert({
+          bill_id: createdBill.id,
+          account_id: targetAccountId,
+          description: "Manual expense bill",
+          quantity: 1,
+          unit_price: numericAmount,
+          total: numericAmount
+        });
+      }
+
+      // Verify manual bill immediately to post the base entry: Debit Expense, Credit A/P
+      try {
+        await supabase.from('bills').update({ is_ai_verified: true }).eq('id', createdBill.id);
+      } catch (_) {}
+
+      // If an advance was applied, record the settlement and post the adjustment journal entry
+      if (applyAmt > 0 && createdBill) {
+        // 1. Insert settlement payment record
+        await supabase.from('payments_made').insert({
+          user_id: user.id,
+          bill_id: createdBill.id,
+          supplier_id: newBill.supplier_id,
+          amount: applyAmt,
+          date: newBill.issue_date,
+          payment_method: 'advance_settlement',
+          is_advance: false,
+          notes: 'Settled from Supplier Advance prepayment'
+        });
+
+        // 2. Post adjusting double-entry journal entry: Debit A/P, Credit Supplier Advances
+        const apAcc = chartOfAccounts.find(a => a.type === 'liability' && a.name.toLowerCase().includes('payable'));
+        const suppAdvAcc = chartOfAccounts.find(a => a.type === 'asset' && a.name.toLowerCase().includes('supplier advance'));
+
+        if (apAcc && suppAdvAcc) {
+          await createJournalEntryAtomic(supabase, {
+            user_id: user.id,
+            date: newBill.issue_date,
+            description: `Supplier Advance Applied to Bill ${createdBill.id.substring(0, 8)}`,
+            lines: [
+              { account_id: apAcc.id, debit: applyAmt, credit: 0 },
+              { account_id: suppAdvAcc.id, debit: 0, credit: applyAmt }
+            ],
+            created_by_source: 'MANUAL'
+          });
+        }
+      }
+
+      toast.success("Bill created successfully!");
+    }
 
  closeModal();
  fetchData();
@@ -635,10 +680,12 @@ export default function PurchasesHub() {
  }
 
  function closeModal() {
- setIsBillModalOpen(false);
- setIsEditing(false);
- setNewBill({ id: '', supplier_id: '', account_id: '', issue_date: '', amount: '', external_reference_number: '' });
- }
+    setIsBillModalOpen(false);
+    setIsEditing(false);
+    setNewBill({ id: '', supplier_id: '', account_id: '', issue_date: '', amount: '', external_reference_number: '' });
+    setApplyAdvanceToBill(false);
+    setAdvanceAmountToApply('');
+  }
 
  async function handleSaveSupplier(e: React.FormEvent) {
  e.preventDefault();
@@ -1139,8 +1186,85 @@ export default function PurchasesHub() {
  onChange={e => setNewBill({...newBill, external_reference_number: e.target.value})}
  />
  <p className="text-[11px] text-gray-400 mt-1">Preserves the vendor&apos;s original receipt number for audits and tax records.</p>
- </div>
- </form>
+        </div>
+
+        {/* APPLY ADVANCE BANNER (NEW BILL ONLY) */}
+        {!isEditing && newBill.supplier_id && (() => {
+          const availableAdvance = getSupplierAdvanceBalance(newBill.supplier_id);
+          if (availableAdvance <= 0) return null;
+          const billAmt = parseFloat(newBill.amount) || 0;
+          const applyAmt = parseFloat(advanceAmountToApply) || 0;
+          const maxApplicable = Math.min(availableAdvance, billAmt || availableAdvance);
+
+          return (
+            <div className="p-4 bg-purple-50 border-2 border-purple-200 rounded-xl space-y-3 mt-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-start gap-2.5">
+                  <DollarSign className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="text-xs font-black text-purple-950 uppercase tracking-wider block">
+                      Supplier Advance Available: {availableAdvance.toLocaleString()} PKR
+                    </span>
+                    <span className="text-[11px] text-purple-700 font-medium block mt-0.5">
+                      This supplier owes you goods/services worth {availableAdvance.toLocaleString()} PKR. Apply this prepayment to deduct from bill total.
+                    </span>
+                  </div>
+                </div>
+                {!applyAdvanceToBill ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setApplyAdvanceToBill(true);
+                      setAdvanceAmountToApply(maxApplicable.toString());
+                    }}
+                    className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5"
+                  >
+                    ⚡ Apply {maxApplicable.toLocaleString()} PKR Advance
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setApplyAdvanceToBill(false);
+                      setAdvanceAmountToApply('');
+                    }}
+                    className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-bold rounded-lg transition-all whitespace-nowrap cursor-pointer"
+                  >
+                    Remove Advance
+                  </button>
+                )}
+              </div>
+
+              {applyAdvanceToBill && (
+                <div className="pt-3 border-t border-purple-200 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <label className="block text-[11px] font-bold text-purple-900 uppercase">
+                      Amount to Deduct (PKR):
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      max={maxApplicable}
+                      value={advanceAmountToApply}
+                      onChange={(e) => setAdvanceAmountToApply(e.target.value)}
+                      placeholder={`Max: ${maxApplicable.toLocaleString()}`}
+                      className="w-44 border border-purple-300 bg-white rounded-lg px-3 py-1.5 text-xs font-black text-purple-950 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  {billAmt > 0 && applyAmt > 0 && (
+                    <div className="p-2.5 bg-white rounded-lg border border-purple-100 text-xs text-purple-950 font-bold flex justify-between">
+                      <span>Bill Total: {billAmt.toLocaleString()} PKR &minus; Advance Applied: {applyAmt.toLocaleString()} PKR</span>
+                      <span className="text-emerald-700 font-extrabold">
+                        {applyAmt >= billAmt ? "✓ Fully Covered (PAID)" : `Net Balance Due: ${(billAmt - applyAmt).toLocaleString()} PKR`}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </form>
 
  <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
  <button type="button" onClick={closeModal} className="px-4 py-2.5 min-h-[44px] border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors cursor-pointer text-sm">
