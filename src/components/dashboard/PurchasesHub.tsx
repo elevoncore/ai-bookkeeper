@@ -24,11 +24,23 @@ export default function PurchasesHub() {
 
  const [isBillModalOpen, setIsBillModalOpen] = useState(false);
  const [newBill, setNewBill] = useState({ id: '', supplier_id: '', account_id: '', issue_date: '', amount: '', external_reference_number: '' });
- const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [billLines, setBillLines] = useState<Array<{ product_id: string; account_id: string; description: string; quantity: number; unit_price: number }>>([
+    { product_id: '', account_id: '', description: '', quantity: 1, unit_price: 0 }
+  ]);
+  const [products, setProducts] = useState<any[]>([]);
+
+  const calculatedTotal = useMemo(() => {
+    return billLines.reduce((sum, line) => sum + (line.quantity * line.unit_price), 0);
+  }, [billLines]);
+
+  useEffect(() => {
+    setNewBill(prev => ({ ...prev, amount: calculatedTotal.toString() }));
+  }, [calculatedTotal]);
  
  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
  const [selectedBillForPayment, setSelectedBillForPayment] = useState<any>(null);
- const [paymentData, setPaymentData] = useState({ bill_id: '', amount: '', date: new Date().toISOString().split('T')[0], method: 'Bank Transfer' });
+  const [paymentData, setPaymentData] = useState({ bill_id: '', amount: '', date: new Date().toISOString().split('T')[0], method: 'Bank Transfer', payment_account_id: '' });
  const [isSubmitting, setIsSubmitting] = useState(false);
 
  // Supplier Advance State
@@ -414,150 +426,115 @@ export default function PurchasesHub() {
   }
 
  async function handleSaveBill(e: React.FormEvent) {
- e.preventDefault();
- if (!newBill.supplier_id || !newBill.issue_date || !newBill.amount) {
- return toast.error("Please fill in all required fields.");
- }
-
- const numericAmount = parseFloat(newBill.amount);
- if (isNaN(numericAmount) || numericAmount <= 0) {
- return toast.error("Please enter a valid positive amount.");
- }
-
- setIsSubmitting(true);
- const { data: { user } } = await supabase.auth.getUser();
- if (!user) {
- toast.error("User not authenticated.");
- setIsSubmitting(false);
- return;
- }
-
- try {
- const extRef = newBill.external_reference_number?.trim() || null;
- if (isEditing && newBill.id) {
- const { error: billError } = await supabase
- .from('bills')
- .update({
- supplier_id: newBill.supplier_id,
- issue_date: newBill.issue_date,
- total_amount: numericAmount,
- balance_due: numericAmount,
- external_reference_number: extRef,
- is_manually_edited: true,
- updated_at: new Date().toISOString()
- })
- .eq('id', newBill.id)
- .eq('user_id', user.id);
-
- if (billError) throw billError;
-
- if (newBill.account_id) {
- const { error: lineError } = await supabase
- .from('bill_lines')
- .update({
- account_id: newBill.account_id,
- total: numericAmount
- })
- .eq('bill_id', newBill.id);
- if (lineError) console.warn("Failed to update bill_lines account:", lineError);
- }
-
- setEditedBillIds(prev => new Set(prev).add(newBill.id));
- toast.success("Bill updated successfully!");
- closeModal();
- fetchData();
- } else {
-      const applyAmt = applyAdvanceToBill ? parseFloat(advanceAmountToApply) || 0 : 0;
-      const initialBalance = Math.max(0, numericAmount - applyAmt);
-      const initialStatus = initialBalance <= 0 ? 'paid' : (applyAmt > 0 ? 'partial' : 'unpaid');
-
-      const { data: createdBill, error: billError } = await supabase
-        .from('bills')
-        .insert({
-          user_id: user.id,
-          supplier_id: newBill.supplier_id,
-          issue_date: newBill.issue_date,
-          total_amount: numericAmount,
-          balance_due: initialBalance,
-          amount_paid: applyAmt,
-          external_reference_number: extRef,
-          status: initialStatus,
-          is_ai_verified: false,
-          created_by_source: 'MANUAL'
-        })
-        .select()
-        .single();
-
-      if (billError) throw billError;
-
-      let targetAccountId = newBill.account_id;
-      if (!targetAccountId) {
-        const expAccount = chartOfAccounts.find(a => a.type === 'expense' || a.name.toLowerCase().includes('expense'));
-        targetAccountId = expAccount?.id || null;
-      }
-
-      if (targetAccountId && createdBill) {
-        await supabase.from('bill_lines').insert({
-          bill_id: createdBill.id,
-          account_id: targetAccountId,
-          description: "Manual expense bill",
-          quantity: 1,
-          unit_price: numericAmount,
-          total: numericAmount
-        });
-      }
-
-      // Verify manual bill immediately to post the base entry: Debit Expense, Credit A/P
-      try {
-        await supabase.from('bills').update({ is_ai_verified: true }).eq('id', createdBill.id);
-      } catch (_) {}
-
-      // If an advance was applied, record the settlement and post the adjustment journal entry
-      if (applyAmt > 0 && createdBill) {
-        // 1. Insert settlement payment record
-        await supabase.from('payments_made').insert({
-          user_id: user.id,
-          bill_id: createdBill.id,
-          supplier_id: newBill.supplier_id,
-          amount: applyAmt,
-          date: newBill.issue_date,
-          payment_method: 'advance_settlement',
-          is_advance: false,
-          notes: 'Settled from Supplier Advance prepayment'
-        });
-
-        // 2. Post adjusting double-entry journal entry: Debit A/P, Credit Supplier Advances
-        const apAcc = chartOfAccounts.find(a => a.type === 'liability' && a.name.toLowerCase().includes('payable'));
-        const suppAdvAcc = chartOfAccounts.find(a => a.type === 'asset' && a.name.toLowerCase().includes('supplier advance'));
-
-        if (apAcc && suppAdvAcc) {
-          await createJournalEntryAtomic(supabase, {
-            user_id: user.id,
-            date: newBill.issue_date,
-            description: `Supplier Advance Applied to Bill ${createdBill.id.substring(0, 8)}`,
-            lines: [
-              { account_id: apAcc.id, debit: applyAmt, credit: 0 },
-              { account_id: suppAdvAcc.id, debit: 0, credit: applyAmt }
-            ],
-            created_by_source: 'MANUAL'
-          });
-        }
-      }
-
-      toast.success("Bill created successfully!");
+    e.preventDefault();
+    if (!newBill.supplier_id || !newBill.issue_date || !newBill.amount) {
+      return toast.error("Please fill in all required fields.");
     }
 
- closeModal();
- fetchData();
- } catch (err: any) {
- console.error("Failed to save bill:", err);
- toast.error(`Error saving bill: ${err.message || err}`);
- } finally {
- setIsSubmitting(false);
- }
- }
+    const numericAmount = parseFloat(newBill.amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      return toast.error("Please enter a valid positive amount.");
+    }
 
- async function handleLogPayment(e: React.FormEvent) {
+    setIsSubmitting(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("User not authenticated.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    const lineItemsPayload = billLines.map(line => ({
+      account_id: line.account_id || null,
+      product_id: line.product_id || null,
+      quantity: Number(line.quantity || 1),
+      unit_price: Number(line.unit_price || 0),
+      description: line.description || 'Line Item',
+      amount: Number(line.quantity || 1) * Number(line.unit_price || 0)
+    }));
+
+    try {
+      const extRef = newBill.external_reference_number?.trim() || null;
+      if (isEditing && newBill.id) {
+        const { error: billError } = await supabase.rpc('update_bill_atomic', {
+          p_bill_id: newBill.id,
+          p_user_id: user.id,
+          p_supplier_id: newBill.supplier_id,
+          p_issue_date: newBill.issue_date,
+          p_due_date: null,
+          p_status: 'open',
+          p_total_amount: numericAmount,
+          p_receipt_url: null,
+          p_line_items: lineItemsPayload
+        });
+
+        if (billError) throw billError;
+
+        setEditedBillIds(prev => new Set(prev).add(newBill.id));
+        toast.success("Bill updated successfully!");
+      } else {
+        const applyAmt = applyAdvanceToBill ? parseFloat(advanceAmountToApply) || 0 : 0;
+
+        const { data: insertedId, error: billError } = await supabase.rpc('create_bill_with_lines_atomic', {
+          p_user_id: user.id,
+          p_supplier_id: newBill.supplier_id,
+          p_issue_date: newBill.issue_date,
+          p_due_date: null,
+          p_status: 'open',
+          p_total_amount: numericAmount,
+          p_receipt_url: null,
+          p_line_items: lineItemsPayload,
+          p_currency_code: 'PKR',
+          p_exchange_rate: 1.0,
+          p_original_amount: numericAmount,
+          p_created_by_source: 'MANUAL'
+        });
+
+        if (billError) throw billError;
+
+        try {
+          await supabase.from('bills').update({ is_ai_verified: true }).eq('id', insertedId);
+        } catch (_) {}
+
+        if (applyAmt > 0 && insertedId) {
+          const { error: rpcErr } = await supabase.rpc('apply_supplier_advance_atomic', {
+            p_user_id: user.id,
+            p_supplier_id: newBill.supplier_id,
+            p_bill_id: insertedId,
+            p_amount: applyAmt,
+            p_date: newBill.issue_date
+          });
+
+          if (rpcErr) {
+            console.warn("RPC apply_supplier_advance_atomic fallback:", rpcErr);
+            await supabase.from('payments_made').insert({
+              user_id: user.id,
+              bill_id: insertedId,
+              supplier_id: newBill.supplier_id,
+              amount: applyAmt,
+              date: newBill.issue_date,
+              payment_method: 'advance_settlement',
+              is_advance: false,
+              notes: 'Settled from Supplier Advance prepayment'
+            });
+          }
+        }
+
+        toast.success("Bill created successfully!");
+      }
+
+      closeModal();
+      fetchData();
+    } catch (err: any) {
+      console.error("Failed to save bill:", err);
+      toast.error(`Error saving bill: ${err.message || err}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  
+async function handleLogPayment(e: React.FormEvent) {
  e.preventDefault();
  if (isSubmitting) return;
  if (!paymentData.amount || !paymentData.date) return toast.error("Please fill in all fields");
@@ -666,28 +643,44 @@ export default function PurchasesHub() {
  }
  }
 
- function openEditModal(bill: any) {
- setIsEditing(true);
- setNewBill({
- id: bill.id,
- supplier_id: bill.supplier_id,
- account_id: bill.bill_lines?.[0]?.account_id || '',
- issue_date: bill.issue_date,
- amount: bill.total_amount.toString(),
- external_reference_number: bill.external_reference_number || ''
- });
- setIsBillModalOpen(true);
- }
+ async function openEditModal(bill: any) {
+    setIsEditing(true);
+    setNewBill({
+      id: bill.id,
+      supplier_id: bill.supplier_id,
+      account_id: bill.bill_lines?.[0]?.account_id || '',
+      issue_date: bill.issue_date,
+      amount: bill.total_amount.toString(),
+      external_reference_number: bill.external_reference_number || ''
+    });
+    setIsBillModalOpen(true);
 
- function closeModal() {
+    const { data, error } = await supabase
+      .from('bill_lines')
+      .select('*')
+      .eq('bill_id', bill.id);
+    if (!error && data) {
+      setBillLines(data.map((line) => ({
+        product_id: line.product_id || '',
+        account_id: line.account_id || '',
+        description: line.description || '',
+        quantity: Number(line.quantity || 1),
+        unit_price: Number(line.unit_price || 0)
+      })));
+    }
+  }
+
+  function closeModal() {
     setIsBillModalOpen(false);
     setIsEditing(false);
     setNewBill({ id: '', supplier_id: '', account_id: '', issue_date: '', amount: '', external_reference_number: '' });
     setApplyAdvanceToBill(false);
     setAdvanceAmountToApply('');
+    setBillLines([{ product_id: '', account_id: '', description: '', quantity: 1, unit_price: 0 }]);
   }
 
- async function handleSaveSupplier(e: React.FormEvent) {
+  
+async function handleSaveSupplier(e: React.FormEvent) {
  e.preventDefault();
  if (!newSupplier.name) return toast.error("Supplier name is required.");
  setIsSubmitting(true);
@@ -1134,44 +1127,152 @@ export default function PurchasesHub() {
  </div>
 
  <div>
- <label className="block text-xs font-bold text-gray-700 mb-1">Expense / Asset Category</label>
- <select 
- className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
- value={newBill.account_id}
- onChange={e => setNewBill({...newBill, account_id: e.target.value})}
- >
- <option value="">Default Expense Category</option>
- {chartOfAccounts.filter(a => a.type === 'expense' || a.type === 'asset').map(a => (
- <option key={a.id} value={a.id}>{a.name} ({a.type.toUpperCase()})</option>
- ))}
- </select>
- </div>
+  <label className="block text-xs font-bold text-gray-700 mb-1">Issue Date *</label>
+  <input 
+  type="date" 
+  className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+  value={newBill.issue_date}
+  onChange={e => setNewBill({...newBill, issue_date: e.target.value})}
+  required
+  />
+  </div>
 
- <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
- <div>
- <label className="block text-xs font-bold text-gray-700 mb-1">Issue Date *</label>
- <input 
- type="date" 
- className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
- value={newBill.issue_date}
- onChange={e => setNewBill({...newBill, issue_date: e.target.value})}
- required
- />
- </div>
+  <div className="space-y-3 border-t border-gray-100 pt-3">
+    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">Line Items</label>
+    <div className="space-y-2">
+      {billLines.map((line, index) => (
+        <div key={index} className="flex flex-col sm:flex-row gap-2 items-start sm:items-center bg-gray-50 p-3 rounded-xl border border-gray-200">
+          <div className="flex-1 w-full">
+            <label className="block text-[10px] text-gray-500 font-bold uppercase mb-0.5">Product</label>
+            <select
+              value={line.product_id}
+              onChange={e => {
+                const prodId = e.target.value;
+                const prod = products.find(p => p.id === prodId);
+                const updatedLines = [...billLines];
+                
+                let accId = line.account_id;
+                if (prod) {
+                  if (prod.is_inventory_tracked) {
+                    const invAssetAcc = chartOfAccounts.find(a => a.type === 'asset' && a.name === 'Inventory Asset');
+                    if (invAssetAcc) accId = invAssetAcc.id;
+                  } else {
+                    const costAcc = chartOfAccounts.find(a => a.type === 'expense' && (a.name.toLowerCase().includes('cost of goods sold') || a.name.toLowerCase().includes('cogs')));
+                    if (costAcc) accId = costAcc.id;
+                  }
+                }
+                
+                updatedLines[index] = {
+                  ...updatedLines[index],
+                  product_id: prodId,
+                  account_id: accId,
+                  description: prod ? `Purchase of ${prod.name}` : '',
+                  unit_price: prod ? Number(prod.cost || 0) : 0
+                };
+                setBillLines(updatedLines);
+              }}
+              className="w-full border border-gray-300 bg-white rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none"
+            >
+              <option value="">-- Select Product/Service --</option>
+              {products.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name} (Cost: {p.cost ? `${Number(p.cost).toLocaleString()} PKR` : '0'})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1 w-full">
+            <label className="block text-[10px] text-gray-500 font-bold uppercase mb-0.5">Or GL Account</label>
+            <select
+              value={line.account_id}
+              onChange={e => {
+                const updatedLines = [...billLines];
+                updatedLines[index].account_id = e.target.value;
+                setBillLines(updatedLines);
+              }}
+              required
+              className="w-full border border-gray-300 bg-white rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none"
+            >
+              <option value="">-- Select Account --</option>
+              {chartOfAccounts.map(a => (
+                <option key={a.id} value={a.id}>
+                  {a.name} ({a.type})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1 w-full">
+            <label className="block text-[10px] text-gray-500 font-bold uppercase mb-0.5">Description</label>
+            <input
+              type="text"
+              placeholder="Description"
+              value={line.description}
+              onChange={e => {
+                const updatedLines = [...billLines];
+                updatedLines[index].description = e.target.value;
+                setBillLines(updatedLines);
+              }}
+              className="w-full border border-gray-300 bg-white rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none"
+            />
+          </div>
+          <div className="w-full sm:w-16">
+            <label className="block text-[10px] text-gray-500 font-bold uppercase mb-0.5">Qty</label>
+            <input
+              type="number"
+              min="1"
+              value={line.quantity}
+              onChange={e => {
+                const updatedLines = [...billLines];
+                updatedLines[index].quantity = Number(e.target.value || 1);
+                setBillLines(updatedLines);
+              }}
+              className="w-full border border-gray-300 bg-white rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none"
+            />
+          </div>
+          <div className="w-full sm:w-24">
+            <label className="block text-[10px] text-gray-500 font-bold uppercase mb-0.5">Unit Cost</label>
+            <input
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              value={line.unit_price}
+              onChange={e => {
+                const updatedLines = [...billLines];
+                updatedLines[index].unit_price = Number(e.target.value || 0);
+                setBillLines(updatedLines);
+              }}
+              className="w-full border border-gray-300 bg-white rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none"
+            />
+          </div>
+          <div className="text-xs font-bold w-full sm:w-20 text-right pt-4 sm:pt-0">
+            {(line.quantity * line.unit_price).toLocaleString()} PKR
+          </div>
+          <div className="pt-4 sm:pt-0">
+            <button
+              type="button"
+              disabled={billLines.length <= 1}
+              onClick={() => setBillLines(billLines.filter((_, idx) => idx !== index))}
+              className="text-red-500 hover:text-red-700 disabled:opacity-50 min-h-[32px] min-w-[32px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+    <button
+      type="button"
+      onClick={() => setBillLines([...billLines, { product_id: '', account_id: '', description: '', quantity: 1, unit_price: 0 }])}
+      className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg border border-gray-300 transition-colors cursor-pointer"
+    >
+      + Add Line Item
+    </button>
+    <div className="pt-2 flex justify-between items-center text-sm font-bold border-t border-gray-200">
+      <span>Bill Total:</span>
+      <span className="text-indigo-700 text-base">{calculatedTotal.toLocaleString()} PKR</span>
+    </div>
+  </div>
 
- <div>
- <label className="block text-xs font-bold text-gray-700 mb-1">Total Amount (PKR) *</label>
- <input 
- type="number" 
- step="0.01" 
- placeholder="0.00"
- className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 min-h-[44px] text-sm text-gray-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
- value={newBill.amount}
- onChange={e => setNewBill({...newBill, amount: e.target.value})}
- required
- />
- </div>
- </div>
 
  {/* EXTERNAL REFERENCE NUMBER INPUT */}
  <div>
@@ -1355,121 +1456,190 @@ export default function PurchasesHub() {
 
  {/* MODAL FOR LOG PAYMENT (WITH PARTIAL PAYMENT ENGINE) */}
  {mounted && isPaymentModalOpen && createPortal(
- <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
- <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
- <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
- <div>
- <h3 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
- <DollarSign className="w-5 h-5 text-green-600" /> Log Vendor Payment
- </h3>
- {selectedBillForPayment && (
- <span className="text-xs text-gray-500 font-medium">
- Bill: <span className="font-mono font-bold text-indigo-700">{getEntityId('BILL', selectedBillForPayment)}</span>
- </span>
- )}
- </div>
- <button onClick={() => setIsPaymentModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors cursor-pointer" aria-label="Close modal">
- <X className="w-5 h-5" />
- </button>
- </div>
- 
- <form id="paymentForm" onSubmit={handleLogPayment} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
- {/* BILL FINANCIAL SUMMARY BREAKDOWN */}
- {selectedBillForPayment && (
- <div className="grid grid-cols-3 gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs">
- <div>
- <span className="text-gray-500 block text-[10px] uppercase font-bold">Total Billed</span>
- <span className="font-extrabold text-gray-900">{Number(selectedBillForPayment.total_amount).toLocaleString()} PKR</span>
- </div>
- <div>
- <span className="text-gray-500 block text-[10px] uppercase font-bold">Already Paid</span>
- <span className="font-extrabold text-emerald-700">
- {Number(selectedBillForPayment.amount_paid || (selectedBillForPayment.total_amount - (selectedBillForPayment.balance_due ?? 0))).toLocaleString()} PKR
- </span>
- </div>
- <div>
- <span className="text-gray-500 block text-[10px] uppercase font-bold">Remaining Due</span>
- <span className="font-extrabold text-rose-700">
- {Number(selectedBillForPayment.balance_due ?? selectedBillForPayment.total_amount).toLocaleString()} PKR
- </span>
- </div>
- </div>
- )}
+  <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+  <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+  <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+  <div>
+  <h3 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
+  <DollarSign className="w-5 h-5 text-green-600" /> Log Vendor Payment
+  </h3>
+  {selectedBillForPayment && (
+  <span className="text-xs text-gray-500 font-medium">
+  Bill: <span className="font-mono font-bold text-indigo-700">{getEntityId('BILL', selectedBillForPayment)}</span>
+  </span>
+  )}
+  </div>
+  <button onClick={() => setIsPaymentModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors cursor-pointer" aria-label="Close modal">
+  <X className="w-5 h-5" />
+  </button>
+  </div>
+  
+  <form id="paymentForm" onSubmit={handleLogPayment} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
+  
+  {/* BILL FINANCIAL SUMMARY BREAKDOWN */}
+  {selectedBillForPayment && (
+  <div className="grid grid-cols-3 gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs">
+  <div>
+  <span className="text-gray-500 block text-[10px] uppercase font-bold">Total Billed</span>
+  <span className="font-extrabold text-gray-900">{Number(selectedBillForPayment.total_amount).toLocaleString()} PKR</span>
+  </div>
+  <div>
+  <span className="text-gray-500 block text-[10px] uppercase font-bold">Already Paid</span>
+  <span className="font-extrabold text-emerald-700">
+  {Number(selectedBillForPayment.amount_paid || (selectedBillForPayment.total_amount - (selectedBillForPayment.balance_due ?? 0))).toLocaleString()} PKR
+  </span>
+  </div>
+  <div>
+  <span className="text-gray-500 block text-[10px] uppercase font-bold">Remaining Due</span>
+  <span className="font-extrabold text-rose-700">
+  {Number(selectedBillForPayment.balance_due ?? selectedBillForPayment.total_amount).toLocaleString()} PKR
+  </span>
+  </div>
+  </div>
+  )}
 
- <div className="space-y-1">
- <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">Payment Amount (PKR) *</label>
- <input
- type="number"
- step="0.01"
- value={paymentData.amount}
- onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value })}
- placeholder="Enter payment amount"
- required
- className="w-full px-3 py-2.5 min-h-[44px] border border-gray-300 bg-white rounded-xl text-base font-bold text-gray-900 focus:ring-2 focus:ring-green-500 outline-none"
- />
- {selectedBillForPayment && Number(paymentData.amount) > 0 && (
- <p className="text-[11px] text-gray-500 mt-1 font-medium">
- {Number(paymentData.amount) < Number(selectedBillForPayment.balance_due ?? selectedBillForPayment.total_amount) ? (
- <span className="text-amber-700 font-bold">
- ⚠️ Partial Payment: Remaining balance will be {(Number(selectedBillForPayment.balance_due ?? selectedBillForPayment.total_amount) - Number(paymentData.amount)).toLocaleString()} PKR (Status: PARTIALLY PAID)
- </span>
- ) : (
- <span className="text-emerald-700 font-bold">
- ✓ Full Payment: Bill will be marked PAID
- </span>
- )}
- </p>
- )}
- </div>
+  {/* ADVANCE SETTLEMENT UX */}
+  {selectedBillForPayment && (() => {
+    const availableAdvance = getSupplierAdvanceBalance(selectedBillForPayment.supplier_id);
+    if (availableAdvance <= 0) return null;
+    const isSettlement = paymentData.method === 'advance_settlement';
 
- <div className="space-y-1">
- <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">Payment Date *</label>
- <input
- type="date"
- value={paymentData.date}
- onChange={(e) => setPaymentData({ ...paymentData, date: e.target.value })}
- required
- className="w-full px-3 py-2.5 min-h-[44px] border border-gray-200 bg-white rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-green-500 outline-none"
- />
- </div>
+    return (
+      <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-blue-900">Apply Supplier Advance</p>
+            <p className="text-[11px] text-blue-700 mt-0.5">
+              This supplier has <span className="font-extrabold">{availableAdvance.toLocaleString()} PKR</span> available in advance prepayments (Prepaid Expenses).
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (isSettlement) {
+                setPaymentData(prev => ({
+                  ...prev,
+                  method: 'Bank Transfer',
+                  amount: Number(selectedBillForPayment.balance_due ?? selectedBillForPayment.total_amount).toString()
+                }));
+              } else {
+                const maxApply = Math.min(availableAdvance, Number(selectedBillForPayment.balance_due ?? selectedBillForPayment.total_amount));
+                setPaymentData(prev => ({
+                  ...prev,
+                  method: 'advance_settlement',
+                  amount: maxApply.toString()
+                }));
+              }
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              isSettlement ? 'bg-blue-600 text-white' : 'bg-white text-blue-700 border border-blue-300 hover:bg-blue-50'
+            }`}
+          >
+            {isSettlement ? '⚡ Settle Enabled' : '⚡ Use Advance'}
+          </button>
+        </div>
+      </div>
+    );
+  })()}
 
- <div className="space-y-1">
- <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">Payment Method</label>
- <select
- value={paymentData.method}
- onChange={(e) => setPaymentData({ ...paymentData, method: e.target.value })}
- className="w-full px-3 py-2.5 min-h-[44px] border border-gray-200 bg-white rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-green-500 outline-none"
- >
- <option value="Bank Transfer">Bank Transfer (Main Bank Account)</option>
- <option value="Cash">Cash (Petty Cash)</option>
- <option value="Credit Card">Credit Card</option>
- <option value="Cheque">Cheque</option>
- </select>
- </div>
- </form>
+  <div className="space-y-1">
+    <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">Payment Amount (PKR) *</label>
+    <input
+      type="number"
+      step="0.01"
+      value={paymentData.amount}
+      onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value })}
+      placeholder="Enter payment amount"
+      required
+      className="w-full px-3 py-2.5 min-h-[44px] border border-gray-300 bg-white rounded-xl text-base font-bold text-gray-900 focus:ring-2 focus:ring-green-500 outline-none"
+    />
+    {selectedBillForPayment && Number(paymentData.amount) > 0 && (
+      <p className="text-[11px] text-gray-500 mt-1 font-medium">
+        {Number(paymentData.amount) < Number(selectedBillForPayment.balance_due ?? selectedBillForPayment.total_amount) ? (
+          <span className="text-amber-700 font-bold">
+            ⚠️ Partial Payment: Remaining balance will be {(Number(selectedBillForPayment.balance_due ?? selectedBillForPayment.total_amount) - Number(paymentData.amount)).toLocaleString()} PKR (Status: PARTIALLY PAID)
+          </span>
+        ) : (
+          <span className="text-emerald-700 font-bold">
+            ✓ Full Payment: Bill will be marked PAID
+          </span>
+        )}
+      </p>
+    )}
+  </div>
 
- <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
- <button
- type="button"
- onClick={() => setIsPaymentModalOpen(false)}
- className="px-4 py-2.5 min-h-[44px] border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-100 transition-colors cursor-pointer"
- >
- Cancel
- </button>
- <button
- type="submit"
- form="paymentForm"
- disabled={isSubmitting}
- className="px-5 py-2.5 min-h-[44px] bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-md shadow-green-500/20 transition-all cursor-pointer disabled:opacity-50"
- >
- {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
- Confirm Payment
- </button>
- </div>
- </div>
- </div>,
- document.body
- )}
+  <div className="space-y-1">
+    <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">Payment Date *</label>
+    <input
+      type="date"
+      value={paymentData.date}
+      onChange={(e) => setPaymentData({ ...paymentData, date: e.target.value })}
+      required
+      className="w-full px-3 py-2.5 min-h-[44px] border border-gray-200 bg-white rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-green-500 outline-none"
+    />
+  </div>
+
+  {paymentData.method !== 'advance_settlement' ? (
+    <>
+      <div className="space-y-1">
+        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">Payment Method</label>
+        <select
+          value={paymentData.method}
+          onChange={(e) => setPaymentData({ ...paymentData, method: e.target.value })}
+          className="w-full px-3 py-2.5 min-h-[44px] border border-gray-200 bg-white rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-green-500 outline-none"
+        >
+          <option value="Bank Transfer">Bank Transfer</option>
+          <option value="Cash">Cash</option>
+          <option value="Cheque">Cheque</option>
+          <option value="Credit Card">Credit Card</option>
+        </select>
+      </div>
+
+      <div className="space-y-1">
+        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">Paid From (Cash/Bank Account) *</label>
+        <select 
+          value={paymentData.payment_account_id}
+          onChange={e => setPaymentData({...paymentData, payment_account_id: e.target.value})}
+          required
+          className="w-full px-3 py-2.5 border border-gray-200 bg-white rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-green-500 outline-none"
+        >
+          <option value="">-- Select Cash/Bank Account --</option>
+          {chartOfAccounts.filter(a => a.is_cash_account === true).map(a => (
+            <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
+        </select>
+      </div>
+    </>
+  ) : (
+    <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-600 font-bold">
+      ℹ️ Settle using Supplier Advance: Cash accounts will be bypassed, and the outstanding balance will be reduced against the supplier's prepaid advance ledger.
+    </div>
+  )}
+  </form>
+
+  <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+  <button
+  type="button"
+  onClick={() => setIsPaymentModalOpen(false)}
+  className="px-4 py-2.5 min-h-[44px] border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-100 transition-colors cursor-pointer"
+  >
+  Cancel
+  </button>
+  <button
+  type="submit"
+  form="paymentForm"
+  disabled={isSubmitting}
+  className="px-5 py-2.5 min-h-[44px] bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-md shadow-green-500/20 transition-all cursor-pointer disabled:opacity-50"
+  >
+  {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+  Confirm Payment
+  </button>
+  </div>
+  </div>
+  </div>,
+  document.body
+  )}
+
 
  {/* SUPPLIER STATEMENT MODAL */}
  {mounted && selectedSupplierStatement && createPortal(

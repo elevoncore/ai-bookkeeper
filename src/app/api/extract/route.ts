@@ -3,7 +3,7 @@ import { getGeminiModel } from "@/lib/gemini";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { fetchExchangeRate } from "@/utils/currency";
-import { fetchUserSettings } from "@/utils/userSettings";
+import { fetchUserSettings, DEFAULT_USER_SETTINGS } from "@/utils/userSettings";
 
 export async function POST(request: Request) {
  try {
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
  }
 
  const body = await request.json();
- const { prompt, image: base64Image, history = [], chartOfAccounts = [] } = body;
+ const { prompt, image: base64Image, history = [], chartOfAccounts = [], settings: clientSettings } = body;
  
  // Create a string list of valid account names
  const accountNames = chartOfAccounts.map((a: any) => a.name).join(", ") || "No accounts provided";
@@ -98,8 +98,10 @@ export async function POST(request: Request) {
     ? existingProducts.map((p: any) => `- ID: ${p.id} | Name: "${p.name}" | Price: ${p.price || 0} PKR | Cost: ${p.cost || 0} PKR | Tracked: ${!!p.is_inventory_tracked}`).join("\n")
     : "No existing products in catalog.";
 
-  // Context Injection: Fetch user settings from Supabase/cache
-  const userSettings = await fetchUserSettings(user.id, supabase);
+  // Context Injection: Fetch user settings from Supabase/cache or client
+  const userSettings = clientSettings 
+    ? { ...DEFAULT_USER_SETTINGS, ...clientSettings } 
+    : await fetchUserSettings(user.id, supabase);
 
   // Build Dynamic Prompt Instructions based on user settings
   let ambiguityRuleInstruction = '';
@@ -325,38 +327,36 @@ export async function POST(request: Request) {
       }
     } else if (userSettings.ai_ambiguity_strictness === 'permissive') {
       // In Permissive mode, automatically bypass ambiguity trap and complete transaction
-      if (mentionsAmbiguousItem && isPurchase && !hasExplicitContext) {
-        structuredData.is_complete = true;
-        structuredData.clarification_question = null;
-        
-        // Ensure total_amount and line_items are populated
-        if (!structuredData.total_amount) {
-          const matchAmount = prompt.match(/\b\d+([,.]\d+)?\b/);
-          if (matchAmount) {
-            structuredData.total_amount = parseFloat(matchAmount[0].replace(/,/g, ''));
-          }
+      structuredData.is_complete = true;
+      structuredData.clarification_question = null;
+      
+      // Ensure total_amount and line_items are populated
+      if (!structuredData.total_amount) {
+        const matchAmount = prompt.match(/\b\d+([,.]\d+)?\b/);
+        if (matchAmount) {
+          structuredData.total_amount = parseFloat(matchAmount[0].replace(/,/g, ''));
         }
-        
-        if (!structuredData.line_items || !Array.isArray(structuredData.line_items) || structuredData.line_items.length === 0) {
-          const matchedItem = ambiguousKeywords.find(k => lowerPrompt.includes(k)) || 'Asset/Supply';
-          const itemName = matchedItem.charAt(0).toUpperCase() + matchedItem.slice(1);
-          const amt = structuredData.total_amount || 0;
-          structuredData.line_items = [{
-            description: `${itemName} purchase`,
-            quantity: 1,
-            unit_price: amt,
-            total: amt,
-            account_name: 'General Operating Expense',
-            product_id: null,
-            product_name: itemName,
-            is_inventory_tracked: false,
-            is_debit: true
-          }];
-        }
-        
-        if (!structuredData.conversational_response || structuredData.conversational_response.includes('Did you buy') || structuredData.conversational_response.includes('acquire this')) {
-          structuredData.conversational_response = `I have staged your purchase of ${structuredData.total_amount || ''} ${defaultCurrency} under General Operating Expense (Permissive AI Strictness).`;
-        }
+      }
+      
+      if (!structuredData.line_items || !Array.isArray(structuredData.line_items) || structuredData.line_items.length === 0) {
+        const matchedItem = ambiguousKeywords.find(k => lowerPrompt.includes(k)) || 'Asset/Supply';
+        const itemName = matchedItem.charAt(0).toUpperCase() + matchedItem.slice(1);
+        const amt = structuredData.total_amount || 0;
+        structuredData.line_items = [{
+          description: `${itemName} purchase`,
+          quantity: 1,
+          unit_price: amt,
+          total: amt,
+          account_name: 'General Operating Expense',
+          product_id: null,
+          product_name: itemName,
+          is_inventory_tracked: false,
+          is_debit: true
+        }];
+      }
+      
+      if (!structuredData.conversational_response || structuredData.conversational_response.includes('Did you buy') || structuredData.conversational_response.includes('acquire this') || structuredData.conversational_response.includes('Could you clarify')) {
+        structuredData.conversational_response = `I have staged your purchase of ${structuredData.total_amount || ''} ${defaultCurrency} under General Operating Expense (Permissive AI Strictness).`;
       }
     }
 
@@ -395,167 +395,213 @@ export async function POST(request: Request) {
         structuredData.is_complete = false;
         structuredData.clarification_question = structuredData.clarification_question || "I couldn't detect the total amount or the individual items. Could you provide those details?";
       }
-    } else if (structuredData.is_complete !== false) {
- // Real-Time Multi-Currency Conversion Engine
- const currencyCode = (structuredData.currency_code || 'PKR').toUpperCase();
- const rate = await fetchExchangeRate(currencyCode, 'PKR');
+    }
+  }
 
- structuredData.currency_code = currencyCode;
- structuredData.exchange_rate = rate;
- structuredData.original_amount = structuredData.total_amount;
+  if (structuredData.intent === 'LOG_JOURNAL_ENTRY' && structuredData.is_complete === true) {
+    if (!structuredData.line_items || !Array.isArray(structuredData.line_items) || structuredData.line_items.length === 0) {
+      // Fallback synthesis for immediate resale or transfers if model omitted line_items
+      const buyMatch = lowerPrompt.match(/(?:bought|purchased|acquired|paid)\s+(?:a|an|the)?\s*([a-zA-Z0-9\s]+?)\s+(?:for|at)\s+(\d+(?:,\d+)*(?:\.\d+)?k?)/i);
+      const sellMatch = lowerPrompt.match(/(?:sold|selling)\s+(?:it\s+)?(?:for|at|to\s+[^0-9]+for|\s+for)\s+(\d+(?:,\d+)*(?:\.\d+)?k?)/i);
 
- // Convert total_amount to Base Currency (PKR) for ledger stability
- const baseTotalAmount = Math.round((structuredData.total_amount * rate) * 100) / 100;
- structuredData.total_amount = baseTotalAmount;
+      if (buyMatch && sellMatch) {
+        const parseAmt = (s: string) => {
+          let cleanStr = s.toLowerCase().replace(/,/g, '');
+          if (cleanStr.endsWith('k')) {
+            return parseFloat(cleanStr.slice(0, -1)) * 1000;
+          }
+          return parseFloat(cleanStr);
+        };
+        const costAmt = parseAmt(buyMatch[2]);
+        const saleAmt = parseAmt(sellMatch[1]);
+        const itemName = buyMatch[1].trim() || 'Item';
 
- // Convert line items to Base Currency (PKR)
- if (Array.isArray(structuredData.line_items)) {
- structuredData.line_items = structuredData.line_items.map((item: any) => ({
- ...item,
- original_unit_price: item.unit_price,
- original_total: item.total,
- unit_price: Math.round(((item.unit_price || 0) * rate) * 100) / 100,
- total: Math.round(((item.total || 0) * rate) * 100) / 100,
- currency_code: currencyCode,
- exchange_rate: rate
- }));
- }
+        structuredData.line_items = [
+          { description: `Walk-in Cash Sale Proceeds (${itemName})`, account_name: 'Petty Cash', quantity: 1, unit_price: saleAmt, total: saleAmt, is_debit: true, is_inventory_tracked: false },
+          { description: `Sales Revenue (${itemName})`, account_name: 'Sales Revenue', quantity: 1, unit_price: saleAmt, total: saleAmt, is_debit: false, is_inventory_tracked: false },
+          { description: `Cost of Goods Sold (${itemName})`, account_name: 'Cost of Goods Sold', quantity: 1, unit_price: costAmt, total: costAmt, is_debit: true, is_inventory_tracked: false },
+          { description: `Cash Paid for Acquisition (${itemName})`, account_name: 'Petty Cash', quantity: 1, unit_price: costAmt, total: costAmt, is_debit: false, is_inventory_tracked: false }
+        ];
+        structuredData.total_amount = saleAmt;
+      }
+    }
+  }
 
- if (currencyCode !== 'PKR') {
- structuredData.conversational_response = `Converted ${structuredData.original_amount} ${currencyCode} to base currency: ${baseTotalAmount} PKR (Exchange Rate: ${rate} PKR/${currencyCode}).`;
- }
- }
- }
+  // Real-Time Multi-Currency Conversion Engine (Applies across all financial intents)
+  const detectedCurrency = (structuredData.currency_code || (lowerPrompt.includes('$') || lowerPrompt.includes('usd') ? 'USD' : (lowerPrompt.includes('€') || lowerPrompt.includes('eur') ? 'EUR' : (lowerPrompt.includes('£') || lowerPrompt.includes('gbp') ? 'GBP' : 'PKR')))).toUpperCase();
 
- if (structuredData.intent === 'QUERY_FINANCES') {
- const target = structuredData.query_parameters?.target || 'all';
- let context = "Real Database Balances:\n";
- let totalRevenue = 0;
- let totalExpenses = 0;
+  if (detectedCurrency !== 'PKR' && structuredData.total_amount) {
+    const rate = await fetchExchangeRate(detectedCurrency, 'PKR');
+    structuredData.currency_code = detectedCurrency;
+    structuredData.exchange_rate = rate;
+    structuredData.original_amount = structuredData.total_amount;
 
- if (target === 'revenue' || target === 'all') {
- const { data: invoices } = await supabase.from('invoices').select('total_amount').eq('user_id', user.id).neq('status', 'draft');
- totalRevenue = invoices?.reduce((acc, inv) => acc + Number(inv.total_amount), 0) || 0;
- context += `- Total Revenue: ${totalRevenue} PKR\n`;
- }
+    const baseTotalAmount = Math.round((structuredData.total_amount * rate) * 100) / 100;
+    structuredData.total_amount = baseTotalAmount;
 
- if (target === 'expenses' || target === 'all') {
- const { data: bills } = await supabase.from('bills').select('total_amount').eq('user_id', user.id).neq('status', 'draft');
- totalExpenses = bills?.reduce((acc, bill) => acc + Number(bill.total_amount), 0) || 0;
- context += `- Total Expenses: ${totalExpenses} PKR\n`;
- }
+    if (Array.isArray(structuredData.line_items)) {
+      structuredData.line_items = structuredData.line_items.map((item: any) => ({
+        ...item,
+        original_unit_price: item.unit_price,
+        original_total: item.total,
+        unit_price: Math.round(((item.unit_price || 0) * rate) * 100) / 100,
+        total: Math.round(((item.total || 0) * rate) * 100) / 100,
+        currency_code: detectedCurrency,
+        exchange_rate: rate
+      }));
+    }
 
- const secondPassContents = [
- ...finalContents,
- { role: 'model', parts: [{ text: cleanedText }] },
- { role: 'user', parts: [{ text: `Do not hallucinate. Using this real database data, answer the user's query accurately in the conversational_response field:\n${context}` }] }
- ];
+    structuredData.conversational_response = `Converted ${structuredData.original_amount} ${detectedCurrency} to base currency: ${baseTotalAmount} PKR (Exchange Rate: ${rate} PKR/${detectedCurrency}).`;
+  }
 
- const result2 = await model.generateContent({ contents: secondPassContents });
- const cleanedText2 = result2.response.text().replace(/```json\n?|```/g, '').trim();
- structuredData = JSON.parse(cleanedText2);
- }
+  if (structuredData.intent === 'QUERY_FINANCES') {
+    const target = structuredData.query_parameters?.target || 'all';
+    let context = "Real Database Balances:\n";
+    let totalRevenue = 0;
+    let totalExpenses = 0;
 
- if (structuredData.intent === 'QUERY_REPORT') {
- let context = "Profit and Loss Summary (Real Ledger Data):\n";
- const { data: accounts } = await supabase.from('accounts').select('id, name, type').eq('user_id', user.id);
- const { data: journalLines } = await supabase.from('journal_lines').select('account_id, debit, credit, journal_entries!inner(user_id)').eq('journal_entries.user_id', user.id);
- 
- let revenue = 0;
- let cogs = 0;
- let opex = 0;
+    if (target === 'revenue' || target === 'all') {
+      const { data: invoices } = await supabase.from('invoices').select('total_amount').eq('user_id', user.id).neq('status', 'draft');
+      totalRevenue = invoices?.reduce((acc, inv) => acc + Number(inv.total_amount), 0) || 0;
+      context += `- Total Revenue: ${totalRevenue} PKR\n`;
+    }
 
- if (accounts && journalLines) {
- const balances = new Map<string, number>();
- for (const l of journalLines) {
- const d = Math.round(Number(l.debit || 0) * 100);
- const c = Math.round(Number(l.credit || 0) * 100);
- balances.set(l.account_id, (balances.get(l.account_id) || 0) + (d - c));
- }
- 
- for (const acc of accounts) {
- const bal = balances.get(acc.id) || 0;
- if (acc.type === 'revenue') {
- revenue += (-bal); // Credit normal
- } else if (acc.type === 'expense') {
- if (acc.name === 'Cost of Goods Sold') {
- cogs += bal; // Debit normal
- } else {
- opex += bal;
- }
- }
- }
- }
- 
- const gp = revenue - cogs;
- const np = gp - opex;
+    if (target === 'expenses' || target === 'all') {
+      const { data: bills } = await supabase.from('bills').select('total_amount').eq('user_id', user.id).neq('status', 'draft');
+      totalExpenses = bills?.reduce((acc, bill) => acc + Number(bill.total_amount), 0) || 0;
+      context += `- Total Expenses: ${totalExpenses} PKR\n`;
+    }
 
- context += `- Total Revenue: ${revenue / 100} PKR\n`;
- context += `- Cost of Goods Sold: ${cogs / 100} PKR\n`;
- context += `- Gross Profit: ${gp / 100} PKR\n`;
- context += `- Operating Expenses: ${opex / 100} PKR\n`;
- context += `- Net Profit: ${np / 100} PKR\n`;
+    const secondPassContents = [
+      ...finalContents,
+      { role: 'model', parts: [{ text: cleanedText }] },
+      { role: 'user', parts: [{ text: `Do not hallucinate. Using this real database data, answer the user's query accurately in the conversational_response field:\n${context}` }] }
+    ];
 
- const secondPassContents = [
- ...finalContents,
- { role: 'model', parts: [{ text: cleanedText }] },
- { role: 'user', parts: [{ text: `Do not hallucinate. Using this real P&L database data, answer the user's report query accurately in the conversational_response field:\n${context}` }] }
- ];
+    try {
+      const result2 = await model.generateContent({ contents: secondPassContents });
+      const cleanedText2 = result2.response.text().replace(/```json\n?|```/g, '').trim();
+      const parsed2 = JSON.parse(cleanedText2);
+      structuredData = { ...structuredData, ...parsed2, intent: 'QUERY_FINANCES', is_complete: true };
+    } catch {
+      structuredData.intent = 'QUERY_FINANCES';
+      structuredData.is_complete = true;
+    }
+  }
 
- const result2 = await model.generateContent({ contents: secondPassContents });
- const cleanedText2 = result2.response.text().replace(/```json\n?|```/g, '').trim();
- structuredData = JSON.parse(cleanedText2);
- }
+  if (structuredData.intent === 'QUERY_REPORT') {
+    let context = "Profit and Loss Summary (Real Ledger Data):\n";
+    const { data: accounts } = await supabase.from('accounts').select('id, name, type').eq('user_id', user.id);
+    const { data: journalLines } = await supabase.from('journal_lines').select('account_id, debit, credit, journal_entries!inner(user_id)').eq('journal_entries.user_id', user.id);
+    
+    let revenue = 0;
+    let cogs = 0;
+    let opex = 0;
 
- if (structuredData.intent === 'QUERY_DEBT') {
- let context = "Real Database Outstanding Debt:\n";
- 
- const { data: unpaidInvoices } = await supabase.from('invoices')
- .select('balance_due, customers(name)')
- .eq('user_id', user.id)
- .gt('balance_due', 0);
- 
- let arTotal = 0;
- if (unpaidInvoices && unpaidInvoices.length > 0) {
- context += "Money owed TO you (Accounts Receivable):\n";
- unpaidInvoices.forEach(inv => {
- const custName = Array.isArray(inv.customers) ? inv.customers[0]?.name : (inv.customers as any)?.name;
- context += `- ${custName || 'Unknown'}: ${inv.balance_due} PKR\n`;
- arTotal += Number(inv.balance_due);
- });
- context += `Total A/R: ${arTotal} PKR\n\n`;
- } else {
- context += "Money owed TO you (Accounts Receivable): None\n\n";
- }
+    if (accounts && journalLines) {
+      const balances = new Map<string, number>();
+      for (const l of journalLines) {
+        const d = Math.round(Number(l.debit || 0) * 100);
+        const c = Math.round(Number(l.credit || 0) * 100);
+        balances.set(l.account_id, (balances.get(l.account_id) || 0) + (d - c));
+      }
+      
+      for (const acc of accounts) {
+        const bal = balances.get(acc.id) || 0;
+        if (acc.type === 'revenue') {
+          revenue += (-bal); // Credit normal
+        } else if (acc.type === 'expense') {
+          if (acc.name === 'Cost of Goods Sold') {
+            cogs += bal; // Debit normal
+          } else {
+            opex += bal;
+          }
+        }
+      }
+    }
+    
+    const gp = revenue - cogs;
+    const np = gp - opex;
 
- const { data: unpaidBills } = await supabase.from('bills')
- .select('balance_due, suppliers(name)')
- .eq('user_id', user.id)
- .gt('balance_due', 0);
+    context += `- Total Revenue: ${revenue / 100} PKR\n`;
+    context += `- Cost of Goods Sold: ${cogs / 100} PKR\n`;
+    context += `- Gross Profit: ${gp / 100} PKR\n`;
+    context += `- Operating Expenses: ${opex / 100} PKR\n`;
+    context += `- Net Profit: ${np / 100} PKR\n`;
 
- let apTotal = 0;
- if (unpaidBills && unpaidBills.length > 0) {
- context += "Money YOU owe (Accounts Payable):\n";
- unpaidBills.forEach(bill => {
- const suppName = Array.isArray(bill.suppliers) ? bill.suppliers[0]?.name : (bill.suppliers as any)?.name;
- context += `- ${suppName || 'Unknown'}: ${bill.balance_due} PKR\n`;
- apTotal += Number(bill.balance_due);
- });
- context += `Total A/P: ${apTotal} PKR\n`;
- } else {
- context += "Money YOU owe (Accounts Payable): None\n";
- }
+    const secondPassContents = [
+      ...finalContents,
+      { role: 'model', parts: [{ text: cleanedText }] },
+      { role: 'user', parts: [{ text: `Do not hallucinate. Using this real P&L database data, answer the user's report query accurately in the conversational_response field:\n${context}` }] }
+    ];
 
- const secondPassContents = [
- ...finalContents,
- { role: 'model', parts: [{ text: cleanedText }] },
- { role: 'user', parts: [{ text: `Do not hallucinate. Using this real database data, answer the user's debt query accurately in the conversational_response field:\n${context}` }] }
- ];
+    try {
+      const result2 = await model.generateContent({ contents: secondPassContents });
+      const cleanedText2 = result2.response.text().replace(/```json\n?|```/g, '').trim();
+      const parsed2 = JSON.parse(cleanedText2);
+      structuredData = { ...structuredData, ...parsed2, intent: 'QUERY_REPORT', is_complete: true };
+    } catch {
+      structuredData.intent = 'QUERY_REPORT';
+      structuredData.is_complete = true;
+      structuredData.conversational_response = `Based on your current ledger data, your Total Revenue is ${revenue / 100} PKR, Cost of Goods Sold is ${cogs / 100} PKR, Gross Profit is ${gp / 100} PKR, Operating Expenses are ${opex / 100} PKR, and Net Profit is ${np / 100} PKR.`;
+    }
+  }
 
- const result2 = await model.generateContent({ contents: secondPassContents });
- const cleanedText2 = result2.response.text().replace(/```json\n?|```/g, '').trim();
- structuredData = JSON.parse(cleanedText2);
- }
+  if (structuredData.intent === 'QUERY_DEBT') {
+    let context = "Real Database Outstanding Debt:\n";
+    
+    const { data: unpaidInvoices } = await supabase.from('invoices')
+      .select('balance_due, customers(name)')
+      .eq('user_id', user.id)
+      .gt('balance_due', 0);
+    
+    let arTotal = 0;
+    if (unpaidInvoices && unpaidInvoices.length > 0) {
+      context += "Money owed TO you (Accounts Receivable):\n";
+      unpaidInvoices.forEach(inv => {
+        const custName = Array.isArray(inv.customers) ? inv.customers[0]?.name : (inv.customers as any)?.name;
+        context += `- ${custName || 'Unknown'}: ${inv.balance_due} PKR\n`;
+        arTotal += Number(inv.balance_due);
+      });
+      context += `Total A/R: ${arTotal} PKR\n\n`;
+    } else {
+      context += "Money owed TO you (Accounts Receivable): None\n\n";
+    }
+
+    const { data: unpaidBills } = await supabase.from('bills')
+      .select('balance_due, suppliers(name)')
+      .eq('user_id', user.id)
+      .gt('balance_due', 0);
+
+    let apTotal = 0;
+    if (unpaidBills && unpaidBills.length > 0) {
+      context += "Money YOU owe (Accounts Payable):\n";
+      unpaidBills.forEach(bill => {
+        const suppName = Array.isArray(bill.suppliers) ? bill.suppliers[0]?.name : (bill.suppliers as any)?.name;
+        context += `- ${suppName || 'Unknown'}: ${bill.balance_due} PKR\n`;
+        apTotal += Number(bill.balance_due);
+      });
+      context += `Total A/P: ${apTotal} PKR\n`;
+    } else {
+      context += "Money YOU owe (Accounts Payable): None\n";
+    }
+
+    const secondPassContents = [
+      ...finalContents,
+      { role: 'model', parts: [{ text: cleanedText }] },
+      { role: 'user', parts: [{ text: `Do not hallucinate. Using this real database data, answer the user's debt query accurately in the conversational_response field:\n${context}` }] }
+    ];
+
+    try {
+      const result2 = await model.generateContent({ contents: secondPassContents });
+      const cleanedText2 = result2.response.text().replace(/```json\n?|```/g, '').trim();
+      const parsed2 = JSON.parse(cleanedText2);
+      structuredData = { ...structuredData, ...parsed2, intent: 'QUERY_DEBT', is_complete: true };
+    } catch {
+      structuredData.intent = 'QUERY_DEBT';
+      structuredData.is_complete = true;
+    }
+  }
 
  if (structuredData.intent === 'LOG_PAYMENT_MADE' && structuredData.is_complete) {
  if (structuredData.supplier_name && structuredData.total_amount) {

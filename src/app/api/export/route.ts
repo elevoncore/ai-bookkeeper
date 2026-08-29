@@ -627,7 +627,7 @@ export async function POST(request: Request) {
 
       const assetAccs = accounts.filter(a => (a.type || '').toLowerCase() === 'asset');
       const liabAccs = accounts.filter(a => (a.type || '').toLowerCase() === 'liability');
-      const equityAccs = accounts.filter(a => (a.type || '').toLowerCase() === 'equity');
+      const equityAccs = accounts.filter(a => (a.type || '').toLowerCase() === 'equity' && !a.name.toLowerCase().includes('retained earnings'));
 
       const totalAssets = assetAccs.reduce((s, a) => s + getAccountBalance(a, false), 0);
       const totalLiab = liabAccs.reduce((s, a) => s + getAccountBalance(a, false), 0);

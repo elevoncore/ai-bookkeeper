@@ -46,6 +46,9 @@ export default function RootLayout({
  {children}
  <Toaster 
  position="bottom-right" 
+ containerStyle={{
+   zIndex: 99999,
+ }}
  toastOptions={{
  className: 'bg-white text-slate-900 border border-slate-200 shadow-xl rounded-2xl text-xs font-bold',
  duration: 4000,

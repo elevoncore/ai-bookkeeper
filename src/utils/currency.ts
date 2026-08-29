@@ -1,12 +1,8 @@
 export function parseToCents(amount: string | number): number {
- if (typeof amount === 'number') {
- amount = amount.toString();
- }
- const clean = amount.replace(/[^\d.-]/g, '');
- const [dollars, cents = '00'] = clean.split('.');
- const paddedCents = (cents + '00').slice(0, 2);
- const totalCents = parseInt(dollars || '0', 10) * 100 + parseInt(paddedCents, 10);
- return amount.startsWith('-') && totalCents > 0 ? -totalCents : totalCents;
+  if (amount === null || amount === undefined || amount === '') return 0;
+  const num = typeof amount === 'number' ? amount : parseFloat(String(amount).replace(/[^\d.-]/g, ''));
+  if (isNaN(num)) return 0;
+  return Math.round((num + Number.EPSILON) * 100);
 }
 
 export function formatFromCents(cents: number): string {

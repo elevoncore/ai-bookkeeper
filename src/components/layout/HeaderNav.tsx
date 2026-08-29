@@ -18,7 +18,8 @@ import {
   CheckCircle2,
   Menu,
   X,
-  ArrowRight
+  ArrowRight,
+  Landmark
 } from 'lucide-react';
 
 export interface NotificationItem {
@@ -319,6 +320,14 @@ export default function HeaderNav({
                       className="w-full text-left px-4 py-2.5 min-h-[44px] text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
                     >
                       <Settings className="w-4 h-4 text-slate-400" /> App Settings
+                    </Link>
+                    <Link
+                      href="/dashboard/debt"
+                      role="menuitem"
+                      onClick={() => setShowUserDropdown(false)}
+                      className="w-full text-left px-4 py-2.5 min-h-[44px] text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Landmark className="w-4 h-4 text-slate-400" /> Debt & Loans Hub
                     </Link>
                   </div>
 
