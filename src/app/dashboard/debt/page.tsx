@@ -31,6 +31,7 @@ interface AccountRow {
   is_cash_account: boolean;
   balance: number;
   interestPaid?: number;
+  parent_id?: string | null;
 }
 
 function DebtContent() {
@@ -159,7 +160,8 @@ function DebtContent() {
           is_system: !!a.is_system,
           is_cash_account: !!a.is_cash_account,
           balance: bal,
-          interestPaid: interestPaidMap[a.id] || 0
+          interestPaid: interestPaidMap[a.id] || 0,
+          parent_id: a.parent_id
         };
       });
 
@@ -177,17 +179,29 @@ function DebtContent() {
     }
   }
 
-  // Helper properties
-  const loanAccounts = accounts.filter(a => a.type === 'liability' && (a.name.toLowerCase().includes('loan') || a.code?.startsWith('25')));
-  const cashAccounts = accounts.filter(a => 
-    a.is_cash_account || 
-    ((a.name.toLowerCase().includes('bank') || a.name.toLowerCase().includes('cash')) && 
-     !a.name.toLowerCase().includes('receivable') && 
-     !a.name.toLowerCase().includes('payable') && 
-     !a.name.toLowerCase().includes('advance') && 
-     !a.name.toLowerCase().includes('inventory') && 
-     !a.name.toLowerCase().includes('fixed'))
+    // Helper properties
+  const stParent = accounts.find(a => a.type === 'liability' && a.name === 'Loan Payable');
+  const ltParent = accounts.find(a => a.type === 'liability' && a.name === 'Long-Term Loan Payable');
+
+  const loanAccounts = accounts.filter(a => 
+    a.type === 'liability' && 
+    !a.is_system && 
+    (a.parent_id === stParent?.id || a.parent_id === ltParent?.id || a.name.toLowerCase().includes('loan') || a.code?.startsWith('25'))
   );
+
+  const shortTermLoans = accounts.filter(a => 
+    a.type === 'liability' && 
+    !a.is_system && 
+    (a.parent_id === stParent?.id || (!a.parent_id && !a.name.toLowerCase().includes('long-term')))
+  );
+
+  const longTermLoans = accounts.filter(a => 
+    a.type === 'liability' && 
+    !a.is_system && 
+    (a.parent_id === ltParent?.id || (!a.parent_id && a.name.toLowerCase().includes('long-term')))
+  );
+
+  const cashAccounts = accounts.filter(a => a.is_cash_account === true);
 
   const totalPrincipalOutstanding = loanAccounts.reduce((sum, a) => sum + Math.max(0, a.balance), 0);
 
@@ -197,6 +211,37 @@ function DebtContent() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
+      const isShortTerm = window.confirm(`Is "${name}" a Short-Term loan (< 12 months)?\n\nClick "OK" for Short-Term, or "Cancel" for Long-Term.`);
+      const timeHorizon = isShortTerm ? 'short' : 'long';
+      
+      const parentName = isShortTerm ? 'Loan Payable' : 'Long-Term Loan Payable';
+      
+      // Find or create parent account ID
+      let parentId;
+      const { data: parentAcc } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('name', parentName)
+        .eq('type', 'liability')
+        .limit(1);
+
+      if (parentAcc && parentAcc.length > 0) {
+        parentId = parentAcc[0].id;
+      } else {
+        const { data: newParent } = await supabase
+          .from('accounts')
+          .insert({
+            user_id: user.id,
+            name: parentName,
+            type: 'liability',
+            is_system: true
+          })
+          .select('id')
+          .single();
+        parentId = newParent?.id;
+      }
+
       const { data, error } = await supabase
         .from('accounts')
         .insert({
@@ -204,7 +249,8 @@ function DebtContent() {
           name,
           type: 'liability',
           is_system: false,
-          is_cash_account: false
+          is_cash_account: false,
+          parent_id: parentId
         })
         .select('*')
         .single();
@@ -215,14 +261,16 @@ function DebtContent() {
       }
 
       toast.success(`Loan Account "${name}" created successfully!`);
-      const newAcc: AccountRow = {
+      const newAcc = {
         id: data.id,
         name: data.name,
         code: data.code || '',
         type: data.type,
         is_system: !!data.is_system,
         is_cash_account: !!data.is_cash_account,
-        balance: 0
+        balance: 0,
+        parent_id: data.parent_id,
+        interestPaid: 0
       };
       setAccounts(prev => [...prev, newAcc]);
       return newAcc;
@@ -247,21 +295,23 @@ function DebtContent() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const lines: JournalLineItem[] = [
-        { account_id: recBankId, debit: amt, credit: 0 },
-        { account_id: recLoanId, debit: 0, credit: amt }
-      ];
+      const selectedLoan = loanAccounts.find(la => la.id === recLoanId);
+      if (!selectedLoan) throw new Error("Selected loan account not found.");
 
-      const { success, error } = await createJournalEntryAtomic(supabase, {
-        user_id: user.id,
-        date: new Date().toISOString().split('T')[0],
-        description: recDesc,
-        reference_type: 'LOAN_INFLOW',
-        lines,
-        created_by_source: 'MANUAL'
+      const isLongTerm = selectedLoan.parent_id === ltParent?.id || selectedLoan.name.toLowerCase().includes('long-term');
+      const timeHorizon = isLongTerm ? 'long' : 'short';
+
+      const { error } = await supabase.rpc('receive_loan_atomic', {
+        p_user_id: user.id,
+        p_lender_name: selectedLoan.name,
+        p_time_horizon: timeHorizon,
+        p_bank_account_id: recBankId,
+        p_amount: amt,
+        p_date: new Date().toISOString().split('T')[0],
+        p_description: recDesc
       });
 
-      if (!success || error) throw new Error(error || "Failed to post entry");
+      if (error) throw error;
 
       toast.success(`Successfully received Loan of ${amt.toLocaleString()} PKR!`, { id: toastId });
       setIsReceiveOpen(false);
@@ -285,47 +335,23 @@ function DebtContent() {
     const interestVal = parseFloat(repayInterest) || 0;
     if (isNaN(totalVal) || totalVal <= 0) return toast.error("Please enter a valid repayment total.");
 
-    const principal = Math.max(0, totalVal - interestVal);
-
     setIsRepaySubmitting(true);
     const toastId = toast.loading("Recording loan payment split...");
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Find Interest Expense account or create one
-      let interestAcc = accounts.find(a => a.type === 'expense' && a.name.toLowerCase().includes('interest'));
-      if (interestVal > 0 && !interestAcc) {
-        // inline create Interest Expense
-        const { data: newAcc } = await supabase.from('accounts').insert({
-          user_id: user.id,
-          name: 'Interest Expense',
-          type: 'expense',
-          is_system: true,
-          is_cash_account: false
-        }).select().single();
-        interestAcc = newAcc;
-      }
-
-      const lines: JournalLineItem[] = [];
-      if (principal > 0) {
-        lines.push({ account_id: repayLoanId, debit: principal, credit: 0 });
-      }
-      if (interestVal > 0 && interestAcc) {
-        lines.push({ account_id: interestAcc.id, debit: interestVal, credit: 0 });
-      }
-      lines.push({ account_id: repayBankId, debit: 0, credit: totalVal });
-
-      const { success, error } = await createJournalEntryAtomic(supabase, {
-        user_id: user.id,
-        date: new Date().toISOString().split('T')[0],
-        description: repayDesc,
-        reference_type: 'LOAN_REPAYMENT',
-        lines,
-        created_by_source: 'MANUAL'
+      const { error } = await supabase.rpc('repay_loan_atomic', {
+        p_user_id: user.id,
+        p_lender_account_id: repayLoanId,
+        p_bank_account_id: repayBankId,
+        p_total_payment: totalVal,
+        p_interest_amount: interestVal,
+        p_date: new Date().toISOString().split('T')[0],
+        p_description: repayDesc
       });
 
-      if (!success || error) throw new Error(error || "Failed to post repayment");
+      if (error) throw error;
 
       toast.success("Loan repayment recorded successfully!", { id: toastId });
       setIsRepayOpen(false);
@@ -437,10 +463,10 @@ function DebtContent() {
           </div>
         </div>
 
-        {/* Table of active loans */}
+                {/* Short-Term Debt Table */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-5 border-b border-slate-100 bg-slate-50/50">
-            <h3 className="font-bold text-slate-800 text-sm">Loan Liability Accounts</h3>
+            <h3 className="font-bold text-slate-800 text-sm">Short-Term Debt (&lt; 12 Months)</h3>
           </div>
           {isLoading ? (
             <div className="p-10 flex items-center justify-center">
@@ -451,20 +477,20 @@ function DebtContent() {
               <table className="w-full text-left text-xs sm:text-sm">
                 <thead>
                   <tr className="bg-slate-100/50 text-slate-500 uppercase text-[10px] tracking-wider border-b border-slate-100">
-                    <th className="px-6 py-3">Lender / Account Name</th>
+                    <th className="px-6 py-3">Lender Name</th>
                     <th className="px-6 py-3">Outstanding Principal</th>
                     <th className="px-6 py-3 text-right">Total Interest Paid</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {loanAccounts.length === 0 ? (
+                  {shortTermLoans.length === 0 ? (
                     <tr>
                       <td colSpan={3} className="px-6 py-8 text-center text-slate-400">
-                        No active loans or lenders configured.
+                        No active short-term loans.
                       </td>
                     </tr>
                   ) : (
-                    loanAccounts.map(a => (
+                    shortTermLoans.map(a => (
                       <tr key={a.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-3.5 font-bold text-slate-900">{a.name}</td>
                         <td className="px-6 py-3.5 font-black text-rose-700">
@@ -481,6 +507,52 @@ function DebtContent() {
             </div>
           )}
         </div>
+
+        {/* Long-Term Debt Table */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="font-bold text-slate-800 text-sm">Long-Term Debt (&gt; 12 Months)</h3>
+          </div>
+          {isLoading ? (
+            <div className="p-10 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs sm:text-sm">
+                <thead>
+                  <tr className="bg-slate-100/50 text-slate-500 uppercase text-[10px] tracking-wider border-b border-slate-100">
+                    <th className="px-6 py-3">Lender Name</th>
+                    <th className="px-6 py-3">Outstanding Principal</th>
+                    <th className="px-6 py-3 text-right">Total Interest Paid</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {longTermLoans.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="px-6 py-8 text-center text-slate-400">
+                        No active long-term loans.
+                      </td>
+                    </tr>
+                  ) : (
+                    longTermLoans.map(a => (
+                      <tr key={a.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-3.5 font-bold text-slate-900">{a.name}</td>
+                        <td className="px-6 py-3.5 font-black text-rose-700">
+                          {Math.max(0, a.balance).toLocaleString()} PKR
+                        </td>
+                        <td className="px-6 py-3.5 text-right font-black text-amber-700">
+                          {(a.interestPaid || 0).toLocaleString()} PKR
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
 
       </div>
 
@@ -587,7 +659,7 @@ function DebtContent() {
                   className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-950 min-h-[44px] bg-slate-50 focus:outline-none"
                   required
                 >
-                  <option value="">-- Select Cash/Bank --</option>
+                  <option value="">Select Bank/Cash account...</option>
                   {cashAccounts.map(a => (
                     <option key={a.id} value={a.id}>{a.name}</option>
                   ))}
