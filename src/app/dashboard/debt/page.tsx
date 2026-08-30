@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
@@ -36,6 +37,8 @@ interface AccountRow {
 
 function DebtContent() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -179,15 +182,11 @@ function DebtContent() {
     }
   }
 
-    // Helper properties
+      // Helper properties
   const stParent = accounts.find(a => a.type === 'liability' && a.name === 'Loan Payable');
   const ltParent = accounts.find(a => a.type === 'liability' && a.name === 'Long-Term Loan Payable');
 
-  const loanAccounts = accounts.filter(a => 
-    a.type === 'liability' && 
-    !a.is_system && 
-    (a.parent_id === stParent?.id || a.parent_id === ltParent?.id || a.name.toLowerCase().includes('loan') || a.code?.startsWith('25'))
-  );
+  const loanAccounts = accounts.filter(a => a.type === 'liability' && a.is_system === false);
 
   const shortTermLoans = accounts.filter(a => 
     a.type === 'liability' && 
@@ -204,6 +203,40 @@ function DebtContent() {
   const cashAccounts = accounts.filter(a => a.is_cash_account === true);
 
   const totalPrincipalOutstanding = loanAccounts.reduce((sum, a) => sum + Math.max(0, a.balance), 0);
+
+  // T-Account drill-down states
+  const [selectedTAccount, setSelectedTAccount] = useState<AccountRow | null>(null);
+  const [tAccountLines, setTAccountLines] = useState<any[]>([]);
+  const [isTAccountLoading, setIsTAccountLoading] = useState(false);
+
+  const typeBadges: Record<string, string> = { 
+    asset: 'bg-emerald-50 text-emerald-700 border-emerald-200', 
+    liability: 'bg-rose-50 text-rose-700 border-rose-200', 
+    equity: 'bg-blue-50 text-blue-700 border-blue-200', 
+    revenue: 'bg-indigo-50 text-indigo-700 border-indigo-200', 
+    expense: 'bg-amber-50 text-amber-700 border-amber-200' 
+  };
+
+  async function handleOpenTAccount(acc: AccountRow) {
+    setSelectedTAccount(acc);
+    setIsTAccountLoading(true);
+    try {
+      const { data: lines, error } = await supabase
+        .from('journal_lines')
+        .select('*, journal_entries(date, description, reference_type)')
+        .eq('account_id', acc.id);
+
+      if (error) {
+        console.error("Error fetching T-Account lines:", error);
+      } else {
+        setTAccountLines(lines || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch T-Account lines:", err);
+    } finally {
+      setIsTAccountLoading(false);
+    }
+  }
 
   // Handle new loan account creation inline
   async function handleCreateLoanAccount(name: string) {
@@ -463,7 +496,7 @@ function DebtContent() {
           </div>
         </div>
 
-                {/* Short-Term Debt Table */}
+                        {/* Short-Term Debt Table */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-5 border-b border-slate-100 bg-slate-50/50">
             <h3 className="font-bold text-slate-800 text-sm">Short-Term Debt (&lt; 12 Months)</h3>
@@ -492,7 +525,14 @@ function DebtContent() {
                   ) : (
                     shortTermLoans.map(a => (
                       <tr key={a.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-3.5 font-bold text-slate-900">{a.name}</td>
+                        <td className="px-6 py-3.5 font-bold text-slate-900">
+                          <button
+                            onClick={() => handleOpenTAccount(a)}
+                            className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-bold text-left"
+                          >
+                            {a.name}
+                          </button>
+                        </td>
                         <td className="px-6 py-3.5 font-black text-rose-700">
                           {Math.max(0, a.balance).toLocaleString()} PKR
                         </td>
@@ -537,7 +577,14 @@ function DebtContent() {
                   ) : (
                     longTermLoans.map(a => (
                       <tr key={a.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-3.5 font-bold text-slate-900">{a.name}</td>
+                        <td className="px-6 py-3.5 font-bold text-slate-900">
+                          <button
+                            onClick={() => handleOpenTAccount(a)}
+                            className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-bold text-left"
+                          >
+                            {a.name}
+                          </button>
+                        </td>
                         <td className="px-6 py-3.5 font-black text-rose-700">
                           {Math.max(0, a.balance).toLocaleString()} PKR
                         </td>
@@ -556,7 +603,7 @@ function DebtContent() {
 
       </div>
 
-      {/* Receive Loan Modal */}
+            {/* Receive Loan Modal */}
       {isReceiveOpen && (
         <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
@@ -581,14 +628,17 @@ function DebtContent() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Deposit Destination *</label>
-                <CreatableSelect
-                  options={loanAccounts}
-                  value={repayLoanId}
-                  onChange={setRepayLoanId}
-                  onCreateNew={handleCreateLoanAccount}
-                  placeholder="Select lender..."
-                  entityType="account"
-                />
+                <select
+                  value={recBankId}
+                  onChange={e => setRecBankId(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-950 min-h-[44px] bg-slate-50 focus:outline-none"
+                  required
+                >
+                  <option value="">Select Bank / Cash Account...</option>
+                  {cashAccounts.map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -624,6 +674,7 @@ function DebtContent() {
           </div>
         </div>
       )}
+
 
       {/* Record Repayment Modal */}
       {isRepayOpen && (
@@ -719,6 +770,162 @@ function DebtContent() {
           </div>
         </div>
       )}
+          {/* T-ACCOUNT DRILL-DOWN LEDGER MODAL */}
+      {mounted && selectedTAccount && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl border border-gray-100 w-[calc(100%-2rem)] max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase text-purple-600 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">T-Account Ledger</span>
+                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border ${typeBadges[selectedTAccount.type] || 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                    {selectedTAccount.type}
+                  </span>
+                </div>
+                <h2 className="text-xl font-extrabold text-gray-900 mt-1">
+                  {selectedTAccount.name} {selectedTAccount.code && <span className="text-sm font-mono text-gray-400">({selectedTAccount.code})</span>}
+                </h2>
+              </div>
+              <button
+                onClick={() => setSelectedTAccount(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                aria-label="Close modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* T-ACCOUNT CONTAINER */}
+            {isTAccountLoading ? (
+              <div className="flex flex-col items-center justify-center py-16 text-purple-600 flex-1">
+                <Loader2 className="w-8 h-8 animate-spin" />
+                <span className="text-xs font-semibold text-slate-500 mt-2">Loading T-Account entries...</span>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-white">
+                
+                {/* CLASSIC T-BAR TABLE */}
+                <div className="border-2 border-slate-800 rounded-xl overflow-hidden shadow-sm bg-white">
+                  
+                  {/* T-ACCOUNT TOP TITLE BAR */}
+                  <div className="bg-slate-900 text-white px-4 py-2 flex justify-between items-center text-xs font-black tracking-wider uppercase border-b-2 border-slate-800">
+                    <span className="text-emerald-400">DR. (DEBITS)</span>
+                    <span className="text-white tracking-widest">{selectedTAccount.name}</span>
+                    <span className="text-rose-400">CR. (CREDITS)</span>
+                  </div>
+
+                  {/* 2-COLUMN SPLIT GRID */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x-2 divide-slate-800 text-xs">
+                    
+                    {/* LEFT COLUMN: DEBITS (DR) */}
+                    <div className="p-3 space-y-2 flex flex-col justify-between min-h-[220px]">
+                      <div>
+                        <div className="flex justify-between items-center font-bold text-slate-700 uppercase pb-2 border-b border-slate-200">
+                          <span>Date & Entry</span>
+                          <span>Debit Amount</span>
+                        </div>
+                        <div className="divide-y divide-slate-100">
+                          {tAccountLines.filter(l => Number(l.debit) > 0).length === 0 ? (
+                            <p className="text-slate-400 italic text-[11px] py-4 text-center">No Debit entries recorded.</p>
+                          ) : (
+                            tAccountLines.filter(l => Number(l.debit) > 0).map((l, i) => (
+                              <div key={i} className="py-2 flex justify-between items-center gap-2">
+                                <div>
+                                  <span className="font-semibold text-slate-900 block">{l.journal_entries?.description || 'Journal Entry'}</span>
+                                  <span className="text-[10px] text-slate-400">{l.journal_entries?.date} &middot; {l.journal_entries?.reference_type}</span>
+                                </div>
+                                <span className="font-extrabold text-emerald-700 shrink-0">
+                                  {Number(l.debit).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t-2 border-slate-800 flex justify-between items-center font-black text-slate-900 text-sm">
+                        <span>TOTAL DEBITS (DR)</span>
+                        <span className="text-emerald-700">
+                          {tAccountLines.reduce((s, l) => s + Number(l.debit || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* RIGHT COLUMN: CREDITS (CR) */}
+                    <div className="p-3 space-y-2 flex flex-col justify-between min-h-[220px]">
+                      <div>
+                        <div className="flex justify-between items-center font-bold text-slate-700 uppercase pb-2 border-b border-slate-200">
+                          <span>Date & Entry</span>
+                          <span>Credit Amount</span>
+                        </div>
+                        <div className="divide-y divide-slate-100">
+                          {tAccountLines.filter(l => Number(l.credit) > 0).length === 0 ? (
+                            <p className="text-slate-400 italic text-[11px] py-4 text-center">No Credit entries recorded.</p>
+                          ) : (
+                            tAccountLines.filter(l => Number(l.credit) > 0).map((l, i) => (
+                              <div key={i} className="py-2 flex justify-between items-center gap-2">
+                                <div>
+                                  <span className="font-semibold text-slate-900 block">{l.journal_entries?.description || 'Journal Entry'}</span>
+                                  <span className="text-[10px] text-slate-400">{l.journal_entries?.date} &middot; {l.journal_entries?.reference_type}</span>
+                                </div>
+                                <span className="font-extrabold text-rose-700 shrink-0">
+                                  {Number(l.credit).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t-2 border-slate-800 flex justify-between items-center font-black text-slate-900 text-sm">
+                        <span>TOTAL CREDITS (CR)</span>
+                        <span className="text-rose-700">
+                          {tAccountLines.reduce((s, l) => s + Number(l.credit || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+                        </span>
+                      </div>
+                    </div>
+
+                  </div>
+
+                </div>
+
+                {/* NET ENDING BALANCE SUMMARY BAR */}
+                {(() => {
+                  const totDr = tAccountLines.reduce((s, l) => s + Number(l.debit || 0), 0);
+                  const totCr = tAccountLines.reduce((s, l) => s + Number(l.credit || 0), 0);
+                  const netVal = Math.abs(totDr - totCr);
+                  const balanceType = totDr >= totCr ? 'Debit Balance (DR)' : 'Credit Balance (CR)';
+
+                  return (
+                    <div className="bg-slate-950 text-white p-4 rounded-xl flex justify-between items-center shadow-md">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">ACCOUNT ENDING BALANCE</span>
+                        <span className="text-sm font-extrabold text-slate-200">{balanceType}</span>
+                      </div>
+                      <span className="text-lg font-black text-slate-300">
+                        {netVal.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+                      </span>
+                    </div>
+                  );
+                })()}
+
+              </div>
+            )}
+            
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setSelectedTAccount(null)}
+                className="px-5 py-2.5 min-h-[44px] bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                Close Ledger
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
     </div>
   );
 }
