@@ -30,6 +30,7 @@ interface AccountRow {
   is_system: boolean;
   is_cash_account: boolean;
   balance: number;
+  interestPaid?: number;
 }
 
 function DebtContent() {
@@ -77,7 +78,6 @@ function DebtContent() {
       }
       setUserEmail(user.email || '');
 
-      // Initialize default accounts first in background
       try {
         await supabase.rpc('initialize_default_accounts', { p_user_id: user.id });
       } catch (e) {}
@@ -111,8 +111,43 @@ function DebtContent() {
         }
       }
 
-      // Format accounts with balance
-      const formatted: AccountRow[] = (accData || []).map(a => {
+      // Fetch all LOAN_REPAYMENT lines to calculate interest paid per account
+      const { data: allRepayLines } = await supabase
+        .from('journal_lines')
+        .select('debit, credit, account_id, journal_entry_id, journal_entries(reference_type)')
+        .eq('journal_entries.reference_type', 'LOAN_REPAYMENT');
+
+      const interestPaidMap: Record<string, number> = {};
+      if (allRepayLines && accData) {
+        const interestAccIds = new Set(
+          accData.filter(a => a.type === 'expense' && a.name.toLowerCase().includes('interest')).map(a => a.id)
+        );
+        const loanAccIds = new Set(
+          accData.filter(a => a.type === 'liability' && (a.name.toLowerCase().includes('loan') || a.code?.startsWith('25'))).map(a => a.id)
+        );
+
+        const entriesMap: Record<string, any[]> = {};
+        allRepayLines.forEach(line => {
+          if (!entriesMap[line.journal_entry_id]) {
+            entriesMap[line.journal_entry_id] = [];
+          }
+          entriesMap[line.journal_entry_id].push(line);
+        });
+
+        Object.values(entriesMap).forEach(lines => {
+          const loanLines = lines.filter(l => loanAccIds.has(l.account_id));
+          const interestLine = lines.find(l => interestAccIds.has(l.account_id));
+          if (interestLine && Number(interestLine.debit) > 0 && loanLines.length > 0) {
+            const interestAmt = Number(interestLine.debit);
+            loanLines.forEach(ll => {
+              interestPaidMap[ll.account_id] = (interestPaidMap[ll.account_id] || 0) + (interestAmt / loanLines.length);
+            });
+          }
+        });
+      }
+
+      // Format accounts with balance and interestPaid
+      const formatted = (accData || []).map(a => {
         const totals = linesMap[a.id] || { debit: 0, credit: 0 };
         const isDebitNormal = a.type === 'asset' || a.type === 'expense';
         const bal = isDebitNormal ? (totals.debit - totals.credit) : (totals.credit - totals.debit);
@@ -123,26 +158,15 @@ function DebtContent() {
           type: a.type,
           is_system: !!a.is_system,
           is_cash_account: !!a.is_cash_account,
-          balance: bal
+          balance: bal,
+          interestPaid: interestPaidMap[a.id] || 0
         };
       });
 
       setAccounts(formatted);
 
-      // Fetch Interest Expense specifically for repayments
-      const { data: repayLines } = await supabase
-        .from('journal_lines')
-        .select('debit, journal_entries(reference_type)')
-        .eq('journal_entries.reference_type', 'LOAN_REPAYMENT');
-
-      const totalInterest = (repayLines || [])
-        .filter(l => {
-          const je = l.journal_entries as any;
-          const ref = Array.isArray(je) ? je[0]?.reference_type : je?.reference_type;
-          return ref === 'LOAN_REPAYMENT';
-        })
-        .reduce((sum, l) => sum + Number(l.debit || 0), 0);
-
+      // Fetch global Interest Expense
+      const totalInterest = Object.values(interestPaidMap).reduce((sum, val) => sum + val, 0);
       setInterestExpense(totalInterest);
 
     } catch (e) {
@@ -427,9 +451,9 @@ function DebtContent() {
               <table className="w-full text-left text-xs sm:text-sm">
                 <thead>
                   <tr className="bg-slate-100/50 text-slate-500 uppercase text-[10px] tracking-wider border-b border-slate-100">
-                    <th className="px-6 py-3">Account Name</th>
-                    <th className="px-6 py-3">Account Type</th>
-                    <th className="px-6 py-3 text-right">Outstanding Principal</th>
+                    <th className="px-6 py-3">Lender / Account Name</th>
+                    <th className="px-6 py-3">Outstanding Principal</th>
+                    <th className="px-6 py-3 text-right">Total Interest Paid</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -443,9 +467,11 @@ function DebtContent() {
                     loanAccounts.map(a => (
                       <tr key={a.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-3.5 font-bold text-slate-900">{a.name}</td>
-                        <td className="px-6 py-3.5 capitalize text-slate-500">{a.type}</td>
-                        <td className="px-6 py-3.5 text-right font-black text-rose-700">
+                        <td className="px-6 py-3.5 font-black text-rose-700">
                           {Math.max(0, a.balance).toLocaleString()} PKR
+                        </td>
+                        <td className="px-6 py-3.5 text-right font-black text-amber-700">
+                          {(a.interestPaid || 0).toLocaleString()} PKR
                         </td>
                       </tr>
                     ))
@@ -483,17 +509,14 @@ function DebtContent() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Deposit Destination *</label>
-                <select
-                  value={recBankId}
-                  onChange={e => setRecBankId(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-950 min-h-[44px] bg-slate-50 focus:outline-none"
-                  required
-                >
-                  <option value="">-- Select Cash/Bank --</option>
-                  {cashAccounts.map(a => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
+                <CreatableSelect
+                  options={loanAccounts}
+                  value={repayLoanId}
+                  onChange={setRepayLoanId}
+                  onCreateNew={handleCreateLoanAccount}
+                  placeholder="Select lender..."
+                  entityType="account"
+                />
               </div>
 
               <div>
