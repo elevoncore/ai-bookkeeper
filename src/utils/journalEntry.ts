@@ -80,9 +80,10 @@ export async function createJournalEntryAtomic(
  totalCreditCents += lineCreditCents;
 
  return {
- account_id: line.account_id,
- debit: lineDebitCents / 100,
- credit: lineCreditCents / 100
+  account_id: line.account_id,
+  debit: lineDebitCents / 100,
+  credit: lineCreditCents / 100,
+  description: line.description || null
  };
  });
 
@@ -157,7 +158,8 @@ export async function createJournalEntryAtomic(
  journal_entry_id: parentEntry.id,
  account_id: l.account_id,
  debit: l.debit,
- credit: l.credit
+ credit: l.credit,
+ description: l.description || description || null
  }));
 
  const { error: linesError } = await supabase

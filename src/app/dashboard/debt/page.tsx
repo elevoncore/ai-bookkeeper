@@ -831,7 +831,7 @@ function DebtContent() {
                             tAccountLines.filter(l => Number(l.debit) > 0).map((l, i) => (
                               <div key={i} className="py-2 flex justify-between items-center gap-2">
                                 <div>
-                                  <span className="font-semibold text-slate-900 block">{l.journal_entries?.description || 'Journal Entry'}</span>
+                                  <span className="font-semibold text-slate-900 block">{l.description || l.journal_entries?.description || 'Journal Entry'}</span>
                                   <span className="text-[10px] text-slate-400">{l.journal_entries?.date} &middot; {l.journal_entries?.reference_type}</span>
                                 </div>
                                 <span className="font-extrabold text-emerald-700 shrink-0">
@@ -865,7 +865,7 @@ function DebtContent() {
                             tAccountLines.filter(l => Number(l.credit) > 0).map((l, i) => (
                               <div key={i} className="py-2 flex justify-between items-center gap-2">
                                 <div>
-                                  <span className="font-semibold text-slate-900 block">{l.journal_entries?.description || 'Journal Entry'}</span>
+                                  <span className="font-semibold text-slate-900 block">{l.description || l.journal_entries?.description || 'Journal Entry'}</span>
                                   <span className="text-[10px] text-slate-400">{l.journal_entries?.date} &middot; {l.journal_entries?.reference_type}</span>
                                 </div>
                                 <span className="font-extrabold text-rose-700 shrink-0">

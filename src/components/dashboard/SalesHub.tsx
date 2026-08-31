@@ -33,6 +33,66 @@ export default function SalesHub() {
     return invoiceLines.reduce((sum, line) => sum + (line.quantity * line.unit_price), 0);
   }, [invoiceLines]);
 
+  const productOptions = useMemo(() => [
+    { id: '', name: '+ Custom / Ad-Hoc Item' },
+    ...products.map(p => ({
+      id: p.id,
+      name: `${p.name} (${p.price ? `${Number(p.price).toLocaleString()} PKR` : 'No price'})`,
+      ...p
+    }))
+  ], [products]);
+
+  async function handleCreateProductInline(name: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("Not authenticated");
+      return null;
+    }
+    const toastId = toast.loading(`Creating product "${name}"...`);
+    let createdProd: any = null;
+    try {
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('create_product_atomic', {
+        p_user_id: user.id,
+        p_name: name.trim(),
+        p_price: 0,
+        p_cost: 0,
+        p_is_inventory_tracked: true
+      });
+      if (!rpcErr && rpcData) {
+        const { data: fetchedProd } = await supabase.from('products').select('*').eq('id', rpcData).single();
+        if (fetchedProd) createdProd = fetchedProd;
+      }
+    } catch (_) {}
+
+    if (!createdProd) {
+      const { data: insData, error: insErr } = await supabase
+        .from('products')
+        .insert({
+          user_id: user.id,
+          name: name.trim(),
+          price: 0,
+          cost: 0,
+          inventory_count: 0,
+          is_inventory_tracked: true
+        })
+        .select('*')
+        .single();
+      if (insErr) {
+        toast.error(`Failed to create product: ${insErr.message}`, { id: toastId });
+        return null;
+      }
+      createdProd = insData;
+    }
+
+    toast.success(`Product "${createdProd.name}" created!`, { id: toastId });
+    setProducts(prev => {
+      const exists = prev.some(p => p.id === createdProd.id);
+      if (exists) return prev;
+      return [...prev, createdProd].sort((a, b) => a.name.localeCompare(b.name));
+    });
+    return createdProd;
+  }
+
   useEffect(() => {
     setNewInvoice(prev => ({ ...prev, amount: calculatedTotal.toString() }));
   }, [calculatedTotal]);
@@ -1366,10 +1426,14 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
         <div key={index} className="flex flex-col sm:flex-row gap-2 items-start sm:items-center bg-gray-50 p-3 rounded-xl border border-gray-200">
           <div className="flex-1 w-full">
             <label className="block text-[10px] text-gray-500 font-bold uppercase mb-0.5">Product/Service</label>
-            <select
-              value={line.product_id}
-              onChange={e => {
-                const prodId = e.target.value;
+            <CreatableSelect
+              options={productOptions}
+              value={line.product_id || ''}
+              compact={true}
+              placeholder="+ Custom / Ad-Hoc Item"
+              entityType="product"
+              onCreateNew={handleCreateProductInline}
+              onChange={prodId => {
                 const prod = products.find(p => p.id === prodId);
                 const updatedLines = [...invoiceLines];
                 
@@ -1388,20 +1452,12 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
                   ...updatedLines[index],
                   product_id: prodId,
                   account_id: accId,
-                  description: prod ? prod.name : '',
-                  unit_price: prod ? Number(prod.price || 0) : 0
+                  description: prod ? prod.name : (prodId ? (updatedLines[index].description || '') : ''),
+                  unit_price: prod ? Number(prod.price || 0) : updatedLines[index].unit_price
                 };
                 setInvoiceLines(updatedLines);
               }}
-              className="w-full border border-gray-300 bg-white rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none"
-            >
-              <option value="">+ Custom / Ad-Hoc Item</option>
-              {products.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.price ? `${Number(p.price).toLocaleString()} PKR` : 'No price'})
-                </option>
-              ))}
-            </select>
+            />
           </div>
           
           <div className="flex-1 w-full">

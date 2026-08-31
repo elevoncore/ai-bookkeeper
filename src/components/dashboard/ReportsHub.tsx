@@ -458,7 +458,7 @@ export default function ReportsHub() {
  </span>
  </td>
  <td className="px-6 py-3.5 font-semibold text-gray-800 max-w-xs truncate" title={entry.journal_entries?.description}>
- {entry.journal_entries?.description || 'Cash Transaction'}
+ {entry.description || entry.journal_entries?.description || 'Cash Transaction'}
  </td>
  <td className="px-6 py-3.5 text-gray-400 font-mono text-[11px]">{entry.journal_entries?.reference_type}</td>
  <td className="px-6 py-3.5 text-right font-extrabold text-emerald-600">
