@@ -14,8 +14,11 @@ export default function PurchasesHub() {
  const [activeTab, setActiveTab] = useState<'bills' | 'suppliers'>('bills');
  const [bills, setBills] = useState<any[]>([]);
  const [suppliers, setSuppliers] = useState<any[]>([]);
- const [chartOfAccounts, setChartOfAccounts] = useState<any[]>([]);
- const [paymentsMade, setPaymentsMade] = useState<any[]>([]);
+  const [chartOfAccounts, setChartOfAccounts] = useState<any[]>([]);
+  const purchasesGlAccounts = useMemo(() => {
+    return chartOfAccounts.filter(a => a.type === 'expense' || (a.type === 'asset' && !a.is_cash_account));
+  }, [chartOfAccounts]);
+  const [paymentsMade, setPaymentsMade] = useState<any[]>([]);
  const [isLoading, setIsLoading] = useState(true);
 
  useEffect(() => {
@@ -1173,7 +1176,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
               }}
               className="w-full border border-gray-300 bg-white rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none"
             >
-              <option value="">-- Select Product/Service --</option>
+              <option value="">+ Custom / Ad-Hoc Item</option>
               {products.map(p => (
                 <option key={p.id} value={p.id}>
                   {p.name} (Cost: {p.cost ? `${Number(p.cost).toLocaleString()} PKR` : '0'})
@@ -1190,11 +1193,12 @@ async function handleSaveSupplier(e: React.FormEvent) {
                 updatedLines[index].account_id = e.target.value;
                 setBillLines(updatedLines);
               }}
-              required
-              className="w-full border border-gray-300 bg-white rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none"
+              required={!line.product_id}
+              disabled={!!line.product_id}
+              className="w-full border border-gray-300 bg-white rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none disabled:bg-gray-100 disabled:text-gray-500"
             >
               <option value="">-- Select Account --</option>
-              {chartOfAccounts.map(a => (
+              {purchasesGlAccounts.map(a => (
                 <option key={a.id} value={a.id}>
                   {a.name} ({a.type})
                 </option>

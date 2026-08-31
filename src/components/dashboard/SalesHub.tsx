@@ -25,8 +25,8 @@ export default function SalesHub() {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [newInvoice, setNewInvoice] = useState({ id: '', customer_id: '', issue_date: '', amount: '' });
   const [isEditing, setIsEditing] = useState(false);
-  const [invoiceLines, setInvoiceLines] = useState<Array<{ product_id: string; description: string; quantity: number; unit_price: number }>>([
-    { product_id: '', description: '', quantity: 1, unit_price: 0 }
+  const [invoiceLines, setInvoiceLines] = useState<Array<{ product_id: string; account_id: string; description: string; quantity: number; unit_price: number }>>([
+    { product_id: '', account_id: '', description: '', quantity: 1, unit_price: 0 }
   ]);
 
   const calculatedTotal = useMemo(() => {
@@ -434,6 +434,7 @@ export default function SalesHub() {
  const safeAmountCents = parseToCents(newInvoice.amount);
  const lineItemsPayload = invoiceLines.map(line => ({
     product_id: line.product_id || null,
+    account_id: line.account_id || null,
     description: line.description || 'Line Item',
     quantity: Number(line.quantity || 1),
     unit_price: Number(line.unit_price || 0),
@@ -874,6 +875,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
     if (!error && data) {
       setInvoiceLines(data.map((line: any) => ({
         product_id: line.product_id || '',
+        account_id: line.account_id || '',
         description: line.description || '',
         quantity: Number(line.quantity || 1),
         unit_price: Number(line.unit_price || 0)
@@ -885,7 +887,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
     setIsInvoiceModalOpen(false);
     setIsEditing(false);
     setNewInvoice({ id: '', customer_id: '', issue_date: '', amount: '' });
-    setInvoiceLines([{ product_id: '', description: '', quantity: 1, unit_price: 0 }]);
+    setInvoiceLines([{ product_id: '', account_id: '', description: '', quantity: 1, unit_price: 0 }]);
   }
 
  return (
@@ -1370,9 +1372,22 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
                 const prodId = e.target.value;
                 const prod = products.find(p => p.id === prodId);
                 const updatedLines = [...invoiceLines];
+                
+                let accId = '';
+                if (prod) {
+                  if (prod.is_inventory_tracked) {
+                    const salesRevAcc = accounts.find(a => a.type === 'revenue' && a.name === 'Sales Revenue');
+                    if (salesRevAcc) accId = salesRevAcc.id;
+                  } else {
+                    const serviceRevAcc = accounts.find(a => a.type === 'revenue' && a.name === 'Service Revenue');
+                    if (serviceRevAcc) accId = serviceRevAcc.id;
+                  }
+                }
+                
                 updatedLines[index] = {
                   ...updatedLines[index],
                   product_id: prodId,
+                  account_id: accId,
                   description: prod ? prod.name : '',
                   unit_price: prod ? Number(prod.price || 0) : 0
                 };
@@ -1380,7 +1395,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
               }}
               className="w-full border border-gray-300 bg-white rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none"
             >
-              <option value="">-- Select Product/Service --</option>
+              <option value="">+ Custom / Ad-Hoc Item</option>
               {products.map(p => (
                 <option key={p.id} value={p.id}>
                   {p.name} ({p.price ? `${Number(p.price).toLocaleString()} PKR` : 'No price'})
@@ -1388,6 +1403,29 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
               ))}
             </select>
           </div>
+          
+          <div className="flex-1 w-full">
+            <label className="block text-[10px] text-gray-500 font-bold uppercase mb-0.5">GL Account</label>
+            <select
+              value={line.account_id}
+              onChange={e => {
+                const updatedLines = [...invoiceLines];
+                updatedLines[index].account_id = e.target.value;
+                setInvoiceLines(updatedLines);
+              }}
+              required={!line.product_id}
+              disabled={!!line.product_id}
+              className="w-full border border-gray-300 bg-white rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none disabled:bg-gray-100 disabled:text-gray-500"
+            >
+              <option value="">-- Select GL Account --</option>
+              {accounts.filter(a => a.type === 'revenue').map(a => (
+                <option key={a.id} value={a.id}>
+                  {a.name} ({a.type})
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="flex-1 w-full">
             <label className="block text-[10px] text-gray-500 font-bold uppercase mb-0.5">Description</label>
             <input
@@ -1402,6 +1440,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
               className="w-full border border-gray-300 bg-white rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none"
             />
           </div>
+          
           <div className="w-full sm:w-16">
             <label className="block text-[10px] text-gray-500 font-bold uppercase mb-0.5">Qty</label>
             <input
@@ -1416,6 +1455,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
               className="w-full border border-gray-300 bg-white rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none"
             />
           </div>
+          
           <div className="w-full sm:w-24">
             <label className="block text-[10px] text-gray-500 font-bold uppercase mb-0.5">Unit Price</label>
             <input
@@ -1431,9 +1471,11 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
               className="w-full border border-gray-300 bg-white rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none"
             />
           </div>
+          
           <div className="text-xs font-bold w-full sm:w-20 text-right pt-4 sm:pt-0">
             {(line.quantity * line.unit_price).toLocaleString()} PKR
           </div>
+          
           <div className="pt-4 sm:pt-0">
             <button
               type="button"
@@ -1449,7 +1491,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
     </div>
     <button
       type="button"
-      onClick={() => setInvoiceLines([...invoiceLines, { product_id: '', description: '', quantity: 1, unit_price: 0 }])}
+      onClick={() => setInvoiceLines([...invoiceLines, { product_id: '', account_id: '', description: '', quantity: 1, unit_price: 0 }])}
       className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg border border-gray-300 transition-colors mt-2 cursor-pointer"
     >
       + Add Line Item
