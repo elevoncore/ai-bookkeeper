@@ -4,26 +4,27 @@ import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { createBrowserClient } from '@supabase/ssr';
 import { 
- BookOpen, 
- Plus, 
- Search, 
- CheckCircle2, 
- FolderTree, 
- X, 
- Loader2, 
- ShieldCheck, 
- UserCheck,
- Trash2,
- Edit2,
- AlertCircle,
- Landmark,
- Building2,
- Coins,
- Wallet,
- Receipt,
- Percent,
- ArrowLeftRight,
-  RefreshCw
+  BookOpen, 
+  Plus, 
+  Search, 
+  CheckCircle2, 
+  FolderTree, 
+  X, 
+  Loader2, 
+  ShieldCheck, 
+  UserCheck,
+  Trash2,
+  Edit2,
+  AlertCircle,
+  Landmark,
+  Building2,
+  Coins,
+  Wallet,
+  Receipt,
+  Percent,
+  ArrowLeftRight,
+  RefreshCw,
+  CornerDownRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { parseToCents } from '@/utils/currency';
@@ -32,59 +33,70 @@ import CreatableSelect from '@/components/ui/CreatableSelect';
 import CashbookWidget from '@/components/dashboard/CashbookWidget';
 
 interface AccountRow {
- id: string;
- name: string;
- code?: string;
- type: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
- is_system: boolean;
- is_cash_account?: boolean;
- balance: number;
- total_debit: number;
- total_credit: number;
+  id: string;
+  name: string;
+  code?: string;
+  type: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
+  is_system: boolean;
+  is_cash_account?: boolean;
+  balance: number;
+  total_debit: number;
+  total_credit: number;
+  parent_account_id?: string | null;
+  parent_id?: string | null;
+}
+
+interface HierarchicalAccountItem {
+  account: AccountRow;
+  isChild: boolean;
+  hasChildren: boolean;
+  parentName?: string;
 }
 
 interface ManualJournalLineInput {
- account_id: string;
- debit: string;
- credit: string;
+  account_id: string;
+  debit: string;
+  credit: string;
 }
 
 export default function ChartOfAccountsManager() {
- const [mounted, setMounted] = useState(false);
- const [accounts, setAccounts] = useState<AccountRow[]>([]);
- const [isLoading, setIsLoading] = useState(true);
- const [searchTerm, setSearchTerm] = useState('');
- const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
+  const [mounted, setMounted] = useState(false);
+  const [accounts, setAccounts] = useState<AccountRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
 
- useEffect(() => {
- setMounted(true);
- }, []);
- 
- // New Account Modal State
- const [isModalOpen, setIsModalOpen] = useState(false);
- const [newAccountName, setNewAccountName] = useState('');
- const [newAccountCode, setNewAccountCode] = useState('');
- const [newAccountType, setNewAccountType] = useState<'asset' | 'liability' | 'equity' | 'revenue' | 'expense'>('asset');
- const [isCashAccount, setIsCashAccount] = useState(false);
- const [isSubmitting, setIsSubmitting] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
+  // New Account Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newAccountName, setNewAccountName] = useState('');
+  const [newAccountCode, setNewAccountCode] = useState('');
+  const [newAccountType, setNewAccountType] = useState<'asset' | 'liability' | 'equity' | 'revenue' | 'expense'>('asset');
+  const [isCashAccount, setIsCashAccount] = useState(false);
+  const [newParentAccountId, setNewParentAccountId] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
- // Edit Account Modal State
- const [editingAccount, setEditingAccount] = useState<AccountRow | null>(null);
- const [editName, setEditName] = useState('');
- const [editCode, setEditCode] = useState('');
- const [editType, setEditType] = useState<'asset' | 'liability' | 'equity' | 'revenue' | 'expense'>('asset');
- const [editIsCash, setEditIsCash] = useState(false);
- const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+  // Edit Account Modal State
+  const [editingAccount, setEditingAccount] = useState<AccountRow | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editCode, setEditCode] = useState('');
+  const [editType, setEditType] = useState<'asset' | 'liability' | 'equity' | 'revenue' | 'expense'>('asset');
+  const [editIsCash, setEditIsCash] = useState(false);
+  const [editParentAccountId, setEditParentAccountId] = useState('');
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
 
- // Manual Journal Entry Modal State
- const [isJournalModalOpen, setIsJournalModalOpen] = useState(false);
- const [journalDate, setJournalDate] = useState<string>(new Date().toISOString().split('T')[0]);
- const [journalDescription, setJournalDescription] = useState<string>('');
- const [journalLines, setJournalLines] = useState<ManualJournalLineInput[]>([
- { account_id: '', debit: '', credit: '' },
- { account_id: '', debit: '', credit: '' }
- ]);
- const [isJournalSubmitting, setIsJournalSubmitting] = useState(false);
+  // Manual Journal Entry Modal State
+  const [isJournalModalOpen, setIsJournalModalOpen] = useState(false);
+  const [journalDate, setJournalDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [journalDescription, setJournalDescription] = useState<string>('');
+  const [journalLines, setJournalLines] = useState<ManualJournalLineInput[]>([
+    { account_id: '', debit: '', credit: '' },
+    { account_id: '', debit: '', credit: '' }
+  ]);
+  const [isJournalSubmitting, setIsJournalSubmitting] = useState(false);
 
   // Receive Loan (Inflow) Modal State
   const [isReceiveLoanModalOpen, setIsReceiveLoanModalOpen] = useState(false);
@@ -94,845 +106,752 @@ export default function ChartOfAccountsManager() {
   const [receiveLoanDescription, setReceiveLoanDescription] = useState('Loan Inflow');
   const [isReceiveLoanSubmitting, setIsReceiveLoanSubmitting] = useState(false);
 
- // Loan Repayment & Interest Splitter Modal State
- const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
- const [loanAccountId, setLoanAccountId] = useState('');
- const [loanTotalAmount, setLoanTotalAmount] = useState('');
- const [loanInterestAmount, setLoanInterestAmount] = useState('');
- const [loanPaymentAccountId, setLoanPaymentAccountId] = useState('');
- const [loanDate, setLoanDate] = useState<string>(new Date().toISOString().split('T')[0]);
- const [loanDescription, setLoanDescription] = useState<string>('Loan Repayment & Interest Service');
- const [isLoanSubmitting, setIsLoanSubmitting] = useState(false);
+  // Loan Repayment & Interest Splitter Modal State
+  const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
+  const [loanAccountId, setLoanAccountId] = useState('');
+  const [loanTotalAmount, setLoanTotalAmount] = useState('');
+  const [loanInterestAmount, setLoanInterestAmount] = useState('');
+  const [loanPaymentAccountId, setLoanPaymentAccountId] = useState('');
+  const [loanDate, setLoanDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [loanDescription, setLoanDescription] = useState<string>('Loan Repayment & Interest Service');
+  const [isLoanSubmitting, setIsLoanSubmitting] = useState(false);
 
- // Simple Transfer Modal State
- const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
- const [transferFromAccountId, setTransferFromAccountId] = useState('');
- const [transferToAccountId, setTransferToAccountId] = useState('');
- const [transferAmount, setTransferAmount] = useState('');
- const [transferDescription, setTransferDescription] = useState('');
- const [isTransferSubmitting, setIsTransferSubmitting] = useState(false);
+  // Simple Transfer Modal State
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [transferFromAccountId, setTransferFromAccountId] = useState('');
+  const [transferToAccountId, setTransferToAccountId] = useState('');
+  const [transferAmount, setTransferAmount] = useState('');
+  const [transferDescription, setTransferDescription] = useState('');
+  const [isTransferSubmitting, setIsTransferSubmitting] = useState(false);
 
- // T-Account Drill-Down Modal State
- const [selectedTAccount, setSelectedTAccount] = useState<AccountRow | null>(null);
- const [tAccountLines, setTAccountLines] = useState<any[]>([]);
- const [isTAccountLoading, setIsTAccountLoading] = useState(false);
+  // T-Account Drill-Down Modal State
+  const [selectedTAccount, setSelectedTAccount] = useState<AccountRow | null>(null);
+  const [tAccountLines, setTAccountLines] = useState<any[]>([]);
+  const [isTAccountLoading, setIsTAccountLoading] = useState(false);
 
- // Close modals on Escape key and lock body scroll
- useEffect(() => {
- const isAnyModalOpen = isModalOpen || Boolean(editingAccount) || isJournalModalOpen || Boolean(selectedTAccount) || isLoanModalOpen || isTransferModalOpen;
- if (isAnyModalOpen) {
- document.body.style.overflow = 'hidden';
- } else {
- document.body.style.overflow = 'unset';
- }
-
- function handleKeyDown(e: KeyboardEvent) {
- if (e.key === 'Escape') {
- setIsModalOpen(false);
- setEditingAccount(null);
- setIsJournalModalOpen(false);
- setSelectedTAccount(null);
- setIsLoanModalOpen(false);
- setIsTransferModalOpen(false);
- }
- }
- document.addEventListener('keydown', handleKeyDown);
- return () => {
- document.body.style.overflow = 'unset';
- document.removeEventListener('keydown', handleKeyDown);
- };
- }, [isModalOpen, editingAccount, isJournalModalOpen, selectedTAccount, isLoanModalOpen, isTransferModalOpen]);
-
- const supabase = createBrowserClient(
- process.env.NEXT_PUBLIC_SUPABASE_URL!,
- process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
- );
-
- useEffect(() => {
- fetchAccountsWithBalances();
- }, []);
-
- // Lock background scroll when any modal is open
- useEffect(() => {
- if (isModalOpen || editingAccount || isJournalModalOpen || selectedTAccount || isLoanModalOpen || isTransferModalOpen) {
- document.body.style.overflow = 'hidden';
- } else {
- document.body.style.overflow = 'unset';
- }
- return () => {
- document.body.style.overflow = 'unset';
- };
- }, [isModalOpen, editingAccount, isJournalModalOpen, selectedTAccount, isLoanModalOpen, isTransferModalOpen]);
-
- async function handleOpenTAccount(acc: AccountRow) {
- setSelectedTAccount(acc);
- setIsTAccountLoading(true);
- try {
- const { data: lines, error } = await supabase
- .from('journal_lines')
- .select('*, journal_entries(date, description, reference_type)')
- .eq('account_id', acc.id);
-
- if (error) {
- console.error("Error fetching T-Account lines:", error);
- } else {
- setTAccountLines(lines || []);
- }
- } catch (err) {
- console.error("Failed to fetch T-Account lines:", err);
- } finally {
- setIsTAccountLoading(false);
- }
- }
-
- async function fetchAccountsWithBalances() {
- setIsLoading(true);
- const { data: { user } } = await supabase.auth.getUser();
- if (!user) {
- setIsLoading(false);
- return;
- }
-
- // Background seeding check
- (async () => {
- try {
- await supabase.rpc('initialize_default_accounts', { p_user_id: user.id });
- } catch {}
- })();
-
- // Fetch accounts
- const { data: accData, error: accError } = await supabase
- .from('accounts')
- .select('*')
- .eq('user_id', user.id)
- .order('name', { ascending: true });
-
- if (accError) {
- console.error("Error fetching accounts:", accError);
- toast.error(`Failed to fetch accounts: ${accError.message}`);
- setIsLoading(false);
- return;
- }
-
- const accIds = (accData || []).map(a => a.id);
-
- // Fetch journal lines to aggregate real-time double-entry balances
- let linesMap: Record<string, { debitCents: number; creditCents: number }> = {};
- accIds.forEach(id => {
- linesMap[id] = { debitCents: 0, creditCents: 0 };
- });
-
- if (accIds.length > 0) {
- const { data: lines } = await supabase
- .from('journal_lines')
- .select('account_id, debit, credit')
- .in('account_id', accIds);
-
- if (lines) {
- lines.forEach(l => {
- if (linesMap[l.account_id]) {
- linesMap[l.account_id].debitCents += parseToCents(l.debit || 0);
- linesMap[l.account_id].creditCents += parseToCents(l.credit || 0);
- }
- });
- }
- }
-
- // Format account balances
- const formatted: AccountRow[] = (accData || []).map(a => {
- const totals = linesMap[a.id] || { debitCents: 0, creditCents: 0 };
- const isDebitNormal = a.type === 'asset' || a.type === 'expense';
- 
- const netCents = isDebitNormal
- ? (totals.debitCents - totals.creditCents)
- : (totals.creditCents - totals.debitCents);
-
- const isCash = Boolean(a.is_cash_account) || 
- a.name === 'Main Bank Account' || 
- a.name === 'Petty Cash' || 
- a.name.toLowerCase().includes('bank') || 
- a.name.toLowerCase().includes('cash');
-
- return {
- id: a.id,
- name: a.name,
- code: a.code || '',
- type: a.type,
- is_system: Boolean(a.is_system),
- is_cash_account: isCash,
- balance: netCents / 100,
- total_debit: totals.debitCents / 100,
- total_credit: totals.creditCents / 100
- };
- });
-
- setAccounts(formatted);
- setIsLoading(false);
- }
-
- // --- CREATE ACCOUNT HANDLER ---
- async function handleCreateAccount(e: React.FormEvent) {
- e.preventDefault();
- if (!newAccountName.trim()) {
- return toast.error("Account name is required.");
- }
-
- setIsSubmitting(true);
- const { data: { user } } = await supabase.auth.getUser();
- if (!user) {
- toast.error("User session not found.");
- setIsSubmitting(false);
- return;
- }
-
- const existing = accounts.find(a => a.name.trim().toLowerCase() === newAccountName.trim().toLowerCase());
- if (existing) {
- toast.error(`An account named "${newAccountName.trim()}" already exists.`);
- setIsSubmitting(false);
- return;
- }
-
- // Try inserting account
- let insertData: any = {
- user_id: user.id,
- name: newAccountName.trim(),
- type: newAccountType,
- is_system: false
- };
-
- if (newAccountCode.trim()) {
- insertData.code = newAccountCode.trim();
- }
- if (newAccountType === 'asset' && isCashAccount) {
- insertData.is_cash_account = true;
- }
-
- let { error: insertError } = await supabase.from('accounts').insert(insertData);
-
- // Fallback if optional schema columns (code, is_cash_account) do not exist in DB
- if (insertError && (insertError.message?.includes('code') || insertError.message?.includes('is_cash_account'))) {
- delete insertData.code;
- delete insertData.is_cash_account;
- const res = await supabase.from('accounts').insert(insertData);
- insertError = res.error;
- }
-
- if (insertError) {
- console.error("Failed to insert account:", insertError);
- toast.error(`Failed to create account: ${insertError.message}`);
- setIsSubmitting(false);
- return;
- }
-
- toast.success(`Account "${newAccountName.trim()}" created successfully!`);
- setNewAccountName('');
- setNewAccountCode('');
- setNewAccountType('asset');
- setIsCashAccount(false);
- setIsModalOpen(false);
- setIsSubmitting(false);
-
- await fetchAccountsWithBalances();
- }
-
- // --- EDIT ACCOUNT HANDLER ---
- function openEditModal(acc: AccountRow) {
- setEditingAccount(acc);
- setEditName(acc.name);
- setEditCode(acc.code || '');
- setEditType(acc.type);
- setEditIsCash(Boolean(acc.is_cash_account));
- }
-
- async function handleUpdateAccount(e: React.FormEvent) {
- e.preventDefault();
- if (!editingAccount) return;
- if (!editName.trim()) return toast.error("Account name cannot be empty.");
-
- setIsEditSubmitting(true);
- let updatePayload: any = {
- name: editName.trim(),
- type: editType
- };
-
- if (editCode.trim()) {
- updatePayload.code = editCode.trim();
- }
- if (editType === 'asset' && editIsCash) {
- updatePayload.is_cash_account = true;
- }
-
- let { error: updateErr } = await supabase
- .from('accounts')
- .update(updatePayload)
- .eq('id', editingAccount.id);
-
- if (updateErr && (updateErr.message?.includes('code') || updateErr.message?.includes('is_cash_account'))) {
- delete updatePayload.code;
- delete updatePayload.is_cash_account;
- const res = await supabase.from('accounts').update(updatePayload).eq('id', editingAccount.id);
- updateErr = res.error;
- }
-
- if (updateErr) {
- toast.error(`Failed to update account: ${updateErr.message}`);
- setIsEditSubmitting(false);
- return;
- }
-
- toast.success(`Account updated successfully!`);
- setEditingAccount(null);
- setIsEditSubmitting(false);
- await fetchAccountsWithBalances();
- }
-
- // --- DELETE ACCOUNT HANDLER WITH SAFETY RULES ---
- async function handleDeleteAccount(acc: AccountRow) {
- // Safety Rule 1: System account check
- if (acc.is_system) {
- toast.error("System protected accounts cannot be deleted to preserve accounting integrity.");
- return;
- }
-
- // Safety Rule 2: Non-zero balance check
- if (Math.abs(acc.balance) > 0.001) {
- toast.error(`Cannot delete "${acc.name}" because it has a non-zero balance (${acc.balance.toLocaleString()} PKR). Please adjust balance to zero first.`);
- return;
- }
-
- if (!confirm(`Are you sure you want to delete custom account "${acc.name}"?`)) return;
-
- const { error: delErr } = await supabase
- .from('accounts')
- .delete()
- .eq('id', acc.id);
-
- if (delErr) {
- toast.error(`Failed to delete account: ${delErr.message}`);
- return;
- }
-
- toast.success(`Account "${acc.name}" deleted.`);
- await fetchAccountsWithBalances();
- }
-
- // --- MANUAL JOURNAL ENTRY HANDLERS ---
- function handleAddJournalLine() {
- setJournalLines(prev => [...prev, { account_id: '', debit: '', credit: '' }]);
- }
-
- function handleRemoveJournalLine(index: number) {
- if (journalLines.length <= 2) return;
- setJournalLines(prev => prev.filter((_, i) => i !== index));
- }
-
- function handleJournalLineChange(index: number, field: keyof ManualJournalLineInput, val: string) {
- setJournalLines(prev => prev.map((line, i) => {
- if (i !== index) return line;
- if (field === 'debit' && val !== '') {
- return { ...line, debit: val, credit: '' };
- }
- if (field === 'credit' && val !== '') {
- return { ...line, credit: val, debit: '' };
- }
- return { ...line, [field]: val };
- }));
- }
-
- const totalDebitCents = useMemo(() => {
- return journalLines.reduce((sum, l) => sum + parseToCents(l.debit || 0), 0);
- }, [journalLines]);
-
- const totalCreditCents = useMemo(() => {
- return journalLines.reduce((sum, l) => sum + parseToCents(l.credit || 0), 0);
- }, [journalLines]);
-
- const isJournalBalanced = useMemo(() => {
- return totalDebitCents === totalCreditCents && totalDebitCents > 0;
- }, [totalDebitCents, totalCreditCents]);
-
- async function handlePostJournalEntry(e: React.FormEvent) {
- e.preventDefault();
-
- if (!journalDescription.trim()) {
- return toast.error("Journal entry description is required.");
- }
-
- if (!isJournalBalanced) {
- return toast.error("Journal entry is unbalanced. Total Debits must equal Total Credits.");
- }
-
- if (journalLines.some(l => !l.account_id)) {
- return toast.error("All journal lines must have an account selected.");
- }
-
- setIsJournalSubmitting(true);
- const { data: { user } } = await supabase.auth.getUser();
- if (!user) {
- toast.error("User session not found.");
- setIsJournalSubmitting(false);
- return;
- }
-
- const formattedLines = journalLines.map(l => ({
- account_id: l.account_id,
- debit: (parseToCents(l.debit || 0)) / 100,
- credit: (parseToCents(l.credit || 0)) / 100
- }));
-
- const result = await createJournalEntryAtomic(supabase, {
- user_id: user.id,
- date: journalDate,
- description: journalDescription.trim(),
- lines: formattedLines,
- created_by_source: 'MANUAL'
- });
-
- if (result.error) {
- toast.error(`Journal Entry Failed: ${result.error}`);
- setIsJournalSubmitting(false);
- return;
- }
-
- toast.success("General Journal Entry posted successfully!");
- setJournalDescription('');
- setJournalLines([
- { account_id: '', debit: '', credit: '' },
- { account_id: '', debit: '', credit: '' }
- ]);
- setIsJournalModalOpen(false);
- setIsJournalSubmitting(false);
-
- await fetchAccountsWithBalances();
- }
-
- async function handleYearEndClose() {
-    if (!confirm("Are you sure you want to perform a Year-End Close? This will sweep all Revenue and Expense balances to 0, close Owner's Drawings, and transfer the net amount to Owner's Capital.")) return;
-    
-    const toastId = toast.loading("Performing Year-End Close...");
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      toast.error("Not authenticated", { id: toastId });
-      return;
+  // Close modals on Escape key and lock body scroll
+  useEffect(() => {
+    const isAnyModalOpen = isModalOpen || Boolean(editingAccount) || isJournalModalOpen || Boolean(selectedTAccount) || isLoanModalOpen || isTransferModalOpen;
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
     }
 
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setIsModalOpen(false);
+        setEditingAccount(null);
+        setIsJournalModalOpen(false);
+        setSelectedTAccount(null);
+        setIsLoanModalOpen(false);
+        setIsTransferModalOpen(false);
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = 'unset';
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isModalOpen, editingAccount, isJournalModalOpen, selectedTAccount, isLoanModalOpen, isTransferModalOpen]);
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  useEffect(() => {
+    fetchAccountsWithBalances();
+  }, []);
+
+  async function handleOpenTAccount(acc: AccountRow) {
+    setSelectedTAccount(acc);
+    setIsTAccountLoading(true);
     try {
-      const capitalAcc = accounts.find(a => a.type === 'equity' && a.name.toLowerCase().includes('capital'));
-      const drawingsAcc = accounts.find(a => a.type === 'equity' && a.name.toLowerCase().includes('drawings'));
+      const { data: lines, error } = await supabase
+        .from('journal_lines')
+        .select('*, journal_entries(date, description, reference_type)')
+        .eq('account_id', acc.id);
 
-      if (!capitalAcc || !drawingsAcc) {
-        throw new Error("Owner's Capital or Owner's Drawings account not found.");
+      if (error) {
+        console.error("Error fetching T-Account lines:", error);
+      } else {
+        setTAccountLines(lines || []);
       }
-
-      const revenueAndExpenseAccs = accounts.filter(a => (a.type === 'revenue' || a.type === 'expense') && Number(a.balance || 0) !== 0);
-      const drawingsBal = Number(drawingsAcc.balance || 0);
-
-      if (revenueAndExpenseAccs.length === 0 && drawingsBal === 0) {
-        toast.success("All revenue, expense, and drawings accounts are already zero.", { id: toastId });
-        return;
-      }
-
-      const journalLines = [];
-
-      revenueAndExpenseAccs.forEach(acc => {
-        const bal = Number(acc.balance || 0);
-        if (acc.type === 'revenue') {
-          journalLines.push({ account_id: acc.id, debit: bal, credit: 0 });
-        } else if (acc.type === 'expense') {
-          journalLines.push({ account_id: acc.id, debit: 0, credit: bal });
-        }
-      });
-
-      if (drawingsBal !== 0) {
-        journalLines.push({ account_id: drawingsAcc.id, debit: drawingsBal < 0 ? -drawingsBal : 0, credit: drawingsBal > 0 ? drawingsBal : 0 });
-      }
-
-      const totalDebits = journalLines.reduce((sum, l) => sum + l.debit, 0);
-      const totalCredits = journalLines.reduce((sum, l) => sum + l.credit, 0);
-      const difference = totalDebits - totalCredits;
-
-      if (difference !== 0) {
-        journalLines.push({
-          account_id: capitalAcc.id,
-          debit: difference < 0 ? -difference : 0,
-          credit: difference > 0 ? difference : 0
-        });
-      }
-
-      const { error } = await supabase.rpc('create_journal_entry_atomic', {
-        p_user_id: user.id,
-        p_date: new Date().toISOString().split('T')[0],
-        p_description: 'Year-End Close Sweep Entry',
-        p_lines: journalLines,
-        p_created_by_source: 'SYSTEM'
-      });
-
-      if (error) throw error;
-
-      toast.success("Year-End Close sweep posted successfully!", { id: toastId });
-      await fetchAccountsWithBalances();
-    } catch (err: any) {
-      toast.error(`Year-End Close failed: ${err.message || err}`, { id: toastId });
+    } catch (err) {
+      console.error("Failed to fetch T-Account lines:", err);
+    } finally {
+      setIsTAccountLoading(false);
     }
   }
 
+  async function fetchAccountsWithBalances() {
+    setIsLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+
+    // Background seeding check
+    (async () => {
+      try {
+        await supabase.rpc('initialize_default_accounts', { p_user_id: user.id });
+      } catch {}
+    })();
+
+    // Fetch accounts
+    const { data: accData, error: accError } = await supabase
+      .from('accounts')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('name', { ascending: true });
+
+    if (accError) {
+      console.error("Error fetching accounts:", accError);
+      toast.error(`Failed to fetch accounts: ${accError.message}`);
+      setIsLoading(false);
+      return;
+    }
+
+    const accIds = (accData || []).map(a => a.id);
+
+    // Fetch journal lines to aggregate real-time double-entry balances
+    let linesMap: Record<string, { debitCents: number; creditCents: number }> = {};
+    accIds.forEach(id => {
+      linesMap[id] = { debitCents: 0, creditCents: 0 };
+    });
+
+    if (accIds.length > 0) {
+      const { data: lines } = await supabase
+        .from('journal_lines')
+        .select('account_id, debit, credit')
+        .in('account_id', accIds);
+
+      if (lines) {
+        lines.forEach(l => {
+          if (linesMap[l.account_id]) {
+            linesMap[l.account_id].debitCents += parseToCents(l.debit || 0);
+            linesMap[l.account_id].creditCents += parseToCents(l.credit || 0);
+          }
+        });
+      }
+    }
+
+    // Format account balances
+    const formatted: AccountRow[] = (accData || []).map(a => {
+      const totals = linesMap[a.id] || { debitCents: 0, creditCents: 0 };
+      const isDebitNormal = a.type === 'asset' || a.type === 'expense';
+      
+      const netCents = isDebitNormal
+        ? (totals.debitCents - totals.creditCents)
+        : (totals.creditCents - totals.debitCents);
+
+      // CRITICAL: A liability is debt; it is NEVER a liquid cash asset.
+      const isCash = a.type === 'asset' && Boolean(a.is_cash_account);
+
+      return {
+        id: a.id,
+        name: a.name,
+        code: a.code || '',
+        type: a.type,
+        is_system: Boolean(a.is_system),
+        is_cash_account: isCash,
+        balance: netCents / 100,
+        total_debit: totals.debitCents / 100,
+        total_credit: totals.creditCents / 100,
+        parent_account_id: a.parent_account_id || a.parent_id || null,
+        parent_id: a.parent_account_id || a.parent_id || null
+      };
+    });
+
+    setAccounts(formatted);
+    setIsLoading(false);
+  }
+
+  // --- CREATE ACCOUNT HANDLER ---
+  async function handleCreateAccount(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newAccountName.trim()) {
+      return toast.error("Account name is required.");
+    }
+
+    setIsSubmitting(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("User session not found.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    const existing = accounts.find(a => a.name.trim().toLowerCase() === newAccountName.trim().toLowerCase());
+    if (existing) {
+      toast.error(`An account named "${newAccountName.trim()}" already exists.`);
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Try inserting account
+    let insertData: any = {
+      user_id: user.id,
+      name: newAccountName.trim(),
+      type: newAccountType,
+      is_system: false,
+      is_cash_account: newAccountType === 'asset' && isCashAccount
+    };
+
+    if (newAccountCode.trim()) {
+      insertData.code = newAccountCode.trim();
+    }
+    if (newParentAccountId) {
+      insertData.parent_account_id = newParentAccountId;
+      insertData.parent_id = newParentAccountId;
+    }
+
+    let { error: insertError } = await supabase.from('accounts').insert(insertData);
+
+    if (insertError && (insertError.message?.includes('code') || insertError.message?.includes('is_cash_account') || insertError.message?.includes('parent_account_id'))) {
+      delete insertData.code;
+      delete insertData.parent_account_id;
+      const res = await supabase.from('accounts').insert(insertData);
+      insertError = res.error;
+    }
+
+    if (insertError) {
+      console.error("Failed to insert account:", insertError);
+      toast.error(`Failed to create account: ${insertError.message}`);
+      setIsSubmitting(false);
+      return;
+    }
+
+    toast.success(`Account "${newAccountName.trim()}" created successfully!`);
+    setNewAccountName('');
+    setNewAccountCode('');
+    setNewAccountType('asset');
+    setIsCashAccount(false);
+    setNewParentAccountId('');
+    setIsModalOpen(false);
+    setIsSubmitting(false);
+
+    await fetchAccountsWithBalances();
+  }
+
+  // --- EDIT ACCOUNT HANDLER ---
+  function openEditModal(acc: AccountRow) {
+    setEditingAccount(acc);
+    setEditName(acc.name);
+    setEditCode(acc.code || '');
+    setEditType(acc.type);
+    setEditIsCash(acc.type === 'asset' && Boolean(acc.is_cash_account));
+    setEditParentAccountId(acc.parent_account_id || acc.parent_id || '');
+  }
+
+  async function handleUpdateAccount(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingAccount) return;
+    if (!editName.trim()) return toast.error("Account name cannot be empty.");
+
+    setIsEditSubmitting(true);
+    let updatePayload: any = {
+      name: editName.trim(),
+      type: editType,
+      is_cash_account: editType === 'asset' && editIsCash,
+      parent_account_id: editParentAccountId || null,
+      parent_id: editParentAccountId || null
+    };
+
+    if (editCode.trim()) {
+      updatePayload.code = editCode.trim();
+    }
+
+    let { error: updateErr } = await supabase
+      .from('accounts')
+      .update(updatePayload)
+      .eq('id', editingAccount.id);
+
+    if (updateErr && (updateErr.message?.includes('code') || updateErr.message?.includes('is_cash_account') || updateErr.message?.includes('parent_account_id'))) {
+      delete updatePayload.code;
+      delete updatePayload.parent_account_id;
+      const res = await supabase.from('accounts').update(updatePayload).eq('id', editingAccount.id);
+      updateErr = res.error;
+    }
+
+    if (updateErr) {
+      toast.error(`Failed to update account: ${updateErr.message}`);
+      setIsEditSubmitting(false);
+      return;
+    }
+
+    toast.success(`Account updated successfully!`);
+    setEditingAccount(null);
+    setIsEditSubmitting(false);
+    await fetchAccountsWithBalances();
+  }
+
+  // --- DELETE ACCOUNT HANDLER WITH SAFETY RULES ---
+  async function handleDeleteAccount(acc: AccountRow) {
+    // Safety Rule 1: System account check
+    if (acc.is_system) {
+      toast.error("System protected accounts cannot be deleted to preserve accounting integrity.");
+      return;
+    }
+
+    // Safety Rule 2: Non-zero balance check
+    if (Math.abs(acc.balance) > 0.001) {
+      toast.error(`Cannot delete "${acc.name}" because it has a non-zero balance (${acc.balance.toLocaleString()} PKR). Please adjust balance to zero first.`);
+      return;
+    }
+
+    // Safety Rule 3: Has sub-accounts
+    if (accounts.some(a => (a.parent_account_id === acc.id || a.parent_id === acc.id) && a.id !== acc.id)) {
+      toast.error(`Cannot delete "${acc.name}" because it has active sub-accounts linked to it.`);
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete custom account "${acc.name}"?`)) return;
+
+    const { error: delErr } = await supabase
+      .from('accounts')
+      .delete()
+      .eq('id', acc.id);
+
+    if (delErr) {
+      toast.error(`Failed to delete account: ${delErr.message}`);
+      return;
+    }
+
+    toast.success(`Account "${acc.name}" deleted.`);
+    await fetchAccountsWithBalances();
+  }
+
+  // --- MANUAL JOURNAL ENTRY HANDLERS ---
+  function handleAddJournalLine() {
+    setJournalLines(prev => [...prev, { account_id: '', debit: '', credit: '' }]);
+  }
+
+  function handleRemoveJournalLine(index: number) {
+    if (journalLines.length <= 2) return;
+    setJournalLines(prev => prev.filter((_, i) => i !== index));
+  }
+
+  function handleJournalLineChange(index: number, field: keyof ManualJournalLineInput, val: string) {
+    setJournalLines(prev => prev.map((line, i) => {
+      if (i !== index) return line;
+      if (field === 'debit' && val !== '') {
+        return { ...line, debit: val, credit: '' };
+      }
+      if (field === 'credit' && val !== '') {
+        return { ...line, credit: val, debit: '' };
+      }
+      return { ...line, [field]: val };
+    }));
+  }
+
+  const totalDebitCents = useMemo(() => {
+    return journalLines.reduce((sum, l) => sum + parseToCents(l.debit || 0), 0);
+  }, [journalLines]);
+
+  const totalCreditCents = useMemo(() => {
+    return journalLines.reduce((sum, l) => sum + parseToCents(l.credit || 0), 0);
+  }, [journalLines]);
+
+  const isJournalBalanced = useMemo(() => {
+    return totalDebitCents === totalCreditCents && totalDebitCents > 0;
+  }, [totalDebitCents, totalCreditCents]);
+
+  async function handlePostJournalEntry(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!journalDescription.trim()) {
+      return toast.error("Journal entry description is required.");
+    }
+
+    if (!isJournalBalanced) {
+      return toast.error("Journal entry is unbalanced. Total Debits must equal Total Credits.");
+    }
+
+    if (journalLines.some(l => !l.account_id)) {
+      return toast.error("All journal lines must have an account selected.");
+    }
+
+    setIsJournalSubmitting(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("User session not found.");
+      setIsJournalSubmitting(false);
+      return;
+    }
+
+    const formattedLines = journalLines.map(l => ({
+      account_id: l.account_id,
+      debit: (parseToCents(l.debit || 0)) / 100,
+      credit: (parseToCents(l.credit || 0)) / 100
+    }));
+
+    const result = await createJournalEntryAtomic(supabase, {
+      user_id: user.id,
+      date: journalDate,
+      description: journalDescription.trim(),
+      lines: formattedLines,
+      created_by_source: 'MANUAL'
+    });
+
+    if (!result.success) {
+      toast.error(result.error || "Failed to post journal entry.");
+      setIsJournalSubmitting(false);
+      return;
+    }
+
+    toast.success("Journal Entry posted to General Ledger!");
+    setJournalDescription('');
+    setJournalDate(new Date().toISOString().split('T')[0]);
+    setJournalLines([
+      { account_id: '', debit: '', credit: '' },
+      { account_id: '', debit: '', credit: '' }
+    ]);
+    setIsJournalModalOpen(false);
+    setIsJournalSubmitting(false);
+    await fetchAccountsWithBalances();
+  }
+
+  // --- YEAR END CLOSE ---
+  async function handleYearEndClose() {
+    if (!confirm("Are you sure you want to run the Year-End Close? This will calculate Net Profit and transfer it to Owner's Capital.")) {
+      return;
+    }
+
+    const toastId = toast.loading("Executing Year-End Close...");
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Unauthorized");
+
+      const revenueAndExpenseAccs = accounts.filter(a => (a.type === 'revenue' || a.type === 'expense') && Number(a.balance || 0) !== 0);
+      if (revenueAndExpenseAccs.length === 0) {
+        toast.error("No active Revenue or Expense balances to close.", { id: toastId });
+        return;
+      }
+
+      let capitalAcc = accounts.find(a => a.type === 'equity' && a.name === "Owner's Capital");
+      if (!capitalAcc) {
+        const { data: newCap } = await supabase.from('accounts').insert({
+          user_id: user.id,
+          name: "Owner's Capital",
+          type: 'equity',
+          is_system: true,
+          is_cash_account: false
+        }).select().single();
+        capitalAcc = newCap;
+      }
+
+      if (!capitalAcc) throw new Error("Could not find or create Owner's Capital account.");
+
+      const closingLines: JournalLineItem[] = [];
+      let netProfitCents = 0;
+
+      for (const acc of revenueAndExpenseAccs) {
+        const balCents = parseToCents(acc.balance);
+        if (acc.type === 'revenue') {
+          closingLines.push({
+            account_id: acc.id,
+            debit: balCents / 100,
+            credit: 0
+          });
+          netProfitCents += balCents;
+        } else if (acc.type === 'expense') {
+          closingLines.push({
+            account_id: acc.id,
+            debit: 0,
+            credit: balCents / 100
+          });
+          netProfitCents -= balCents;
+        }
+      }
+
+      if (netProfitCents > 0) {
+        closingLines.push({
+          account_id: capitalAcc.id,
+          debit: 0,
+          credit: netProfitCents / 100
+        });
+      } else if (netProfitCents < 0) {
+        closingLines.push({
+          account_id: capitalAcc.id,
+          debit: Math.abs(netProfitCents) / 100,
+          credit: 0
+        });
+      }
+
+      const closeResult = await createJournalEntryAtomic(supabase, {
+        user_id: user.id,
+        date: new Date().toISOString().split('T')[0],
+        description: `Year-End Close — Net Income transfer of ${(netProfitCents / 100).toLocaleString()} PKR to Owner's Capital`,
+        lines: closingLines,
+        created_by_source: 'MANUAL',
+        reference_type: 'YEAR_END_CLOSE'
+      });
+
+      if (!closeResult.success) {
+        throw new Error(closeResult.error || "Failed to post Year-End Close entry.");
+      }
+
+      toast.success("Year-End Close completed successfully!", { id: toastId });
+      await fetchAccountsWithBalances();
+    } catch (e: any) {
+      toast.error(e.message || "Error running Year-End Close", { id: toastId });
+    }
+  }
+
+  // --- SIMPLE CASH TRANSFER HANDLER ---
   async function handlePostTransfer(e: React.FormEvent) {
- e.preventDefault();
+    e.preventDefault();
+    if (!transferFromAccountId || !transferToAccountId || !transferAmount) {
+      return toast.error("Please fill in all transfer fields.");
+    }
+    if (transferFromAccountId === transferToAccountId) {
+      return toast.error("Source and Destination accounts must be different.");
+    }
+    const amt = parseFloat(transferAmount);
+    if (isNaN(amt) || amt <= 0) {
+      return toast.error("Transfer amount must be greater than zero.");
+    }
 
- if (!transferFromAccountId) {
- return toast.error("Please select a Transfer From account.");
- }
- if (!transferToAccountId) {
- return toast.error("Please select a Transfer To account.");
- }
- if (transferFromAccountId === transferToAccountId) {
- return toast.error("Transfer From and Transfer To accounts cannot be the same.");
- }
- const amountNum = Number(transferAmount);
- if (!transferAmount || isNaN(amountNum) || amountNum <= 0) {
- return toast.error("Transfer amount must be greater than zero.");
- }
- if (!transferDescription.trim()) {
- return toast.error("Transfer description is required.");
- }
+    setIsTransferSubmitting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Unauthorized");
 
- setIsTransferSubmitting(true);
- const { data: { user } } = await supabase.auth.getUser();
- if (!user) {
- toast.error("User session not found.");
- setIsTransferSubmitting(false);
- return;
- }
+      const fromAcc = accounts.find(a => a.id === transferFromAccountId);
+      const toAcc = accounts.find(a => a.id === transferToAccountId);
+      const memo = transferDescription.trim() || `Cash Transfer from ${fromAcc?.name} to ${toAcc?.name}`;
 
- // Transfer To: Debited, Transfer From: Credited
- const formattedLines = [
- { account_id: transferToAccountId, debit: amountNum, credit: 0 },
- { account_id: transferFromAccountId, debit: 0, credit: amountNum }
- ];
+      const transferResult = await createJournalEntryAtomic(supabase, {
+        user_id: user.id,
+        date: new Date().toISOString().split('T')[0],
+        description: memo,
+        lines: [
+          { account_id: transferToAccountId, debit: amt, credit: 0 },
+          { account_id: transferFromAccountId, debit: 0, credit: amt }
+        ],
+        created_by_source: 'MANUAL',
+        reference_type: 'CASH_TRANSFER'
+      });
 
- const result = await createJournalEntryAtomic(supabase, {
- user_id: user.id,
- date: new Date().toISOString().split('T')[0],
- description: transferDescription.trim(),
- lines: formattedLines,
- created_by_source: 'MANUAL'
- });
+      if (!transferResult.success) {
+        throw new Error(transferResult.error || "Failed to post transfer entry.");
+      }
 
- if (result.error) {
- toast.error(`Transfer Failed: ${result.error}`);
- setIsTransferSubmitting(false);
- return;
- }
- toast.success("Funds transferred successfully!");
- setTransferFromAccountId('');
- setTransferToAccountId('');
- setTransferAmount('');
- setTransferDescription('');
- setIsTransferModalOpen(false);
- setIsTransferSubmitting(false);
+      toast.success(`Successfully transferred ${amt.toLocaleString()} PKR from ${fromAcc?.name} to ${toAcc?.name}!`);
+      setIsTransferModalOpen(false);
+      setTransferAmount('');
+      setTransferDescription('');
+      setTransferFromAccountId('');
+      setTransferToAccountId('');
+      await fetchAccountsWithBalances();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to execute transfer");
+    } finally {
+      setIsTransferSubmitting(false);
+    }
+  }
 
- await fetchAccountsWithBalances();
- }
+  // Filtered accounts
+  const filteredAccounts = useMemo(() => {
+    return accounts.filter(a => {
+      const matchesSearch = a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (a.code && a.code.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesFilter = selectedTypeFilter === 'all' || a.type === selectedTypeFilter;
+      return matchesSearch && matchesFilter;
+    });
+  }, [accounts, searchTerm, selectedTypeFilter]);
 
- // Receive Loan Handler
- async function handlePostReceiveLoan(e: React.FormEvent) {
-   e.preventDefault();
-   if (!receiveLoanBankAccountId || !receiveLoanAccountId || !receiveLoanAmount || parseFloat(receiveLoanAmount) <= 0) {
-     toast.error("Please fill in all required fields with a valid amount.");
-     return;
-   }
+  // Group accounts by type with clean plural labels and DYNAMIC PARENT/CHILD NESTING
+  const [sortField, setSortField] = useState<'name' | 'type' | 'balance'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-   setIsReceiveLoanSubmitting(true);
-   try {
-     const { data: { user } } = await supabase.auth.getUser();
-     if (!user) throw new Error("User session not found");
+  function toggleSort(field: 'name' | 'type' | 'balance') {
+    if (sortField === field) {
+      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  }
 
-     const amountNum = parseFloat(receiveLoanAmount);
-     const bankAcc = accounts.find(a => a.id === receiveLoanBankAccountId);
-     const loanAcc = accounts.find(a => a.id === receiveLoanAccountId);
+  const groupedAccounts = useMemo(() => {
+    const types: ('asset' | 'liability' | 'equity' | 'revenue' | 'expense')[] = [
+      'asset', 'liability', 'equity', 'revenue', 'expense'
+    ];
 
-     const lines: JournalLineItem[] = [
-       {
-         account_id: receiveLoanBankAccountId,
-         debit: amountNum,
-         credit: 0,
-         description: `Loan Proceeds into ${bankAcc?.name || 'Bank'}`
-       },
-       {
-         account_id: receiveLoanAccountId,
-         debit: 0,
-         credit: amountNum,
-         description: `Loan Borrowed from ${loanAcc?.name || 'Loan Liability'}`
-       }
-     ];
+    const groupMap: Record<string, AccountRow[]> = {
+      asset: [],
+      liability: [],
+      equity: [],
+      revenue: [],
+      expense: []
+    };
 
-     const { success, error } = await createJournalEntryAtomic(supabase, {
-       user_id: user.id,
-       date: new Date().toISOString().split('T')[0],
-       description: receiveLoanDescription || `Received Loan Inflow into ${bankAcc?.name || 'Bank'}`,
-       reference_type: 'LOAN_INFLOW',
-       lines: lines
-     });
+    filteredAccounts.forEach(a => {
+      if (groupMap[a.type]) {
+        groupMap[a.type].push(a);
+      }
+    });
 
-     if (!success || error) {
-       toast.error(`Failed to record loan inflow: ${error || 'Unknown error'}`);
-       return;
-     }
+    const labels: Record<string, string> = {
+      asset: 'Assets',
+      liability: 'Liabilities',
+      equity: 'Equity',
+      revenue: 'Revenues',
+      expense: 'Expenses'
+    };
 
-     toast.success(`Received Loan of ${amountNum.toLocaleString()} PKR recorded into Ledger!`);
-     setIsReceiveLoanModalOpen(false);
-     setReceiveLoanAmount('');
-     setReceiveLoanDescription('Loan Inflow');
-     await fetchAccountsWithBalances();
-   } catch (err: any) {
-     toast.error(`Error recording loan: ${err.message}`);
-   } finally {
-     setIsReceiveLoanSubmitting(false);
-   }
- }
+    return types.map(t => {
+      const itemsInGroup = groupMap[t] || [];
+      
+      const sortHelper = (a: AccountRow, b: AccountRow) => {
+        let comp = 0;
+        if (sortField === 'name') comp = a.name.localeCompare(b.name);
+        else if (sortField === 'type') comp = a.type.localeCompare(b.type);
+        else if (sortField === 'balance') comp = (a.balance || 0) - (b.balance || 0);
+        return sortOrder === 'asc' ? comp : -comp;
+      };
 
- // Record Loan Payment Handler
- async function handlePostLoanPayment(e: React.FormEvent) {
-   e.preventDefault();
-   if (!loanPaymentAccountId || !loanAccountId || !loanTotalAmount || parseFloat(loanTotalAmount) <= 0) {
-     toast.error("Please fill in all required fields with a valid amount.");
-     return;
-   }
+      // DYNAMIC HIERARCHICAL GROUPING
+      const hierarchicalItems: HierarchicalAccountItem[] = [];
+      const parentAccounts = itemsInGroup.filter(a => !a.parent_account_id && !a.parent_id);
+      parentAccounts.sort(sortHelper);
 
-   const totalNum = parseFloat(loanTotalAmount);
-   const interestNum = loanInterestAmount ? parseFloat(loanInterestAmount) : 0;
+      const processedIds = new Set<string>();
 
-   if (interestNum < 0) {
-     toast.error("Interest amount cannot be negative.");
-     return;
-   }
+      parentAccounts.forEach(parent => {
+        const children = itemsInGroup.filter(c => 
+          (c.parent_account_id === parent.id || c.parent_id === parent.id) && c.id !== parent.id
+        );
+        children.sort(sortHelper);
 
-   if (interestNum > totalNum) {
-     toast.error("Interest amount cannot exceed total payment amount.");
-     return;
-   }
+        hierarchicalItems.push({
+          account: parent,
+          isChild: false,
+          hasChildren: children.length > 0
+        });
+        processedIds.add(parent.id);
 
-   const principalNum = totalNum - interestNum;
+        children.forEach(child => {
+          hierarchicalItems.push({
+            account: child,
+            isChild: true,
+            hasChildren: false,
+            parentName: parent.name
+          });
+          processedIds.add(child.id);
+        });
+      });
 
-   setIsLoanSubmitting(true);
-   try {
-     const { data: { user } } = await supabase.auth.getUser();
-     if (!user) throw new Error("User session not found");
+      // Include remaining/orphaned accounts
+      itemsInGroup.forEach(acc => {
+        if (!processedIds.has(acc.id)) {
+          const parentAccount = accounts.find(a => a.id === (acc.parent_account_id || acc.parent_id));
+          hierarchicalItems.push({
+            account: acc,
+            isChild: Boolean(parentAccount),
+            hasChildren: false,
+            parentName: parentAccount?.name
+          });
+        }
+      });
 
-     let interestAcc = accounts.find(a => a.type === 'expense' && (a.name.toLowerCase().includes('interest') || a.code === '5050'));
-     if (!interestAcc) {
-       interestAcc = accounts.find(a => a.type === 'expense');
-     }
+      return {
+        type: t,
+        label: labels[t] || (t.charAt(0).toUpperCase() + t.slice(1)),
+        items: hierarchicalItems
+      };
+    });
+  }, [filteredAccounts, accounts, sortField, sortOrder]);
 
-     const bankAcc = accounts.find(a => a.id === loanPaymentAccountId);
-     const loanAcc = accounts.find(a => a.id === loanAccountId);
+  const typeBadges: Record<string, string> = {
+    asset: 'bg-blue-50 text-blue-700 border-blue-200',
+    liability: 'bg-red-50 text-red-700 border-red-200',
+    equity: 'bg-purple-50 text-purple-700 border-purple-200',
+    revenue: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    expense: 'bg-amber-50 text-amber-700 border-amber-200'
+  };
 
-     const lines: JournalLineItem[] = [];
+  return (
+    <div className="space-y-6">
+      
+      {/* RELOCATED RICH CASHBOOK WIDGET WITH DIRECT SHORTCUTS */}
+      <CashbookWidget 
+        onOpenAddAccount={() => {
+          setNewAccountType('asset');
+          setIsCashAccount(true);
+          setIsModalOpen(true);
+        }}
+        onOpenAdjustBalance={() => setIsJournalModalOpen(true)}
+        onOpenTransferCash={() => setIsTransferModalOpen(true)}
+      />
 
-     if (principalNum > 0) {
-       lines.push({
-         account_id: loanAccountId,
-         debit: principalNum,
-         credit: 0,
-         description: `Loan Principal Reduction (${loanAcc?.name || 'Loan'})`
-       });
-     }
-
-     if (interestNum > 0 && interestAcc) {
-       lines.push({
-         account_id: interestAcc.id,
-         debit: interestNum,
-         credit: 0,
-         description: `Loan Interest Expense (${loanAcc?.name || 'Loan'})`
-       });
-     }
-
-     lines.push({
-       account_id: loanPaymentAccountId,
-       debit: 0,
-       credit: totalNum,
-       description: `Loan Repayment Outflow from ${bankAcc?.name || 'Bank'}`
-     });
-
-     const { success, error } = await createJournalEntryAtomic(supabase, {
-       user_id: user.id,
-       date: loanDate || new Date().toISOString().split('T')[0],
-       description: loanDescription || `Loan Payment for ${loanAcc?.name || 'Loan'}`,
-       reference_type: 'LOAN_REPAYMENT',
-       lines: lines
-     });
-
-     if (!success || error) {
-       toast.error(`Failed to record loan payment: ${error || 'Unknown error'}`);
-       return;
-     }
-
-     toast.success(`Loan payment of ${totalNum.toLocaleString()} PKR recorded into Ledger!`);
-     setIsLoanModalOpen(false);
-     setLoanTotalAmount('');
-     setLoanInterestAmount('');
-     setLoanDescription('Loan Repayment & Interest Service');
-     await fetchAccountsWithBalances();
-   } catch (err: any) {
-     toast.error(`Error recording loan payment: ${err.message}`);
-   } finally {
-     setIsLoanSubmitting(false);
-   }
- }
-
- // Filtered accounts
- const filteredAccounts = useMemo(() => {
- return accounts.filter(a => {
- const matchesSearch = a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
- (a.code && a.code.toLowerCase().includes(searchTerm.toLowerCase()));
- const matchesFilter = selectedTypeFilter === 'all' || a.type === selectedTypeFilter;
- return matchesSearch && matchesFilter;
- });
- }, [accounts, searchTerm, selectedTypeFilter]);
-
- // Group accounts by type with clean plural labels
- const [sortField, setSortField] = useState<'name' | 'type' | 'balance'>('name');
- const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-
- function toggleSort(field: 'name' | 'type' | 'balance') {
- if (sortField === field) {
- setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
- } else {
- setSortField(field);
- setSortOrder('asc');
- }
- }
-
- const groupedAccounts = useMemo(() => {
- const types: ('asset' | 'liability' | 'equity' | 'revenue' | 'expense')[] = [
- 'asset', 'liability', 'equity', 'revenue', 'expense'
- ];
-
- const groupMap: Record<string, AccountRow[]> = {
- asset: [],
- liability: [],
- equity: [],
- revenue: [],
- expense: []
- };
-
- filteredAccounts.forEach(a => {
- if (groupMap[a.type]) {
- groupMap[a.type].push(a);
- }
- });
-
- const labels: Record<string, string> = {
- asset: 'Assets',
- liability: 'Liabilities',
- equity: 'Equity',
- revenue: 'Revenues',
- expense: 'Expenses'
- };
-
- return types.map(t => {
- const items = [...groupMap[t]].sort((a, b) => {
- let comp = 0;
- if (sortField === 'name') comp = a.name.localeCompare(b.name);
- else if (sortField === 'type') comp = a.type.localeCompare(b.type);
- else if (sortField === 'balance') comp = (a.balance || 0) - (b.balance || 0);
- return sortOrder === 'asc' ? comp : -comp;
- });
-
- return {
- type: t,
- label: labels[t] || (t.charAt(0).toUpperCase() + t.slice(1)),
- items
- };
- });
- }, [filteredAccounts, sortField, sortOrder]);
-
- const typeBadges: Record<string, string> = {
- asset: 'bg-blue-50 text-blue-700 border-blue-200',
- liability: 'bg-red-50 text-red-700 border-red-200',
- equity: 'bg-purple-50 text-purple-700 border-purple-200',
- revenue: 'bg-emerald-50 text-emerald-700 border-emerald-200',
- expense: 'bg-amber-50 text-amber-700 border-amber-200'
- };
-
- return (
- <div className="space-y-6">
- 
- {/* RELOCATED RICH CASHBOOK WIDGET WITH DIRECT SHORTCUTS */}
- <CashbookWidget 
- onOpenAddAccount={() => {
- setNewAccountType('asset');
- setIsCashAccount(true);
- setIsModalOpen(true);
- }}
- onOpenAdjustBalance={() => setIsJournalModalOpen(true)}
- onOpenTransferCash={() => setIsTransferModalOpen(true)}
- />
-
- {/* HEADER BAR */}
- <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-6 rounded-2xl">
- <div>
- <h1 className="text-xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
- <FolderTree className="w-6 h-6 text-blue-600" />
- Chart of Accounts Manager
- </h1>
- <p className="text-xs text-gray-500 mt-1">
- Master double-entry account catalog & real-time general ledger balances.
- </p>
- </div>
+      {/* HEADER BAR */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 p-6 rounded-2xl">
+        <div>
+          <h1 className="text-xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
+            <FolderTree className="w-6 h-6 text-blue-600" />
+            Chart of Accounts Manager
+          </h1>
+          <p className="text-xs text-gray-500 mt-1">
+            Master double-entry account catalog & real-time general ledger balances.
+          </p>
+        </div>
 
         <div className="flex flex-wrap gap-2">
-          
- <button
- onClick={() => setIsJournalModalOpen(true)}
- className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-600/20 transition-all cursor-pointer"
- >
- <BookOpen className="w-4 h-4" /> + New Journal Entry
- </button>
-  <button
-  onClick={handleYearEndClose}
-  className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-600/20 transition-all cursor-pointer"
-  >
-  <RefreshCw className="w-4 h-4" /> Year-End Close
-  </button>
- <button
- onClick={() => setIsModalOpen(true)}
- className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-600/20 transition-all cursor-pointer"
- >
- <Plus className="w-4 h-4" /> + New Account
- </button>
- </div>
- </div>
+          <button
+            onClick={() => setIsJournalModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-600/20 transition-all cursor-pointer"
+          >
+            <BookOpen className="w-4 h-4" /> + New Journal Entry
+          </button>
+          <button
+            onClick={handleYearEndClose}
+            className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-600/20 transition-all cursor-pointer"
+          >
+            <RefreshCw className="w-4 h-4" /> Year-End Close
+          </button>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-600/20 transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> + New Account
+          </button>
+        </div>
+      </div>
 
- {/* FILTER & SEARCH BAR */}
- <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
- <div className="relative w-full sm:w-80">
- <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
- <input
- type="text"
- value={searchTerm}
- onChange={(e) => setSearchTerm(e.target.value)}
- placeholder="Search account name or code..."
- className="w-full pl-9 pr-4 py-2 text-xs bg-white/70 backdrop-blur-md border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-600"
- />
- </div>
+      {/* FILTER & SEARCH BAR */}
+      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+        <div className="relative w-full sm:w-80">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search account name or code..."
+            className="w-full pl-9 pr-4 py-2 text-xs bg-white/70 backdrop-blur-md border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-600"
+          />
+        </div>
 
- <div className="flex flex-wrap gap-1.5 w-full sm:w-auto">
- {['all', 'asset', 'liability', 'equity', 'revenue', 'expense'].map((typeKey) => (
- <button
- key={typeKey}
- onClick={() => setSelectedTypeFilter(typeKey)}
- className={`px-3.5 py-2 min-h-[38px] rounded-xl text-xs font-semibold capitalize transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
- selectedTypeFilter === typeKey
- ? 'bg-gray-900 text-white shadow-sm font-bold'
- : 'bg-white/60 text-gray-600 hover:bg-white border border-gray-200'
- }`}
- >
- {typeKey === 'all' ? 'All Types' : typeKey}
- </button>
- ))}
- </div>
- </div>
+        <div className="flex flex-wrap gap-1.5 w-full sm:w-auto">
+          {['all', 'asset', 'liability', 'equity', 'revenue', 'expense'].map((typeKey) => (
+            <button
+              key={typeKey}
+              onClick={() => setSelectedTypeFilter(typeKey)}
+              className={`px-3.5 py-2 min-h-[38px] rounded-xl text-xs font-semibold capitalize transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                selectedTypeFilter === typeKey
+                  ? 'bg-gray-900 text-white shadow-sm font-bold'
+                  : 'bg-white/60 text-gray-600 hover:bg-white border border-gray-200'
+              }`}
+            >
+              {typeKey === 'all' ? 'All Types' : typeKey}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* AGGREGATE FINANCIAL POSITION (5 CATEGORY TOTALS) */}
       {!isLoading && accounts.length > 0 && (
@@ -961,803 +880,880 @@ export default function ChartOfAccountsManager() {
           })}
         </div>
       )}
- {/* MAIN DATA TABLE */}
- {isLoading ? (
- <div className="flex flex-col items-center justify-center py-20 text-gray-400">
- <Loader2 className="w-8 h-8 animate-spin" />
- </div>
- ) : (
- <div className="space-y-6">
- {groupedAccounts.map(group => {
- if (group.items.length === 0 && selectedTypeFilter !== 'all') return null;
 
- return (
- <div key={group.type} className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-2xl overflow-hidden">
- <div className="bg-gray-50/80 px-6 py-3 border-b border-gray-100 flex items-center justify-between">
- <span className="text-xs font-black uppercase text-gray-700 tracking-wider flex items-center gap-2">
- <span className={`w-2 h-2 rounded-full ${
- group.type === 'asset' ? 'bg-blue-500' :
- group.type === 'liability' ? 'bg-red-500' :
- group.type === 'equity' ? 'bg-purple-500' :
- group.type === 'revenue' ? 'bg-emerald-500' : 'bg-amber-500'
- }`} />
- {group.label} ({group.items.length})
- </span>
- </div>
+      {/* MAIN DATA TABLE WITH DYNAMIC HIERARCHY */}
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+          <Loader2 className="w-8 h-8 animate-spin" />
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {groupedAccounts.map(group => {
+            if (group.items.length === 0 && selectedTypeFilter !== 'all') return null;
 
- <div className="overflow-x-auto custom-scrollbar min-w-0">
- <table className="w-full text-left text-sm whitespace-nowrap min-w-[650px]">
- <thead className="bg-white/40 text-gray-500 text-xs uppercase font-semibold border-b border-gray-100">
- <tr>
- <th onClick={() => toggleSort('name')} className="px-6 py-3 cursor-pointer hover:bg-gray-100/60 transition-colors select-none">
- Account Name {sortField === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
- </th>
- <th onClick={() => toggleSort('type')} className="px-6 py-3 w-32 cursor-pointer hover:bg-gray-100/60 transition-colors select-none">
- Type {sortField === 'type' && (sortOrder === 'asc' ? '↑' : '↓')}
- </th>
- <th className="px-6 py-3 w-36">Bank / Cash</th>
- <th className="px-6 py-3 w-36">System Protected</th>
- <th onClick={() => toggleSort('balance')} className="px-6 py-3 text-right w-44 cursor-pointer hover:bg-gray-100/60 transition-colors select-none">
- Current Balance {sortField === 'balance' && (sortOrder === 'asc' ? '↑' : '↓')}
- </th>
- <th className="px-6 py-3 text-center w-28">Actions</th>
- </tr>
- </thead>
- <tbody className="divide-y divide-gray-100 text-gray-700">
- {group.items.length === 0 ? (
- <tr>
- <td colSpan={6} className="px-6 py-6 text-center text-xs text-gray-400">
- No {group.type} accounts found matching filter.
- </td>
- </tr>
- ) : (
- group.items.map(acc => (
- <tr key={acc.id} className="hover:bg-white/60 transition-colors">
- <td className="px-6 py-3.5 font-bold text-gray-900 text-xs">
- <button
- onClick={() => handleOpenTAccount(acc)}
- className="hover:text-blue-600 hover:underline text-left cursor-pointer flex items-center gap-1.5 transition-colors group/name"
- title={`Click to open T-Account Ledger for ${acc.name}`}
- >
- <span>{acc.name}</span>
- {acc.code && <span className="text-[10px] text-gray-400 font-mono">({acc.code})</span>}
- </button>
- </td>
- <td className="px-6 py-3.5 text-xs">
- <span className={`px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase border ${typeBadges[acc.type]}`}>
- {acc.type}
- </span>
- </td>
- <td className="px-6 py-3.5 text-xs">
- {acc.is_cash_account ? (
- <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
- <Landmark className="w-3 h-3" /> Yes (Cash/Bank)
- </span>
- ) : (
- <span className="text-gray-400 text-xs">-</span>
- )}
- </td>
- <td className="px-6 py-3.5 text-xs">
- {acc.is_system ? (
- <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
- <ShieldCheck className="w-3 h-3" /> System
- </span>
- ) : (
- <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
- <UserCheck className="w-3 h-3" /> Custom
- </span>
- )}
- </td>
- <td className="px-6 py-3.5 text-right font-black text-xs text-gray-900">
- {acc.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-[10px] font-bold text-gray-500">PKR</span>
- </td>
- <td className="px-6 py-3.5 text-center text-xs">
- <div className="flex items-center justify-center gap-1">
- <button
- onClick={() => openEditModal(acc)}
- className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
- title="Edit Account"
- >
- <Edit2 className="w-3.5 h-3.5" />
- </button>
- <button
- onClick={() => handleDeleteAccount(acc)}
- className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
- title="Delete Account"
- >
- <Trash2 className="w-3.5 h-3.5" />
- </button>
- </div>
- </td>
- </tr>
- ))
- )}
- </tbody>
-              <tfoot className="bg-gray-50/90 border-t-2 border-gray-200 text-xs font-black text-gray-900">
-                <tr>
-                  <td colSpan={4} className="px-6 py-3.5 uppercase tracking-wider text-gray-700">
-                    Grand Total {group.label}
-                  </td>
-                  <td className="px-6 py-3.5 text-right font-black text-sm text-gray-900">
-                    {group.items.reduce((sum, acc) => sum + Number(acc.balance || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-[10px] font-bold text-gray-500">PKR</span>
-                  </td>
-                  <td className="px-6 py-3.5"></td>
-                </tr>
-              </tfoot>
- </table>
- </div>
- </div>
- );
- })}
- </div>
- )}
+            return (
+              <div key={group.type} className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-2xl overflow-hidden">
+                <div className="bg-gray-50/80 px-6 py-3 border-b border-gray-100 flex items-center justify-between">
+                  <span className="text-xs font-black uppercase text-gray-700 tracking-wider flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${
+                      group.type === 'asset' ? 'bg-blue-500' :
+                      group.type === 'liability' ? 'bg-red-500' :
+                      group.type === 'equity' ? 'bg-purple-500' :
+                      group.type === 'revenue' ? 'bg-emerald-500' : 'bg-amber-500'
+                    }`} />
+                    {group.label} ({group.items.length})
+                  </span>
+                </div>
 
- {/* CREATE ACCOUNT MODAL */}
- {mounted && isModalOpen && createPortal(
- <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
- <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
- <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
- <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
- <Plus className="w-5 h-5 text-blue-600" /> Create Ledger Account
- </h3>
- <button
- onClick={() => setIsModalOpen(false)}
- className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
- aria-label="Close modal"
- >
- <X className="w-5 h-5" />
- </button>
- </div>
+                <div className="overflow-x-auto custom-scrollbar min-w-0">
+                  <table className="w-full text-left text-sm whitespace-nowrap min-w-[650px]">
+                    <thead className="bg-white/40 text-gray-500 text-xs uppercase font-semibold border-b border-gray-100">
+                      <tr>
+                        <th onClick={() => toggleSort('name')} className="px-6 py-3 cursor-pointer hover:bg-gray-100/60 transition-colors select-none">
+                          Account Name {sortField === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th onClick={() => toggleSort('type')} className="px-6 py-3 w-32 cursor-pointer hover:bg-gray-100/60 transition-colors select-none">
+                          Type {sortField === 'type' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th className="px-6 py-3 w-36">Bank / Cash</th>
+                        <th className="px-6 py-3 w-36">System Protected</th>
+                        <th onClick={() => toggleSort('balance')} className="px-6 py-3 text-right w-44 cursor-pointer hover:bg-gray-100/60 transition-colors select-none">
+                          Current Balance {sortField === 'balance' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th className="px-6 py-3 text-center w-28">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 text-gray-700">
+                      {group.items.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-6 text-center text-xs text-gray-400">
+                            No {group.type} accounts found matching filter.
+                          </td>
+                        </tr>
+                      ) : (
+                        group.items.map(({ account: acc, isChild, hasChildren, parentName }) => (
+                          <tr 
+                            key={acc.id} 
+                            className={`transition-colors ${
+                              isChild 
+                                ? 'bg-blue-50/20 hover:bg-blue-50/50 border-l-4 border-l-blue-500' 
+                                : 'hover:bg-white/60'
+                            }`}
+                          >
+                            <td className={`py-3.5 text-xs font-bold text-gray-900 ${
+                              isChild ? 'pl-10 sm:pl-12 pr-6' : 'px-6'
+                            }`}>
+                              <div className="flex items-center gap-2">
+                                {isChild && (
+                                  <span className="text-blue-600 font-extrabold select-none text-base leading-none shrink-0">↳</span>
+                                )}
+                                <div className="flex flex-col">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <button
+                                      onClick={() => handleOpenTAccount(acc)}
+                                      className="hover:text-blue-600 hover:underline text-left cursor-pointer flex items-center gap-1.5 transition-colors group/name"
+                                      title={`Click to open T-Account Ledger for ${acc.name}`}
+                                    >
+                                      <span className={isChild ? 'font-semibold text-slate-800' : 'font-black text-slate-900'}>
+                                        {acc.name}
+                                      </span>
+                                      {acc.code && <span className="text-[10px] text-gray-400 font-mono">({acc.code})</span>}
+                                    </button>
+                                    {hasChildren && (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold tracking-tight uppercase bg-purple-100 text-purple-800 border border-purple-300 shadow-2xs">
+                                        Control Category
+                                      </span>
+                                    )}
+                                    {isChild && (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-tight uppercase bg-blue-100 text-blue-800 border border-blue-300 shadow-2xs">
+                                        Sub-Account
+                                      </span>
+                                    )}
+                                  </div>
+                                  {isChild && parentName && (
+                                    <span className="text-[10px] text-slate-500 font-medium mt-0.5">
+                                      ↳ Sub-account of <strong className="text-slate-700 font-bold">{parentName}</strong>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-3.5 text-xs">
+                              <span className={`px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase border ${typeBadges[acc.type]}`}>
+                                {acc.type}
+                              </span>
+                            </td>
+                            <td className="px-6 py-3.5 text-xs">
+                              {acc.type === 'asset' && acc.is_cash_account ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                  <Landmark className="w-3 h-3" /> Yes (Cash/Bank)
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 text-xs">-</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-3.5 text-xs">
+                              {acc.is_system ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                                  <ShieldCheck className="w-3 h-3" /> System
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
+                                  <UserCheck className="w-3 h-3" /> Custom
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-3.5 text-right font-black text-xs text-gray-900">
+                              {acc.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-[10px] font-bold text-gray-500">PKR</span>
+                            </td>
+                            <td className="px-6 py-3.5 text-center text-xs">
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  onClick={() => openEditModal(acc)}
+                                  className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                  title="Edit Account"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteAccount(acc)}
+                                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                  title="Delete Account"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                    <tfoot className="bg-gray-50/90 border-t-2 border-gray-200 text-xs font-black text-gray-900">
+                      <tr>
+                        <td colSpan={4} className="px-6 py-3.5 uppercase tracking-wider text-gray-700">
+                          Grand Total {group.label}
+                        </td>
+                        <td className="px-6 py-3.5 text-right font-black text-sm text-gray-900">
+                          {group.items.reduce((sum, item) => sum + Number(item.account.balance || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-[10px] font-bold text-gray-500">PKR</span>
+                        </td>
+                        <td className="px-6 py-3.5"></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
- <form id="createAccountForm" onSubmit={handleCreateAccount} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
- <div>
- <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
- Account Name *
- </label>
- <input
- type="text"
- required
- value={newAccountName}
- onChange={(e) => setNewAccountName(e.target.value)}
- placeholder="e.g. Secondary Digital Bank, Office Equipment"
- className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none"
- />
- </div>
+      {/* CREATE ACCOUNT MODAL */}
+      {mounted && isModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Plus className="w-5 h-5 text-blue-600" /> Create Ledger Account
+              </h3>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
- <div>
- <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
- Account Code (Optional)
- </label>
- <input
- type="text"
- value={newAccountCode}
- onChange={(e) => setNewAccountCode(e.target.value)}
- placeholder="e.g. 1020, 5050"
- className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none font-mono"
- />
- </div>
+            <form id="createAccountForm" onSubmit={handleCreateAccount} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  Account Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newAccountName}
+                  onChange={(e) => setNewAccountName(e.target.value)}
+                  placeholder="e.g. Askari Bank Loan, Office Equipment"
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none"
+                />
+              </div>
 
- <div>
- <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
- Account Type *
- </label>
- <select
- value={newAccountType}
- onChange={(e) => {
- const t = e.target.value as any;
- setNewAccountType(t);
- if (t !== 'asset') setIsCashAccount(false);
- }}
- className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none cursor-pointer"
- >
- <option value="asset">Asset (e.g. Bank, Cash, Equipment)</option>
- <option value="liability">Liability (e.g. Credit Card, Loans)</option>
- <option value="equity">Equity (e.g. Owner Investment)</option>
- <option value="revenue">Revenue (e.g. Sales, Service Income)</option>
- <option value="expense">Expense (e.g. Utilities, COGS)</option>
- </select>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  Account Code (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={newAccountCode}
+                  onChange={(e) => setNewAccountCode(e.target.value)}
+                  placeholder="e.g. 1020, 2550"
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none font-mono"
+                />
+              </div>
 
- {newAccountType === 'liability' && (
-   <div className="p-3.5 mt-4 rounded-xl bg-amber-50/70 border border-amber-200/80 space-y-2">
-     <span className="text-[11px] font-extrabold text-amber-900 uppercase tracking-wider block">
-       Quick Loan / Liability Sub-Account Presets
-     </span>
-     <div className="flex flex-wrap gap-1.5">
-       {[
-         { name: 'Loan - HBL Bank', code: '2520' },
-         { name: 'Loan - Meezan Bank', code: '2530' },
-         { name: 'Vehicle Loan Payable', code: '2540' },
-         { name: 'Short-Term Credit Facility', code: '2550' }
-       ].map(preset => (
-         <button
-           key={preset.name}
-           type="button"
-           onClick={() => {
-             setNewAccountName(preset.name);
-             setNewAccountCode(preset.code);
-           }}
-           className="px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-amber-100 hover:text-amber-900 border border-amber-200 rounded-lg text-amber-800 transition-colors shadow-2xs cursor-pointer"
-         >
-           + {preset.name}
-         </button>
-       ))}
-     </div>
-   </div>
- )}
- </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  Account Type *
+                </label>
+                <select
+                  value={newAccountType}
+                  onChange={(e) => {
+                    const t = e.target.value as any;
+                    setNewAccountType(t);
+                    if (t !== 'asset') setIsCashAccount(false);
+                  }}
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none cursor-pointer"
+                >
+                  <option value="asset">Asset (e.g. Bank, Cash, Equipment)</option>
+                  <option value="liability">Liability (e.g. Loans, Mortgages, Credit)</option>
+                  <option value="equity">Equity (e.g. Owner Investment)</option>
+                  <option value="revenue">Revenue (e.g. Sales, Service Income)</option>
+                  <option value="expense">Expense (e.g. Utilities, COGS)</option>
+                </select>
+              </div>
 
- {/* DYNAMIC BANK OR CASH ACCOUNT TOGGLE */}
- {newAccountType === 'asset' && (
- <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-100 flex items-center justify-between min-h-[44px]">
- <div className="space-y-0.5">
- <span className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
- <Landmark className="w-4 h-4 text-blue-600" /> Is this a Bank or Cash account?
- </span>
- <p className="text-[11px] text-gray-500">
- Bank/Cash accounts automatically appear in the liquid Cashbook widget.
- </p>
- </div>
- <input
- type="checkbox"
- checked={isCashAccount}
- onChange={(e) => setIsCashAccount(e.target.checked)}
- className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer shrink-0"
- />
- </div>
- )}
- </form>
+              {(newAccountType === 'liability' || newAccountType === 'asset') && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    Parent Control Category (Optional Sub-Account Nesting)
+                  </label>
+                  <select
+                    value={newParentAccountId}
+                    onChange={(e) => setNewParentAccountId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none cursor-pointer"
+                  >
+                    <option value="">-- Standalone Account (No Parent Category) --</option>
+                    {accounts.filter(a => a.type === newAccountType && a.is_system).map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} (Control Category)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
- <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
- <button
- type="button"
- onClick={() => setIsModalOpen(false)}
- className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
- >
- Cancel
- </button>
- <button
- type="submit"
- form="createAccountForm"
- disabled={isSubmitting}
- className="px-5 py-2.5 min-h-[44px] rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 shadow-md shadow-blue-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
- >
- {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Account"}
- </button>
- </div>
- </div>
- </div>,
- document.body
- )}
+              {newAccountType === 'liability' && (
+                <div className="p-3.5 mt-3 rounded-xl bg-amber-50/70 border border-amber-200/80 space-y-2">
+                  <span className="text-[11px] font-extrabold text-amber-900 uppercase tracking-wider block">
+                    Quick Loan / Liability Sub-Account Presets
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { name: 'Askari Bank Loan', code: '2520' },
+                      { name: 'Loan - Meezan Bank', code: '2530' },
+                      { name: 'Vehicle Loan Payable', code: '2540' },
+                      { name: 'Short-Term Credit Facility', code: '2550' }
+                    ].map(preset => (
+                      <button
+                        key={preset.name}
+                        type="button"
+                        onClick={() => {
+                          setNewAccountName(preset.name);
+                          setNewAccountCode(preset.code);
+                          const defaultParent = accounts.find(a => a.type === 'liability' && (a.name === 'Long-Term Debt' || a.name === 'Short-Term Debt'));
+                          if (defaultParent) setNewParentAccountId(defaultParent.id);
+                        }}
+                        className="px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-amber-100 hover:text-amber-900 border border-amber-200 rounded-lg text-amber-800 transition-colors shadow-2xs cursor-pointer"
+                      >
+                        + {preset.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
- {/* EDIT ACCOUNT MODAL */}
- {mounted && editingAccount && createPortal(
- <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
- <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
- <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
- <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
- <Edit2 className="w-5 h-5 text-blue-600" /> Edit Account
- </h3>
- <button
- onClick={() => setEditingAccount(null)}
- className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
- aria-label="Close modal"
- >
- <X className="w-5 h-5" />
- </button>
- </div>
+              {/* DYNAMIC BANK OR CASH ACCOUNT TOGGLE */}
+              {newAccountType === 'asset' && (
+                <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-100 flex items-center justify-between min-h-[44px]">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                      <Landmark className="w-4 h-4 text-blue-600" /> Is this a Bank or Cash account?
+                    </span>
+                    <p className="text-[11px] text-gray-500">
+                      Bank/Cash accounts automatically appear in the liquid Cashbook widget.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={isCashAccount}
+                    onChange={(e) => setIsCashAccount(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer shrink-0"
+                  />
+                </div>
+              )}
+            </form>
 
- <form id="editAccountForm" onSubmit={handleUpdateAccount} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
- <div>
- <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
- Account Name *
- </label>
- <input
- type="text"
- required
- value={editName}
- onChange={(e) => setEditName(e.target.value)}
- className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none"
- />
- </div>
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="createAccountForm"
+                disabled={isSubmitting}
+                className="px-5 py-2.5 min-h-[44px] rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 shadow-md shadow-blue-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Account"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
- <div>
- <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
- Account Code (Optional)
- </label>
- <input
- type="text"
- value={editCode}
- onChange={(e) => setEditCode(e.target.value)}
- className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none font-mono"
- />
- </div>
+      {/* EDIT ACCOUNT MODAL */}
+      {mounted && editingAccount && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-blue-600" /> Edit Account
+              </h3>
+              <button
+                onClick={() => setEditingAccount(null)}
+                className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
- <div>
- <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
- Account Type *
- </label>
- <select
- value={editType}
- onChange={(e) => {
- const t = e.target.value as any;
- setEditType(t);
- if (t !== 'asset') setEditIsCash(false);
- }}
- className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none cursor-pointer"
- >
- <option value="asset">Asset (e.g. Bank, Cash, Equipment)</option>
- <option value="liability">Liability (e.g. Credit Card, Loans)</option>
- <option value="equity">Equity (e.g. Owner Investment)</option>
- <option value="revenue">Revenue (e.g. Sales, Service Income)</option>
- <option value="expense">Expense (e.g. Utilities, COGS)</option>
- </select>
- </div>
+            <form id="editAccountForm" onSubmit={handleUpdateAccount} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  Account Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none"
+                />
+              </div>
 
- {editType === 'asset' && (
- <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-100 flex items-center justify-between min-h-[44px]">
- <div className="space-y-0.5">
- <span className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
- <Landmark className="w-4 h-4 text-blue-600" /> Is this a Bank or Cash account?
- </span>
- <p className="text-[11px] text-gray-500">
- Bank/Cash accounts appear in the liquid Cashbook widget.
- </p>
- </div>
- <input
- type="checkbox"
- checked={editIsCash}
- onChange={(e) => setEditIsCash(e.target.checked)}
- className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer shrink-0"
- />
- </div>
- )}
- </form>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  Account Code (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={editCode}
+                  onChange={(e) => setEditCode(e.target.value)}
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none font-mono"
+                />
+              </div>
 
- <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
- <button
- type="button"
- onClick={() => setEditingAccount(null)}
- className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
- >
- Cancel
- </button>
- <button
- type="submit"
- form="editAccountForm"
- disabled={isEditSubmitting}
- className="px-5 py-2.5 min-h-[44px] rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 shadow-md shadow-blue-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
- >
- {isEditSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update Account"}
- </button>
- </div>
- </div>
- </div>,
- document.body
- )}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  Account Type *
+                </label>
+                <select
+                  value={editType}
+                  onChange={(e) => {
+                    const t = e.target.value as any;
+                    setEditType(t);
+                    if (t !== 'asset') setEditIsCash(false);
+                  }}
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none cursor-pointer"
+                >
+                  <option value="asset">Asset (e.g. Bank, Cash, Equipment)</option>
+                  <option value="liability">Liability (e.g. Loans, Mortgages, Credit)</option>
+                  <option value="equity">Equity (e.g. Owner Investment)</option>
+                  <option value="revenue">Revenue (e.g. Sales, Service Income)</option>
+                  <option value="expense">Expense (e.g. Utilities, COGS)</option>
+                </select>
+              </div>
 
- {/* MANUAL JOURNAL ENTRY MODAL */}
- {mounted && isJournalModalOpen && createPortal(
- <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
- <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-3xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
- <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
- <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
- <BookOpen className="w-5 h-5 text-purple-600" /> New General Journal Entry
- </h3>
- <button
- onClick={() => setIsJournalModalOpen(false)}
- className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
- aria-label="Close modal"
- >
- <X className="w-5 h-5" />
- </button>
- </div>
+              {(editType === 'liability' || editType === 'asset') && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    Parent Control Category (Optional Sub-Account Nesting)
+                  </label>
+                  <select
+                    value={editParentAccountId}
+                    onChange={(e) => setEditParentAccountId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none cursor-pointer"
+                  >
+                    <option value="">-- Standalone Account (No Parent Category) --</option>
+                    {accounts.filter(a => a.type === editType && a.is_system && a.id !== editingAccount.id).map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} (Control Category)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
- <form id="journalForm" onSubmit={handlePostJournalEntry} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
- <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
- <div>
- <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Date</label>
- <input
- type="date"
- required
- value={journalDate}
- onChange={(e) => setJournalDate(e.target.value)}
- className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-purple-600"
- />
- </div>
- <div className="sm:col-span-2">
- <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Description / Reference</label>
- <input
- type="text"
- required
- value={journalDescription}
- onChange={(e) => setJournalDescription(e.target.value)}
- placeholder="e.g. Owner capital investment, Bank to Petty Cash transfer"
- className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-purple-600"
- />
- </div>
- </div>
+              {editType === 'asset' && (
+                <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-100 flex items-center justify-between min-h-[44px]">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                      <Landmark className="w-4 h-4 text-blue-600" /> Is this a Bank or Cash account?
+                    </span>
+                    <p className="text-[11px] text-gray-500">
+                      Bank/Cash accounts appear in the liquid Cashbook widget.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={editIsCash}
+                    onChange={(e) => setEditIsCash(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer shrink-0"
+                  />
+                </div>
+              )}
+            </form>
 
- {/* DYNAMIC JOURNAL LINES TABLE */}
- <div className="space-y-2 pt-2">
- <div className="flex justify-between items-center">
- <span className="text-xs font-bold text-gray-800 uppercase">Journal Lines</span>
- <button
- type="button"
- onClick={handleAddJournalLine}
- className="text-xs font-bold text-purple-600 hover:text-purple-700 flex items-center gap-1 cursor-pointer min-h-[44px] px-2"
- >
- <Plus className="w-3.5 h-3.5" /> Add Line
- </button>
- </div>
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setEditingAccount(null)}
+                className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="editAccountForm"
+                disabled={isEditSubmitting}
+                className="px-5 py-2.5 min-h-[44px] rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 shadow-md shadow-blue-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
+              >
+                {isEditSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update Account"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
- <div className="space-y-2">
- {journalLines.map((line, idx) => (
- <div key={idx} className="flex gap-2 items-center bg-gray-50 p-2.5 rounded-xl border border-gray-200">
- <div className="flex-1">
- <select
- required
- value={line.account_id}
- onChange={(e) => handleJournalLineChange(idx, 'account_id', e.target.value)}
- className="w-full px-2.5 py-2 min-h-[44px] rounded-lg border border-gray-300 bg-white text-xs text-gray-900 outline-none cursor-pointer"
- >
- <option value="">-- Select Account --</option>
- {accounts.map(acc => (
- <option key={acc.id} value={acc.id}>
- {acc.name} ({acc.type.toUpperCase()})
- </option>
- ))}
- </select>
- </div>
+      {/* MANUAL JOURNAL ENTRY MODAL */}
+      {mounted && isJournalModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-3xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-purple-600" /> New General Journal Entry
+              </h3>
+              <button
+                onClick={() => setIsJournalModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
- <div className="w-28">
- <input
- type="number"
- step="0.01"
- min="0"
- placeholder="Debit PKR"
- value={line.debit}
- onChange={(e) => handleJournalLineChange(idx, 'debit', e.target.value)}
- className="w-full px-2.5 py-2 min-h-[44px] rounded-lg border border-gray-300 bg-white text-xs text-gray-900 outline-none text-right font-semibold"
- />
- </div>
+            <form id="journalForm" onSubmit={handlePostJournalEntry} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={journalDate}
+                    onChange={(e) => setJournalDate(e.target.value)}
+                    className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-purple-600"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Description / Reference</label>
+                  <input
+                    type="text"
+                    required
+                    value={journalDescription}
+                    onChange={(e) => setJournalDescription(e.target.value)}
+                    placeholder="e.g. Owner capital investment, Bank to Petty Cash transfer"
+                    className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-purple-600"
+                  />
+                </div>
+              </div>
 
- <div className="w-28">
- <input
- type="number"
- step="0.01"
- min="0"
- placeholder="Credit PKR"
- value={line.credit}
- onChange={(e) => handleJournalLineChange(idx, 'credit', e.target.value)}
- className="w-full px-2.5 py-2 min-h-[44px] rounded-lg border border-gray-300 bg-white text-xs text-gray-900 outline-none text-right font-semibold"
- />
- </div>
+              {/* DYNAMIC JOURNAL LINES TABLE */}
+              <div className="space-y-2 pt-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-gray-800 uppercase">Journal Lines</span>
+                  <button
+                    type="button"
+                    onClick={handleAddJournalLine}
+                    className="text-xs font-bold text-purple-600 hover:text-purple-700 flex items-center gap-1 cursor-pointer min-h-[44px] px-2"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Line
+                  </button>
+                </div>
 
- <button
- type="button"
- onClick={() => handleRemoveJournalLine(idx)}
- disabled={journalLines.length <= 2}
- className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-red-600 disabled:opacity-30 cursor-pointer"
- >
- <Trash2 className="w-4 h-4" />
- </button>
- </div>
- ))}
- </div>
- </div>
+                <div className="space-y-2">
+                  {journalLines.map((line, idx) => (
+                    <div key={idx} className="flex gap-2 items-center bg-gray-50 p-2.5 rounded-xl border border-gray-200">
+                      <div className="flex-1">
+                        <select
+                          required
+                          value={line.account_id}
+                          onChange={(e) => handleJournalLineChange(idx, 'account_id', e.target.value)}
+                          className="w-full px-2.5 py-2 min-h-[44px] rounded-lg border border-gray-300 bg-white text-xs text-gray-900 outline-none cursor-pointer"
+                        >
+                          <option value="">-- Select Account --</option>
+                          {accounts.map(acc => (
+                            <option key={acc.id} value={acc.id}>
+                              {acc.name} ({acc.type.toUpperCase()})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
- {/* LIVE BALANCING SUMMARY */}
- <div className={`p-3 rounded-xl border text-xs flex justify-between items-center ${
- isJournalBalanced 
- ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
- : 'bg-amber-50 border-amber-200 text-amber-800'
- }`}>
- <div className="flex items-center gap-1.5 font-bold">
- {isJournalBalanced ? (
- <>
- <CheckCircle2 className="w-4 h-4 text-emerald-600" />
- <span>Balanced! Total Debits equal Total Credits.</span>
- </>
- ) : (
- <>
- <AlertCircle className="w-4 h-4 text-amber-600" />
- <span>Unbalanced Journal Entry (Debits must equal Credits).</span>
- </>
- )}
- </div>
- <div className="font-extrabold text-right space-x-3">
- <span>Debits: {(totalDebitCents / 100).toLocaleString()} PKR</span>
- <span>Credits: {(totalCreditCents / 100).toLocaleString()} PKR</span>
- </div>
- </div>
- </form>
+                      <div className="w-28">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="Debit PKR"
+                          value={line.debit}
+                          onChange={(e) => handleJournalLineChange(idx, 'debit', e.target.value)}
+                          className="w-full px-2.5 py-2 min-h-[44px] rounded-lg border border-gray-300 bg-white text-xs text-gray-900 outline-none text-right font-semibold"
+                        />
+                      </div>
 
- <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
- <button
- type="button"
- onClick={() => setIsJournalModalOpen(false)}
- className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
- >
- Cancel
- </button>
- <button
- type="submit"
- form="journalForm"
- disabled={!isJournalBalanced || isJournalSubmitting || journalLines.some(l => !l.account_id)}
- className="px-5 py-2.5 min-h-[44px] rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-500 shadow-md shadow-purple-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-40"
- >
- {isJournalSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Post Journal Entry"}
- </button>
- </div>
- </div>
- </div>,
- document.body
- )}
+                      <div className="w-28">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="Credit PKR"
+                          value={line.credit}
+                          onChange={(e) => handleJournalLineChange(idx, 'credit', e.target.value)}
+                          className="w-full px-2.5 py-2 min-h-[44px] rounded-lg border border-gray-300 bg-white text-xs text-gray-900 outline-none text-right font-semibold"
+                        />
+                      </div>
 
- {/* SIMPLE TRANSFER FUNDS MODAL */}
- {mounted && isTransferModalOpen && createPortal(
- <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
- <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-lg max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
- <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
- <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
- <ArrowLeftRight className="w-5 h-5 text-indigo-600" /> Transfer Cash
- </h3>
- <button
- onClick={() => setIsTransferModalOpen(false)}
- className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
- aria-label="Close modal"
- >
- <X className="w-5 h-5" />
- </button>
- </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveJournalLine(idx)}
+                        disabled={journalLines.length <= 2}
+                        className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-red-600 disabled:opacity-30 cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
- <form id="transferForm" onSubmit={handlePostTransfer} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
- <div>
- <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Transfer From (Source Cash Account)</label>
- <select
- required
- value={transferFromAccountId}
- onChange={(e) => setTransferFromAccountId(e.target.value)}
- className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
- >
- <option value="">Select source cash account...</option>
- {accounts
- .filter(a => a.is_cash_account)
- .sort((a, b) => a.name.localeCompare(b.name))
- .map(acc => (
- <option key={acc.id} value={acc.id}>
- {acc.name} — Balance: {acc.balance.toLocaleString()} PKR
- </option>
- ))}
- </select>
- </div>
+              {/* LIVE BALANCING SUMMARY */}
+              <div className={`p-3 rounded-xl border text-xs flex justify-between items-center ${
+                isJournalBalanced 
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                  : 'bg-amber-50 border-amber-200 text-amber-800'
+              }`}>
+                <div className="flex items-center gap-1.5 font-bold">
+                  {isJournalBalanced ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>Balanced! Total Debits equal Total Credits.</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                      <span>Unbalanced Journal Entry (Debits must equal Credits).</span>
+                    </>
+                  )}
+                </div>
+                <div className="font-extrabold text-right space-x-3">
+                  <span>Debits: {(totalDebitCents / 100).toLocaleString()} PKR</span>
+                  <span>Credits: {(totalCreditCents / 100).toLocaleString()} PKR</span>
+                </div>
+              </div>
+            </form>
 
- <div>
- <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Transfer To (Destination Cash Account)</label>
- <select
- required
- value={transferToAccountId}
- onChange={(e) => setTransferToAccountId(e.target.value)}
- className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
- >
- <option value="">Select destination cash account...</option>
- {accounts
- .filter(a => a.is_cash_account)
- .sort((a, b) => a.name.localeCompare(b.name))
- .map(acc => (
- <option key={acc.id} value={acc.id}>
- {acc.name} — Balance: {acc.balance.toLocaleString()} PKR
- </option>
- ))}
- </select>
- </div>
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsJournalModalOpen(false)}
+                className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="journalForm"
+                disabled={!isJournalBalanced || isJournalSubmitting || journalLines.some(l => !l.account_id)}
+                className="px-5 py-2.5 min-h-[44px] rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-500 shadow-md shadow-purple-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-40"
+              >
+                {isJournalSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Post Journal Entry"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
- <div>
- <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Amount (PKR)</label>
- <input
- type="number"
- step="0.01"
- min="0.01"
- required
- placeholder="0.00"
- value={transferAmount}
- onChange={(e) => setTransferAmount(e.target.value)}
- className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
- />
- </div>
+      {/* SIMPLE TRANSFER FUNDS MODAL */}
+      {mounted && isTransferModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-lg max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <ArrowLeftRight className="w-5 h-5 text-indigo-600" /> Transfer Cash
+              </h3>
+              <button
+                onClick={() => setIsTransferModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
- <div>
- <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Description / Memo</label>
- <input
- type="text"
- required
- placeholder="e.g. Moved cash to petty drawer"
- value={transferDescription}
- onChange={(e) => setTransferDescription(e.target.value)}
- className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
- />
- </div>
- </form>
+            <form id="transferForm" onSubmit={handlePostTransfer} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-medium bg-white">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Transfer From (Source Cash Account)</label>
+                <select
+                  required
+                  value={transferFromAccountId}
+                  onChange={(e) => setTransferFromAccountId(e.target.value)}
+                  className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
+                >
+                  <option value="">Select source cash account...</option>
+                  {accounts
+                    .filter(a => a.type === 'asset' && a.is_cash_account)
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map(acc => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name} — Balance: {acc.balance.toLocaleString()} PKR
+                      </option>
+                    ))}
+                </select>
+              </div>
 
- <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
- <button
- type="button"
- onClick={() => setIsTransferModalOpen(false)}
- className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
- >
- Cancel
- </button>
- <button
- type="submit"
- form="transferForm"
- disabled={isTransferSubmitting || !transferFromAccountId || !transferToAccountId || !transferAmount || !transferDescription.trim()}
- className="px-5 py-2.5 min-h-[44px] rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-40"
- >
- {isTransferSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Execute Transfer"}
- </button>
- </div>
- </div>
- </div>,
- document.body
- )}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Transfer To (Destination Cash Account)</label>
+                <select
+                  required
+                  value={transferToAccountId}
+                  onChange={(e) => setTransferToAccountId(e.target.value)}
+                  className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
+                >
+                  <option value="">Select destination cash account...</option>
+                  {accounts
+                    .filter(a => a.type === 'asset' && a.is_cash_account)
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map(acc => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name} — Balance: {acc.balance.toLocaleString()} PKR
+                      </option>
+                    ))}
+                </select>
+              </div>
 
- {/* RECEIVE LOAN (INFLOW) MODAL */}
- 
- {mounted && selectedTAccount && createPortal(
- <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
- <div className="bg-white rounded-xl shadow-2xl border border-gray-100 w-[calc(100%-2rem)] max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
- <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
- <div>
- <div className="flex items-center gap-2">
- <span className="text-xs font-black uppercase text-purple-600 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">T-Account Ledger</span>
- <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border ${typeBadges[selectedTAccount.type]}`}>
- {selectedTAccount.type}
- </span>
- </div>
- <h2 className="text-xl font-extrabold text-gray-900 mt-1">
- {selectedTAccount.name} {selectedTAccount.code && <span className="text-sm font-mono text-gray-400">({selectedTAccount.code})</span>}
- </h2>
- </div>
- <button
- onClick={() => setSelectedTAccount(null)}
- className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
- aria-label="Close modal"
- >
- <X className="w-5 h-5" />
- </button>
- </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Amount (PKR)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  placeholder="0.00"
+                  value={transferAmount}
+                  onChange={(e) => setTransferAmount(e.target.value)}
+                  className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
+                />
+              </div>
 
- {/* T-ACCOUNT CONTAINER */}
- {isTAccountLoading ? (
- <div className="flex flex-col items-center justify-center py-16 text-purple-600 flex-1">
- <Loader2 className="w-8 h-8 animate-spin" />
- <span className="text-xs font-semibold text-gray-500 mt-2">Loading T-Account entries...</span>
- </div>
- ) : (
- <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-white">
- 
- {/* CLASSIC T-BAR TABLE */}
- <div className="border-2 border-gray-800 rounded-xl overflow-hidden shadow-sm bg-white">
- 
- {/* T-ACCOUNT TOP TITLE BAR */}
- <div className="bg-gray-900 text-white px-4 py-2 flex justify-between items-center text-xs font-black tracking-wider uppercase border-b-2 border-gray-800">
- <span className="text-emerald-400">DR. (DEBITS)</span>
- <span className="text-white tracking-widest">{selectedTAccount.name}</span>
- <span className="text-rose-400">CR. (CREDITS)</span>
- </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Description / Memo</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Moved cash to petty drawer"
+                  value={transferDescription}
+                  onChange={(e) => setTransferDescription(e.target.value)}
+                  className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600"
+                />
+              </div>
+            </form>
 
- {/* 2-COLUMN SPLIT GRID */}
- <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x-2 divide-gray-800 text-xs">
- 
- {/* LEFT COLUMN: DEBITS (DR) */}
- <div className="p-3 space-y-2 flex flex-col justify-between min-h-[220px]">
- <div>
- <div className="flex justify-between items-center font-bold text-gray-700 uppercase pb-2 border-b border-gray-200">
- <span>Date & Entry</span>
- <span>Debit Amount</span>
- </div>
- <div className="divide-y divide-gray-100">
- {tAccountLines.filter(l => Number(l.debit) > 0).length === 0 ? (
- <p className="text-gray-400 italic text-[11px] py-4 text-center">No Debit entries recorded.</p>
- ) : (
- tAccountLines.filter(l => Number(l.debit) > 0).map((l, i) => (
- <div key={i} className="py-2 flex justify-between items-center gap-2">
- <div>
- <span className="font-semibold text-gray-900 block">{l.description || l.journal_entries?.description || 'Journal Entry'}</span>
- <span className="text-[10px] text-gray-400">{l.journal_entries?.date} &middot; {l.journal_entries?.reference_type}</span>
- </div>
- <span className="font-extrabold text-emerald-700 shrink-0">
- {Number(l.debit).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
- </span>
- </div>
- ))
- )}
- </div>
- </div>
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsTransferModalOpen(false)}
+                className="px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="transferForm"
+                disabled={isTransferSubmitting || !transferFromAccountId || !transferToAccountId || !transferAmount || !transferDescription.trim()}
+                className="px-5 py-2.5 min-h-[44px] rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center cursor-pointer disabled:opacity-40"
+              >
+                {isTransferSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Execute Transfer"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
- <div className="pt-2 border-t-2 border-gray-800 flex justify-between items-center font-black text-gray-900 text-sm">
- <span>TOTAL DEBITS (DR)</span>
- <span className="text-emerald-700">
- {tAccountLines.reduce((s, l) => s + Number(l.debit || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
- </span>
- </div>
- </div>
+      {/* T-ACCOUNT DRILL-DOWN MODAL */}
+      {mounted && selectedTAccount && createPortal(
+        <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl border border-gray-100 w-[calc(100%-2rem)] max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase text-purple-600 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">T-Account Ledger</span>
+                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border ${typeBadges[selectedTAccount.type]}`}>
+                    {selectedTAccount.type}
+                  </span>
+                </div>
+                <h2 className="text-xl font-extrabold text-gray-900 mt-1">
+                  {selectedTAccount.name} {selectedTAccount.code && <span className="text-sm font-mono text-gray-400">({selectedTAccount.code})</span>}
+                </h2>
+              </div>
+              <button
+                onClick={() => setSelectedTAccount(null)}
+                className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
- {/* RIGHT COLUMN: CREDITS (CR) */}
- <div className="p-3 space-y-2 flex flex-col justify-between min-h-[220px]">
- <div>
- <div className="flex justify-between items-center font-bold text-gray-700 uppercase pb-2 border-b border-gray-200">
- <span>Date & Entry</span>
- <span>Credit Amount</span>
- </div>
- <div className="divide-y divide-gray-100">
- {tAccountLines.filter(l => Number(l.credit) > 0).length === 0 ? (
- <p className="text-gray-400 italic text-[11px] py-4 text-center">No Credit entries recorded.</p>
- ) : (
- tAccountLines.filter(l => Number(l.credit) > 0).map((l, i) => (
- <div key={i} className="py-2 flex justify-between items-center gap-2">
- <div>
- <span className="font-semibold text-gray-900 block">{l.description || l.journal_entries?.description || 'Journal Entry'}</span>
- <span className="text-[10px] text-gray-400">{l.journal_entries?.date} &middot; {l.journal_entries?.reference_type}</span>
- </div>
- <span className="font-extrabold text-rose-700 shrink-0">
- {Number(l.credit).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
- </span>
- </div>
- ))
- )}
- </div>
- </div>
+            {/* T-ACCOUNT CONTAINER */}
+            {isTAccountLoading ? (
+              <div className="flex flex-col items-center justify-center py-16 text-purple-600 flex-1">
+                <Loader2 className="w-8 h-8 animate-spin" />
+                <span className="text-xs font-semibold text-gray-500 mt-2">Loading T-Account entries...</span>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-white">
+                
+                {/* CLASSIC T-BAR TABLE */}
+                <div className="border-2 border-gray-800 rounded-xl overflow-hidden shadow-sm bg-white">
+                  
+                  {/* T-ACCOUNT TOP TITLE BAR */}
+                  <div className="bg-gray-900 text-white px-4 py-2 flex justify-between items-center text-xs font-black tracking-wider uppercase border-b-2 border-gray-800">
+                    <span className="text-emerald-400">DR. (DEBITS)</span>
+                    <span className="text-white tracking-widest">{selectedTAccount.name}</span>
+                    <span className="text-rose-400">CR. (CREDITS)</span>
+                  </div>
 
- <div className="pt-2 border-t-2 border-gray-800 flex justify-between items-center font-black text-gray-900 text-sm">
- <span>TOTAL CREDITS (CR)</span>
- <span className="text-rose-700">
- {tAccountLines.reduce((s, l) => s + Number(l.credit || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
- </span>
- </div>
- </div>
+                  {/* 2-COLUMN SPLIT GRID */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x-2 divide-gray-800 text-xs">
+                    
+                    {/* LEFT COLUMN: DEBITS (DR) */}
+                    <div className="p-3 space-y-2 flex flex-col justify-between min-h-[220px]">
+                      <div>
+                        <div className="flex justify-between items-center font-bold text-gray-700 uppercase pb-2 border-b border-gray-200">
+                          <span>Date & Entry</span>
+                          <span>Debit Amount</span>
+                        </div>
+                        <div className="divide-y divide-gray-100">
+                          {tAccountLines.filter(l => Number(l.debit) > 0).length === 0 ? (
+                            <p className="text-gray-400 italic text-[11px] py-4 text-center">No Debit entries recorded.</p>
+                          ) : (
+                            tAccountLines.filter(l => Number(l.debit) > 0).map((l, i) => (
+                              <div key={i} className="py-2 flex justify-between items-center gap-2">
+                                <div>
+                                  <span className="font-semibold text-gray-900 block">{l.description || l.journal_entries?.description || 'Journal Entry'}</span>
+                                  <span className="text-[10px] text-gray-400">{l.journal_entries?.date} &middot; {l.journal_entries?.reference_type}</span>
+                                </div>
+                                <span className="font-extrabold text-emerald-700 shrink-0">
+                                  {Number(l.debit).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
 
- </div>
+                      <div className="pt-2 border-t-2 border-gray-800 flex justify-between items-center font-black text-gray-900 text-sm">
+                        <span>TOTAL DEBITS (DR)</span>
+                        <span className="text-emerald-700">
+                          {tAccountLines.reduce((s, l) => s + Number(l.debit || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+                        </span>
+                      </div>
+                    </div>
 
- </div>
+                    {/* RIGHT COLUMN: CREDITS (CR) */}
+                    <div className="p-3 space-y-2 flex flex-col justify-between min-h-[220px]">
+                      <div>
+                        <div className="flex justify-between items-center font-bold text-gray-700 uppercase pb-2 border-b border-gray-200">
+                          <span>Date & Entry</span>
+                          <span>Credit Amount</span>
+                        </div>
+                        <div className="divide-y divide-gray-100">
+                          {tAccountLines.filter(l => Number(l.credit) > 0).length === 0 ? (
+                            <p className="text-gray-400 italic text-[11px] py-4 text-center">No Credit entries recorded.</p>
+                          ) : (
+                            tAccountLines.filter(l => Number(l.credit) > 0).map((l, i) => (
+                              <div key={i} className="py-2 flex justify-between items-center gap-2">
+                                <div>
+                                  <span className="font-semibold text-gray-900 block">{l.description || l.journal_entries?.description || 'Journal Entry'}</span>
+                                  <span className="text-[10px] text-gray-400">{l.journal_entries?.date} &middot; {l.journal_entries?.reference_type}</span>
+                                </div>
+                                <span className="font-extrabold text-rose-700 shrink-0">
+                                  {Number(l.credit).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
 
- {/* NET ENDING BALANCE SUMMARY BAR */}
- {(() => {
- const totDr = tAccountLines.reduce((s, l) => s + Number(l.debit || 0), 0);
- const totCr = tAccountLines.reduce((s, l) => s + Number(l.credit || 0), 0);
- const netVal = Math.abs(totDr - totCr);
- const balanceType = totDr >= totCr ? 'Debit Balance (DR)' : 'Credit Balance (CR)';
+                      <div className="pt-2 border-t-2 border-gray-800 flex justify-between items-center font-black text-gray-900 text-sm">
+                        <span>TOTAL CREDITS (CR)</span>
+                        <span className="text-rose-700">
+                          {tAccountLines.reduce((s, l) => s + Number(l.credit || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+                        </span>
+                      </div>
+                    </div>
 
- return (
- <div className="bg-purple-950 text-white p-4 rounded-xl flex justify-between items-center shadow-md">
- <div>
- <span className="text-[10px] font-bold text-purple-300 uppercase tracking-wider block">ACCOUNT ENDING BALANCE</span>
- <span className="text-sm font-extrabold text-purple-200">{balanceType}</span>
- </div>
- <span className="text-lg font-black text-purple-300">
- {netVal.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
- </span>
- </div>
- );
- })()}
+                  </div>
 
- </div>
- )}
- 
- <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
- <button
- type="button"
- onClick={() => setSelectedTAccount(null)}
- className="px-5 py-2.5 min-h-[44px] bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
- >
- Close Ledger
- </button>
- </div>
- </div>
- </div>,
- document.body
- )}
+                </div>
 
- </div>
- );
+                {/* NET ENDING BALANCE SUMMARY BAR */}
+                {(() => {
+                  const totDr = tAccountLines.reduce((s, l) => s + Number(l.debit || 0), 0);
+                  const totCr = tAccountLines.reduce((s, l) => s + Number(l.credit || 0), 0);
+                  const netVal = Math.abs(totDr - totCr);
+                  const balanceType = totDr >= totCr ? 'Debit Balance (DR)' : 'Credit Balance (CR)';
+
+                  return (
+                    <div className="bg-purple-950 text-white p-4 rounded-xl flex justify-between items-center shadow-md">
+                      <div>
+                        <span className="text-[10px] font-bold text-purple-300 uppercase tracking-wider block">ACCOUNT ENDING BALANCE</span>
+                        <span className="text-sm font-extrabold text-purple-200">{balanceType}</span>
+                      </div>
+                      <span className="text-lg font-black text-purple-300">
+                        {netVal.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR
+                      </span>
+                    </div>
+                  );
+                })()}
+
+              </div>
+            )}
+            
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setSelectedTAccount(null)}
+                className="px-5 py-2.5 min-h-[44px] bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                Close Ledger
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+    </div>
+  );
 }
