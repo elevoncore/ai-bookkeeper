@@ -11,6 +11,7 @@ export const expenseSchema = {
     lender_name: { type: SchemaType.STRING, description: "Name of the lender for debt/loans (e.g. Meezan Bank, Askari Bank)", nullable: true },
     time_horizon: { type: SchemaType.STRING, description: "short (< 12 months) | long (>= 12 months)", nullable: true },
     parent_account_name: { type: SchemaType.STRING, description: "Short-Term Debt | Long-Term Debt", nullable: true },
+    deposit_account_name: { type: SchemaType.STRING, description: "Deposit or payment Asset cash/bank account name (e.g. Main Bank Account, Petty Cash)", nullable: true },
     external_reference_number: { type: SchemaType.STRING, description: "External invoice or receipt number", nullable: true },
     product_name: { type: SchemaType.STRING, description: "Name of the product (for inventory adjustments)", nullable: true },
     actual_stock_count: { type: SchemaType.NUMBER, description: "Actual physical count of product in stock", nullable: true },
@@ -45,7 +46,10 @@ export const expenseSchema = {
       type: SchemaType.OBJECT,
       nullable: true,
       properties: {
-        target: { type: SchemaType.STRING, description: "revenue | expenses | all" },
+        tool_call: { type: SchemaType.STRING, description: "get_account_balance | get_open_invoices | get_open_bills | get_inventory_levels | get_customer_advances | get_supplier_advances | get_financial_summary", nullable: true },
+        account_name: { type: SchemaType.STRING, description: "Name of the ledger account to query (e.g. Askari Bank, Meezan Bank, Main Bank Account, Accounts Receivable)", nullable: true },
+        entity_name: { type: SchemaType.STRING, description: "Name of the customer, supplier, or lender", nullable: true },
+        target: { type: SchemaType.STRING, description: "balance | revenue | expenses | debt | inventory | all", nullable: true },
         date_from: { type: SchemaType.STRING, nullable: true },
         date_to: { type: SchemaType.STRING, nullable: true }
       }

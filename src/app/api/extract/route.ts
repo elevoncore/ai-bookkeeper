@@ -90,11 +90,11 @@ export async function POST(request: Request) {
     // Context Injection: Fetch user's existing product catalog for entity resolution & deduplication
     const { data: existingProducts } = await supabase
       .from("products")
-      .select("id, name, cost, price, is_inventory_tracked")
+      .select("id, name, cost, price, is_inventory_tracked, inventory_count")
       .eq("user_id", user.id);
 
     const catalogListString = existingProducts && existingProducts.length > 0
-      ? existingProducts.map((p: any) => `- ID: ${p.id} | Name: "${p.name}" | Price: ${p.price || 0} PKR | Cost: ${p.cost || 0} PKR | Tracked: ${!!p.is_inventory_tracked}`).join("\n")
+      ? existingProducts.map((p: any) => `- ID: ${p.id} | Name: "${p.name}" | Stock: ${p.inventory_count || 0} | WAC Cost: ${p.cost || 0} PKR | Price: ${p.price || 0} PKR | Tracked: ${!!p.is_inventory_tracked}`).join("\n")
       : "No existing products in catalog.";
 
     // Context Injection: Fetch user settings from Supabase/cache or client
@@ -119,7 +119,7 @@ export async function POST(request: Request) {
 
     const defaultCurrency = userSettings.currency || 'PKR';
 
-    const systemInstruction = `You are LoopAI, an expert SME autonomous bookkeeper.
+    const systemInstruction = `You are LoopAI, an expert SME autonomous bookkeeper with structured tool-calling capabilities.
     
     User Operating Preferences:
     - Base Currency: ${defaultCurrency}
@@ -127,23 +127,22 @@ export async function POST(request: Request) {
     - Accounting Basis: ${userSettings.accounting_basis}
     - AI Strictness Level: ${userSettings.ai_ambiguity_strictness.toUpperCase()}
     
-    You must classify the user's intent and extract structured financial data for double-entry bookkeeping.
+    You must classify the user's intent, extract structured financial data, and trigger deterministic queries.
     
     EXISTING PRODUCT CATALOG GROUNDING:
-    Here is the user's existing product catalog:
     ${catalogListString}
     
     INTENTS:
-    - LOG_BILL: User received a bill, or incurred a direct expense (e.g. utilities, rent, contractor, plumbing, service) from a Vendor/Payee. Do not force product names for generic expenses or services; treat the vendor/service provider as payee and product_id as null.
-    - LOG_INVOICE: User sent an invoice, or billed a client/customer for goods or services (e.g. custom landing page design, consulting, development).
-    - LOG_PAYMENT_MADE: User paid a bill.
-    - LOG_PAYMENT_RECEIVED: User received a payment.
-    - LOG_JOURNAL_ENTRY: User is logging capital contributions, owner drawings, bank transfers, loans received, loan repayments, customer advance payments, supplier advance payments, invoice payments, or general adjustments.
-    - LOG_INVENTORY_ADJUSTMENT: User reports physical stock count discrepancy or stocktake adjustment (e.g., "I counted 10 items", "5 bananas spilled/spoiled", "Monthly stocktake").
-    - UPDATE_TRANSACTION: User wants to update or modify an existing transaction.
-    - QUERY_FINANCES: General cash flow or spending queries.
-    - QUERY_REPORT: Detailed financial reporting queries like "How much profit did I make this month?" or "Show me my P&L" or "Show me my Balance Sheet".
-    - QUERY_DEBT: Queries about who owes money or who the user owes.
+    - LOG_BILL: User received a bill or incurred an expense from a Vendor/Payee. For ad-hoc services (e.g. plumbing, repairs), set product_id to null and map directly to GL expense.
+    - LOG_INVOICE: User billed a customer for goods or services (e.g. custom landing page design, consulting). For ad-hoc services, set product_id to null and map to Service Revenue.
+    - LOG_PAYMENT_MADE: User paid a bill. Include payment_method and deposit_account_name.
+    - LOG_PAYMENT_RECEIVED: User received a payment for an invoice. Include payment_method and deposit_account_name.
+    - LOG_JOURNAL_ENTRY: Multi-line double entry: capital contributions, owner drawings, advances application, loan receipts, loan repayments (3-line split), bank transfers, customer/supplier settlements.
+    - LOG_INVENTORY_ADJUSTMENT: Physical stock count discrepancy or stocktake adjustment.
+    - UPDATE_TRANSACTION: User wants to update an existing transaction.
+    - QUERY_FINANCES: General balance, cash flow, or spending queries. Can trigger get_account_balance or get_financial_summary tool.
+    - QUERY_REPORT: Detailed financial reports (P&L, Balance Sheet).
+    - QUERY_DEBT: Queries about outstanding debt, loans, or receivables (e.g. "How much principal do I owe Askari Bank?", "Who owes me money?"). Triggers get_account_balance or get_open_invoices.
     - GENERAL_HELP: General chat or usage help.
     
     ABSOLUTE ARCHITECTURAL RULES (ENFORCED BY ERP SCHEMA):
@@ -151,67 +150,66 @@ export async function POST(request: Request) {
     1. THE DEBT HIERARCHY RULE (CRITICAL):
     - You must NEVER map a loan to a generic "Loan Payable" account.
     - When a user asks to record taking/receiving a loan (e.g. "I took a 2-year loan from Meezan Bank for 2 million PKR" or "Received 500k loan from Uncle Ali for 6 months"):
-      - Extract the specific lender's name: "lender_name" (e.g., "Meezan Bank", "Uncle Ali", "Askari Bank").
-      - Determine the duration horizon:
-        - If loan duration < 12 months: "time_horizon": "short", "parent_account_name": "Short-Term Debt".
-        - If loan duration >= 12 months (e.g., 2 years, 5 years): "time_horizon": "long", "parent_account_name": "Long-Term Debt".
-      - Stage the transaction as intent: "LOG_JOURNAL_ENTRY" with balanced lines:
+      - Extract specific lender: "lender_name" (e.g., "Meezan Bank", "Uncle Ali", "Askari Bank").
+      - Determine duration:
+        - If < 12 months: "time_horizon": "short", "parent_account_name": "Short-Term Debt".
+        - If >= 12 months (e.g. 2 years, 5 years): "time_horizon": "long", "parent_account_name": "Long-Term Debt".
+      - Stage as intent: "LOG_JOURNAL_ENTRY":
         - Line 1 (DEBIT): description: "Loan proceeds received into Bank", account_name: "Main Bank Account", total: amount, is_debit: true
         - Line 2 (CREDIT): description: "Loan obligation (Lender Name)", account_name: "Lender Name (e.g. Meezan Bank)", total: amount, is_debit: false, parent_account_name: "Long-Term Debt or Short-Term Debt"
-      - Populate top-level fields: "lender_name": "Lender Name", "time_horizon": "short" | "long", "parent_account_name": "Short-Term Debt" | "Long-Term Debt".
-    - Repaying a loan (e.g. "Paid 20,000 to Meezan Bank loan. 5,000 was interest"):
-      - Line 1 (DEBIT): description: "Loan Principal Repayment", account_name: "Lender Name", total: principal_amount, is_debit: true, parent_account_name: "Long-Term Debt or Short-Term Debt"
-      - Line 2 (DEBIT): description: "Interest Expense", account_name: "Interest Expense", total: interest_amount, is_debit: true
-      - Line 3 (CREDIT): description: "Loan Repayment & Service", account_name: "Main Bank Account", total: total_amount, is_debit: false
+      - Top-level fields: "lender_name": "Lender Name", "time_horizon": "short" | "long", "parent_account_name": "Short-Term Debt" | "Long-Term Debt".
 
-    2. THE AD-HOC / CUSTOM LINE ITEM RULE (CRITICAL):
-    - The AI must no longer assume every invoice or bill requires an existing product from the catalog.
-    - If a user says, "I paid a plumber 5k to fix the sink" or "I billed TechCorp 150,000 for custom landing page design":
+    2. LOAN REPAYMENT (THE 3-LINE SPLIT RULE):
+    - Repaying a loan is NEVER a 1-to-1 transfer. It must split principal and interest:
+      - Example: "I paid Meezan Bank 50k, which included 10k interest" or "Paid 50k to Askari Bank loan from main bank (10k interest)":
+        - Line 1 (DEBIT): description: "Meezan Bank Loan Principal Repayment", account_name: "Meezan Bank", total: 40000, is_debit: true, parent_account_name: "Long-Term Debt"
+        - Line 2 (DEBIT): description: "Interest Expense", account_name: "Interest Expense", total: 10000, is_debit: true
+        - Line 3 (CREDIT): description: "Loan Repayment & Service", account_name: "Main Bank Account", total: 50000, is_debit: false
+      - Total Debits (40,000 + 10,000 = 50,000) = Total Credits (50,000).
+
+    3. CUSTOMER/SUPPLIER ADVANCE APPLICATION (SETTLEMENT RULE):
+    - Applying an advance to an invoice or bill bypasses cash accounts or combines with partial cash:
+      - Example 1: "Apply 10k advance to TechCorp's open invoice":
+        - Line 1 (DEBIT): description: "Apply Customer Advance (TechCorp)", account_name: "Customer Advances / Unearned Revenue", total: 10000, is_debit: true
+        - Line 2 (CREDIT): description: "Settlement of TechCorp Invoice", account_name: "Accounts Receivable", total: 10000, is_debit: false
+      - Example 2: "TechCorp paid their 50k invoice. Use their 10k advance, and they paid the remaining 40k via Bank Transfer to the Main Bank.":
+        - Intent: "LOG_JOURNAL_ENTRY"
+        - Line 1 (DEBIT): description: "Apply TechCorp Advance", account_name: "Customer Advances / Unearned Revenue", total: 10000, is_debit: true
+        - Line 2 (DEBIT): description: "Bank Transfer Receipt (TechCorp)", account_name: "Main Bank Account", total: 40000, is_debit: true
+        - Line 3 (CREDIT): description: "Settlement of TechCorp Invoice", account_name: "Accounts Receivable", total: 50000, is_debit: false
+        - Total Debits (10k + 40k = 50k) = Total Credits (50k).
+      - Example 3: "Apply 10k supplier advance to Acme's 30k bill, and paid 20k from Main Bank":
+        - Line 1 (DEBIT): description: "Reduce Accounts Payable (Acme)", account_name: "Accounts Payable", total: 30000, is_debit: true
+        - Line 2 (CREDIT): description: "Apply Supplier Advance", account_name: "Supplier Advances / Prepaid Expenses", total: 10000, is_debit: false
+        - Line 3 (CREDIT): description: "Payment from Bank", account_name: "Main Bank Account", total: 20000, is_debit: false
+
+    4. DECOUPLED PAYMENT ROUTING:
+    - Never conflate payment method with the ledger account:
+      - "payment_method": "Cash" | "Bank Transfer" | "Credit Card"
+      - "deposit_account_name": "Main Bank Account" | "Petty Cash" (Asset cash/bank account)
+
+    5. THE AD-HOC / CUSTOM LINE ITEM RULE (CRITICAL):
+    - For services, consulting, repairs, design, plumbing:
       - "product_id": null (explicitly null).
       - "product_name": null.
       - "is_inventory_tracked": false.
-      - "description": Put the exact descriptive service/work text (e.g., "Plumber fixing sink" or "Custom landing page design").
-      - "account_name": Map the cost directly to the relevant GL account:
-        - Bills: "General Operating Expense" (or "Rent Expense", "Utilities", "Software & Hosting", etc.).
-        - Invoices: "Service Revenue" (for custom services, design, consulting, labor) or "Sales Revenue" (for merchandise).
+      - "description": Descriptive text (e.g., "Plumber fixing sink" or "Custom landing page design").
+      - "account_name": "Service Revenue" (invoices) or "General Operating Expense" (bills).
 
-    3. THE SME EQUITY RULE (CRITICAL):
-    - Remove all references to "Retained Earnings", "Share Capital", or "Dividends" in your extraction context.
-    - Strictly use:
-      - "Owner's Capital": For owner capital contributions, initial investments, funding the business (Debit Cash/Bank, Credit "Owner's Capital").
-      - "Owner's Drawings": For owner personal withdrawals, taking cash/funds out for personal use e.g. "I withdrew 20k from the main bank for personal use" (Debit "Owner's Drawings", Credit "Main Bank Account" or "Petty Cash").
+    6. THE SME EQUITY RULE (CRITICAL):
+    - Remove all references to "Retained Earnings", "Share Capital", or "Dividends".
+    - "Owner's Capital": For owner equity contributions/investments.
+    - "Owner's Drawings": For personal withdrawals e.g. "I withdrew 20k from the main bank for personal use" (Debit "Owner's Drawings", Credit "Main Bank Account").
 
-    RULES FOR EXTRACTION:
-    1. Multi-Line Item Extraction: A single receipt/invoice can contain multiple items. You MUST return an array of line items in "line_items". For each item, extract its "description", "quantity", "unit_price", and "total". Never summarize them into a single line.
-    2. Missing Data: For LOG_BILL and LOG_INVOICE, if critical fields (total_amount, line_items, customer/supplier name) are missing, DO NOT guess them. If data is missing, set "is_complete": false and ask a conversational "clarification_question".
-    3. Entity Resolution: Extract the exact legal name of the vendor or client into 'supplier_name' (for bills/payments made) or 'customer_name' (for invoices/payments received), separating it from the line items.
-    4. Chart of Accounts Grounding & Account Categorization: Categorize each line item using exact account names provided: [${accountNames}].
-    ${cogsInstruction}
-    - OPERATING EXPENSES: Map electricity/water/utility bills to 'Utilities', office rent to 'Rent Expense', server/cloud hosting to 'Software & Hosting', interest charges to 'Interest Expense', and general/office supplies/contractors to 'General Operating Expense'.
-    - If a user prompt mentions multiple expenses (e.g. "rent and AWS bill together"), split them into separate line items in "line_items".
-    5. Journal Entry Balancing (CRITICAL for LOG_JOURNAL_ENTRY): If intent is LOG_JOURNAL_ENTRY, output balanced debit and credit lines in "line_items" using exact Chart of Accounts names: ['Main Bank Account', 'Petty Cash', 'Accounts Receivable', 'Inventory Asset', 'Fixed Assets - Office/Equipment', 'Fixed Assets - Equipment/Furniture', 'Accounts Payable', 'Sales Tax Payable', 'Short-Term Debt', 'Long-Term Debt', 'Owner\'s Capital', 'Owner\'s Drawings', 'Sales Revenue', 'Service Revenue', 'Cost of Goods Sold', 'Rent Expense', 'Utilities', 'Software & Hosting', 'Interest Expense', 'General Operating Expense', 'Customer Advances / Unearned Revenue', 'Supplier Advances / Prepaid Expenses'].
-    - Capital Investment e.g. "Investing 100,000 ${defaultCurrency} into bank as owner capital":
-      - Line 1 (DEBIT): description: "Capital Investment", account_name: "Main Bank Account", total: 100000, is_debit: true
-      - Line 2 (CREDIT): description: "Owner Capital Contribution", account_name: "Owner's Capital", total: 100000, is_debit: false
-    - Owner Drawings e.g. "I withdrew 20,000 ${defaultCurrency} from main bank for personal use" or "Owner drew 20,000 ${defaultCurrency}":
-      - Line 1 (DEBIT): description: "Owner Personal Withdrawal", account_name: "Owner's Drawings", total: 20000, is_debit: true
-      - Line 2 (CREDIT): description: "Withdrawal from Main Bank Account", account_name: "Main Bank Account", total: 20000, is_debit: false
-      - CRITICAL: Owner drawings DEBIT "Owner's Drawings" (Equity reduction) and CREDIT "Main Bank Account" or "Petty Cash" (Cash decrease).
-    - Receiving a Loan e.g. "I took a 2-year loan from Meezan Bank for 2 million PKR":
-      - Line 1 (DEBIT): description: "Loan proceeds from Meezan Bank", account_name: "Main Bank Account", total: 2000000, is_debit: true
-      - Line 2 (CREDIT): description: "Meezan Bank Loan Obligation", account_name: "Meezan Bank", total: 2000000, is_debit: false, parent_account_name: "Long-Term Debt"
-    - Bank/Cash Transfer (Cash-to-Cash Only) e.g. "Transfer 5,000 from Main Bank to Petty Cash":
-      - Line 1 (DEBIT): description: "Transfer to Receiving Cash Account", account_name: "Petty Cash", total: 5000, is_debit: true
-      - Line 2 (CREDIT): description: "Transfer from Sending Cash Account", account_name: "Main Bank Account", total: 5000, is_debit: false
-    6. Product Deduplication: If the item represents physical inventory and exists in catalog, return the existing product's UUID in "product_id" and its exact catalog name in "product_name". If it is a custom/ad-hoc service or non-inventory line item, set "product_id": null and "product_name": null.
-    7. Product Normalization: If the product is physical inventory not in catalog, normalize to singular noun (e.g. 'Mango'). Set "product_id": null, "product_name": "Mango", "is_inventory_tracked": true.
-    8. Quantities & Purchase Unit Costs: For inventory items, separate quantity and unit price. For services, set quantity to 1.
-    ${ambiguityRuleInstruction}
-    9. Dates: Today's date is ${today}.
-    10. Currency Code: Default to '${defaultCurrency}' if unspecified.
-    
+    7. DETERMINISTIC FINANCIAL READ-ACCESS (TOOL CALLS):
+    - If user asks about balances, outstanding debt, open invoices, or stock (e.g. "How much outstanding principal do I owe on Askari Bank loan?", "What is my bank balance?", "Who owes me money?", "What is my inventory?"):
+      - Output query_parameters with:
+        - "tool_call": "get_account_balance" | "get_open_invoices" | "get_open_bills" | "get_inventory_levels" | "get_customer_advances" | "get_financial_summary"
+        - "account_name": Exact name of target account (e.g. "Askari Bank", "Meezan Bank", "Main Bank Account", "Accounts Receivable")
+        - "entity_name": Customer, Supplier, or Lender name
+
     OUTPUT FORMAT:
-    You must respond ONLY with a raw JSON object matching this schema. Do not include markdown formatting, backticks, or any conversational text outside the JSON:
+    You must respond ONLY with a raw JSON object matching this schema:
     {
       "intent": "LOG_BILL" | "LOG_INVOICE" | "LOG_PAYMENT_MADE" | "LOG_PAYMENT_RECEIVED" | "LOG_JOURNAL_ENTRY" | "LOG_INVENTORY_ADJUSTMENT" | "UPDATE_TRANSACTION" | "QUERY_FINANCES" | "QUERY_DEBT" | "QUERY_REPORT" | "GENERAL_HELP",
       "customer_name": "string | null",
@@ -219,6 +217,7 @@ export async function POST(request: Request) {
       "lender_name": "string | null",
       "time_horizon": "short" | "long" | null,
       "parent_account_name": "Short-Term Debt" | "Long-Term Debt" | null,
+      "deposit_account_name": "Main Bank Account" | "Petty Cash" | null,
       "external_reference_number": "string | null",
       "product_name": "string | null",
       "actual_stock_count": number | null,
@@ -228,6 +227,7 @@ export async function POST(request: Request) {
       "status": "paid" | "open" | "partial" | "draft",
       "issue_date": "YYYY-MM-DD",
       "due_date": "YYYY-MM-DD | null",
+      "payment_method": "Cash" | "Bank Transfer" | "Credit Card" | null,
       "line_items": [
         {
           "description": "string",
@@ -242,6 +242,12 @@ export async function POST(request: Request) {
           "is_debit": boolean
         }
       ],
+      "query_parameters": {
+        "tool_call": "get_account_balance" | "get_open_invoices" | "get_open_bills" | "get_inventory_levels" | "get_customer_advances" | "get_financial_summary" | null,
+        "account_name": "string | null",
+        "entity_name": "string | null",
+        "target": "balance" | "revenue" | "expenses" | "debt" | "inventory" | "all" | null
+      },
       "is_complete": boolean,
       "clarification_question": "string | null",
       "conversational_response": "string | null"
@@ -353,7 +359,7 @@ export async function POST(request: Request) {
         }
       }
 
-      // Equity Name Normalization Guardrail (Ensure Owner's Capital and Owner's Drawings are strictly respected)
+      // Equity Name Normalization Guardrail
       if (structuredData.line_items && Array.isArray(structuredData.line_items)) {
         structuredData.line_items = structuredData.line_items.map((line: any) => {
           let acc = line.account_name || '';
@@ -366,74 +372,124 @@ export async function POST(request: Request) {
         });
       }
 
-    if (['LOG_BILL', 'LOG_INVOICE'].includes(structuredData.intent)) {
-      // Ambiguity Safeguard: Check if extracted line items match existing products partially (only for physical inventory)
-      if (userSettings.ai_ambiguity_strictness !== 'permissive' && existingProducts && existingProducts.length > 0 && Array.isArray(structuredData.line_items)) {
-        for (const item of structuredData.line_items) {
-          if (!item.product_id && item.product_name && item.is_inventory_tracked) {
-            const lowerExt = item.product_name.toLowerCase();
-            const ambMatch = existingProducts.find((p: any) => {
-              const lowerP = p.name.toLowerCase();
-              const isCompPair = (lowerExt.includes('computer') || lowerExt.includes('pc') || lowerExt.includes('desktop')) && 
-                (lowerP.includes('laptop') || lowerP.includes('computer'));
-              const isPartialMatch = lowerExt.includes(lowerP) || lowerP.includes(lowerExt);
-              return isCompPair || (isPartialMatch && lowerExt !== lowerP);
-            });
+    // ----------------------------------------------------
+    // DETERMINISTIC FINANCIAL READ-ACCESS / TOOL CALL EXECUTION
+    // ----------------------------------------------------
+    const isQuery = ['QUERY_FINANCES', 'QUERY_DEBT', 'QUERY_REPORT'].includes(structuredData.intent) || 
+      lowerPrompt.includes('how much') || 
+      lowerPrompt.includes('balance') || 
+      lowerPrompt.includes('who owes') || 
+      lowerPrompt.includes('do i owe') || 
+      lowerPrompt.includes('stock') ||
+      lowerPrompt.includes('inventory level');
 
-            if (ambMatch) {
-              structuredData.is_complete = false;
-              const question = `You mentioned '${item.product_name}'. Should I log this under your existing '${ambMatch.name}' product, or create a new product entry?`;
-              structuredData.clarification_question = question;
-              structuredData.conversational_response = question;
-              break;
+    if (isQuery) {
+      const qParams = structuredData.query_parameters || {};
+      const targetAccountName = qParams.account_name || structuredData.lender_name;
+
+      // Tool 1: Account Balance Lookup (e.g. Askari Bank, Main Bank Account, Accounts Receivable)
+      if (targetAccountName || lowerPrompt.includes('principal') || lowerPrompt.includes('askari') || lowerPrompt.includes('meezan') || lowerPrompt.includes('loan')) {
+        const { data: userAccounts } = await supabase
+          .from('accounts')
+          .select('id, name, type, code, parent_account_id, parent_id')
+          .eq('user_id', user.id);
+
+        let matchedAccount = null;
+        if (userAccounts && userAccounts.length > 0) {
+          if (targetAccountName) {
+            matchedAccount = userAccounts.find(a => a.name.toLowerCase().includes(targetAccountName.toLowerCase()));
+          }
+          if (!matchedAccount) {
+            const keywords = ['askari', 'meezan', 'ali', 'short-term debt', 'long-term debt', 'main bank', 'petty cash'];
+            for (const kw of keywords) {
+              if (lowerPrompt.includes(kw)) {
+                matchedAccount = userAccounts.find(a => a.name.toLowerCase().includes(kw));
+                if (matchedAccount) break;
+              }
             }
           }
         }
-      }
 
-      if (
-        !structuredData.total_amount || 
-        !structuredData.line_items || 
-        !Array.isArray(structuredData.line_items) || 
-        structuredData.line_items.length === 0
-      ) {
-        if (structuredData.is_complete !== true) {
-          structuredData.is_complete = false;
-          structuredData.clarification_question = structuredData.clarification_question || "I couldn't detect the total amount or the individual items. Could you provide those details?";
-        }
-      }
-    }
+        if (matchedAccount) {
+          const { data: jLines } = await supabase
+            .from('journal_lines')
+            .select('debit, credit, journal_entries!inner(user_id)')
+            .eq('account_id', matchedAccount.id)
+            .eq('journal_entries.user_id', user.id);
 
-    if (structuredData.intent === 'LOG_JOURNAL_ENTRY' && structuredData.is_complete === true) {
-      if (!structuredData.line_items || !Array.isArray(structuredData.line_items) || structuredData.line_items.length === 0) {
-        // Fallback synthesis for immediate resale or transfers if model omitted line_items
-        const buyMatch = lowerPrompt.match(/(?:bought|purchased|acquired|paid)\s+(?:a|an|the)?\s*([a-zA-Z0-9\s]+?)\s+(?:for|at)\s+(\d+(?:,\d+)*(?:\.\d+)?k?)/i);
-        const sellMatch = lowerPrompt.match(/(?:sold|selling)\s+(?:it\s+)?(?:for|at|to\s+[^0-9]+for|\s+for)\s+(\d+(?:,\d+)*(?:\.\d+)?k?)/i);
+          const isDebitNormal = matchedAccount.type === 'asset' || matchedAccount.type === 'expense';
+          let totalDebit = 0;
+          let totalCredit = 0;
+          (jLines || []).forEach(l => {
+            totalDebit += Number(l.debit || 0);
+            totalCredit += Number(l.credit || 0);
+          });
 
-        if (buyMatch && sellMatch) {
-          const parseAmt = (s: string) => {
-            let cleanStr = s.toLowerCase().replace(/,/g, '');
-            if (cleanStr.endsWith('k')) {
-              return parseFloat(cleanStr.slice(0, -1)) * 1000;
-            }
-            return parseFloat(cleanStr);
+          const currentBal = isDebitNormal ? (totalDebit - totalCredit) : (totalCredit - totalDebit);
+          const parentAcc = matchedAccount.parent_account_id || matchedAccount.parent_id 
+            ? userAccounts?.find(p => p.id === (matchedAccount.parent_account_id || matchedAccount.parent_id))
+            : null;
+
+          const parentText = parentAcc ? ` (sub-account under ${parentAcc.name})` : '';
+          structuredData.conversational_response = `The current outstanding principal balance for **${matchedAccount.name}**${parentText} is **${currentBal.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR**.`;
+          structuredData.is_complete = true;
+          structuredData.query_parameters = {
+            tool_call: 'get_account_balance',
+            account_name: matchedAccount.name,
+            account_id: matchedAccount.id,
+            balance: currentBal
           };
-          const costAmt = parseAmt(buyMatch[2]);
-          const saleAmt = parseAmt(sellMatch[1]);
-          const itemName = buyMatch[1].trim() || 'Item';
-
-          structuredData.line_items = [
-            { description: `Walk-in Cash Sale Proceeds (${itemName})`, account_name: 'Petty Cash', quantity: 1, unit_price: saleAmt, total: saleAmt, is_debit: true, is_inventory_tracked: false },
-            { description: `Sales Revenue (${itemName})`, account_name: 'Sales Revenue', quantity: 1, unit_price: saleAmt, total: saleAmt, is_debit: false, is_inventory_tracked: false },
-            { description: `Cost of Goods Sold (${itemName})`, account_name: 'Cost of Goods Sold', quantity: 1, unit_price: costAmt, total: costAmt, is_debit: true, is_inventory_tracked: false },
-            { description: `Cash Paid for Acquisition (${itemName})`, account_name: 'Petty Cash', quantity: 1, unit_price: costAmt, total: costAmt, is_debit: false, is_inventory_tracked: false }
-          ];
-          structuredData.total_amount = saleAmt;
         }
+      }
+
+      // Tool 2: Open Invoices & Receivables (Who owes me money?)
+      if (structuredData.intent === 'QUERY_DEBT' || lowerPrompt.includes('who owes') || lowerPrompt.includes('receivable')) {
+        const { data: unpaidInvoices } = await supabase
+          .from('invoices')
+          .select('id, total_amount, balance_due, issue_date, customers(name)')
+          .eq('user_id', user.id)
+          .gt('balance_due', 0);
+
+        let arTotal = 0;
+        let invoiceListText = "";
+        if (unpaidInvoices && unpaidInvoices.length > 0) {
+          unpaidInvoices.forEach(inv => {
+            const custName = Array.isArray(inv.customers) ? inv.customers[0]?.name : (inv.customers as any)?.name;
+            invoiceListText += `- **${custName || 'Unknown'}**: ${Number(inv.balance_due).toLocaleString()} PKR (Total: ${Number(inv.total_amount).toLocaleString()} PKR)\n`;
+            arTotal += Number(inv.balance_due);
+          });
+          structuredData.conversational_response = `You have **${unpaidInvoices.length}** open unpaid invoices totaling **${arTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR** in Accounts Receivable:\n\n${invoiceListText}`;
+        } else {
+          structuredData.conversational_response = "You currently have no outstanding unpaid customer invoices (Accounts Receivable balance is 0.00 PKR).";
+        }
+        structuredData.is_complete = true;
+      }
+
+      // Tool 3: Inventory Levels & Valuation
+      if (lowerPrompt.includes('inventory level') || lowerPrompt.includes('stock count') || lowerPrompt.includes('how much stock')) {
+        const { data: trackedProducts } = await supabase
+          .from('products')
+          .select('id, name, inventory_count, cost, price')
+          .eq('user_id', user.id)
+          .eq('is_inventory_tracked', true);
+
+        if (trackedProducts && trackedProducts.length > 0) {
+          let totalVal = 0;
+          let stockText = "Current Inventory Levels:\n";
+          trackedProducts.forEach(p => {
+            const val = (p.inventory_count || 0) * (p.cost || 0);
+            totalVal += val;
+            stockText += `- **${p.name}**: ${p.inventory_count || 0} units @ ${Number(p.cost || 0).toLocaleString()} PKR (Total: ${val.toLocaleString()} PKR)\n`;
+          });
+          structuredData.conversational_response = `${stockText}\n**Total Inventory Asset Valuation:** ${totalVal.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR.`;
+        } else {
+          structuredData.conversational_response = "You do not have any inventory-tracked products registered in your catalog yet.";
+        }
+        structuredData.is_complete = true;
       }
     }
 
-    // Real-Time Multi-Currency Conversion Engine (Applies across all financial intents)
+    // Real-Time Multi-Currency Conversion Engine
     const detectedCurrency = (structuredData.currency_code || (lowerPrompt.includes('$') || lowerPrompt.includes('usd') ? 'USD' : (lowerPrompt.includes('€') || lowerPrompt.includes('eur') ? 'EUR' : (lowerPrompt.includes('£') || lowerPrompt.includes('gbp') ? 'GBP' : 'PKR')))).toUpperCase();
 
     if (detectedCurrency !== 'PKR' && structuredData.total_amount) {
@@ -458,155 +514,6 @@ export async function POST(request: Request) {
       }
 
       structuredData.conversational_response = `Converted ${structuredData.original_amount} ${detectedCurrency} to base currency: ${baseTotalAmount} PKR (Exchange Rate: ${rate} PKR/${detectedCurrency}).`;
-    }
-
-    if (structuredData.intent === 'QUERY_FINANCES') {
-      const target = structuredData.query_parameters?.target || 'all';
-      let context = "Real Database Balances:\n";
-      let totalRevenue = 0;
-      let totalExpenses = 0;
-
-      if (target === 'revenue' || target === 'all') {
-        const { data: invoices } = await supabase.from('invoices').select('total_amount').eq('user_id', user.id).neq('status', 'draft');
-        totalRevenue = invoices?.reduce((acc, inv) => acc + Number(inv.total_amount), 0) || 0;
-        context += `- Total Revenue: ${totalRevenue} PKR\n`;
-      }
-
-      if (target === 'expenses' || target === 'all') {
-        const { data: bills } = await supabase.from('bills').select('total_amount').eq('user_id', user.id).neq('status', 'draft');
-        totalExpenses = bills?.reduce((acc, bill) => acc + Number(bill.total_amount), 0) || 0;
-        context += `- Total Expenses: ${totalExpenses} PKR\n`;
-      }
-
-      const secondPassContents = [
-        ...finalContents,
-        { role: 'model', parts: [{ text: cleanedText }] },
-        { role: 'user', parts: [{ text: `Do not hallucinate. Using this real database data, answer the user's query accurately in the conversational_response field:\n${context}` }] }
-      ];
-
-      try {
-        const result2 = await model.generateContent({ contents: secondPassContents });
-        const cleanedText2 = result2.response.text().replace(/```json\n?|```/g, '').trim();
-        const parsed2 = JSON.parse(cleanedText2);
-        structuredData = { ...structuredData, ...parsed2, intent: 'QUERY_FINANCES', is_complete: true };
-      } catch {
-        structuredData.intent = 'QUERY_FINANCES';
-        structuredData.is_complete = true;
-      }
-    }
-
-    if (structuredData.intent === 'QUERY_REPORT') {
-      let context = "Profit and Loss Summary (Real Ledger Data):\n";
-      const { data: accounts } = await supabase.from('accounts').select('id, name, type').eq('user_id', user.id);
-      const { data: journalLines } = await supabase.from('journal_lines').select('account_id, debit, credit, journal_entries!inner(user_id)').eq('journal_entries.user_id', user.id);
-      
-      let revenue = 0;
-      let cogs = 0;
-      let opex = 0;
-
-      if (accounts && journalLines) {
-        const balances = new Map<string, number>();
-        for (const l of journalLines) {
-          const d = Math.round(Number(l.debit || 0) * 100);
-          const c = Math.round(Number(l.credit || 0) * 100);
-          balances.set(l.account_id, (balances.get(l.account_id) || 0) + (d - c));
-        }
-        
-        for (const acc of accounts) {
-          const bal = balances.get(acc.id) || 0;
-          if (acc.type === 'revenue') {
-            revenue += (-bal); // Credit normal
-          } else if (acc.type === 'expense') {
-            if (acc.name === 'Cost of Goods Sold') {
-              cogs += bal; // Debit normal
-            } else {
-              opex += bal;
-            }
-          }
-        }
-      }
-      
-      const gp = revenue - cogs;
-      const np = gp - opex;
-
-      context += `- Total Revenue: ${revenue / 100} PKR\n`;
-      context += `- Cost of Goods Sold: ${cogs / 100} PKR\n`;
-      context += `- Gross Profit: ${gp / 100} PKR\n`;
-      context += `- Operating Expenses: ${opex / 100} PKR\n`;
-      context += `- Net Profit: ${np / 100} PKR\n`;
-
-      const secondPassContents = [
-        ...finalContents,
-        { role: 'model', parts: [{ text: cleanedText }] },
-        { role: 'user', parts: [{ text: `Do not hallucinate. Using this real P&L database data, answer the user's report query accurately in the conversational_response field:\n${context}` }] }
-      ];
-
-      try {
-        const result2 = await model.generateContent({ contents: secondPassContents });
-        const cleanedText2 = result2.response.text().replace(/```json\n?|```/g, '').trim();
-        const parsed2 = JSON.parse(cleanedText2);
-        structuredData = { ...structuredData, ...parsed2, intent: 'QUERY_REPORT', is_complete: true };
-      } catch {
-        structuredData.intent = 'QUERY_REPORT';
-        structuredData.is_complete = true;
-        structuredData.conversational_response = `Based on your current ledger data, your Total Revenue is ${revenue / 100} PKR, Cost of Goods Sold is ${cogs / 100} PKR, Gross Profit is ${gp / 100} PKR, Operating Expenses are ${opex / 100} PKR, and Net Profit is ${np / 100} PKR.`;
-      }
-    }
-
-    if (structuredData.intent === 'QUERY_DEBT') {
-      let context = "Real Database Outstanding Debt:\n";
-      
-      const { data: unpaidInvoices } = await supabase.from('invoices')
-        .select('balance_due, customers(name)')
-        .eq('user_id', user.id)
-        .gt('balance_due', 0);
-      
-      let arTotal = 0;
-      if (unpaidInvoices && unpaidInvoices.length > 0) {
-        context += "Money owed TO you (Accounts Receivable):\n";
-        unpaidInvoices.forEach(inv => {
-          const custName = Array.isArray(inv.customers) ? inv.customers[0]?.name : (inv.customers as any)?.name;
-          context += `- ${custName || 'Unknown'}: ${inv.balance_due} PKR\n`;
-          arTotal += Number(inv.balance_due);
-        });
-        context += `Total A/R: ${arTotal} PKR\n\n`;
-      } else {
-        context += "Money owed TO you (Accounts Receivable): None\n\n";
-      }
-
-      const { data: unpaidBills } = await supabase.from('bills')
-        .select('balance_due, suppliers(name)')
-        .eq('user_id', user.id)
-        .gt('balance_due', 0);
-
-      let apTotal = 0;
-      if (unpaidBills && unpaidBills.length > 0) {
-        context += "Money YOU owe (Accounts Payable):\n";
-        unpaidBills.forEach(bill => {
-          const suppName = Array.isArray(bill.suppliers) ? bill.suppliers[0]?.name : (bill.suppliers as any)?.name;
-          context += `- ${suppName || 'Unknown'}: ${bill.balance_due} PKR\n`;
-          apTotal += Number(bill.balance_due);
-        });
-        context += `Total A/P: ${apTotal} PKR\n`;
-      } else {
-        context += "Money YOU owe (Accounts Payable): None\n";
-      }
-
-      const secondPassContents = [
-        ...finalContents,
-        { role: 'model', parts: [{ text: cleanedText }] },
-        { role: 'user', parts: [{ text: `Do not hallucinate. Using this real database data, answer the user's debt query accurately in the conversational_response field:\n${context}` }] }
-      ];
-
-      try {
-        const result2 = await model.generateContent({ contents: secondPassContents });
-        const cleanedText2 = result2.response.text().replace(/```json\n?|```/g, '').trim();
-        const parsed2 = JSON.parse(cleanedText2);
-        structuredData = { ...structuredData, ...parsed2, intent: 'QUERY_DEBT', is_complete: true };
-      } catch {
-        structuredData.intent = 'QUERY_DEBT';
-        structuredData.is_complete = true;
-      }
     }
 
     if (structuredData.intent === 'LOG_PAYMENT_MADE' && structuredData.is_complete) {
@@ -732,59 +639,6 @@ export async function POST(request: Request) {
       } else {
         structuredData.conversational_response = "I need the product name and the actual physical stock count to reconcile inventory.";
         structuredData.is_complete = false;
-      }
-    }
-
-    if (structuredData.intent === 'UPDATE_TRANSACTION') {
-      const up = structuredData.update_parameters;
-      if (up?.transaction_id && up?.new_amount && up?.update_type) {
-        const safeAmountCents = Math.round(parseFloat(up.new_amount.toString().replace(/[^0-9.-]/g, '')) * 100);
-        
-        if (up.update_type === 'bill') {
-          const { data: currentBill } = await supabase.from('bills').select('*, bill_lines(account_id)').eq('id', up.transaction_id).eq('user_id', user.id).single();
-          if (currentBill) {
-            await supabase.rpc('update_bill_atomic', {
-              p_bill_id: currentBill.id,
-              p_user_id: user.id,
-              p_supplier_id: currentBill.supplier_id,
-              p_issue_date: currentBill.issue_date,
-              p_due_date: currentBill.due_date,
-              p_status: currentBill.status,
-              p_total_amount: Math.round(safeAmountCents) / 100,
-              p_receipt_url: currentBill.receipt_url,
-              p_line_items: [{
-                account_id: currentBill.bill_lines?.[0]?.account_id || null,
-                description: 'Updated via AI',
-                amount: Math.round(safeAmountCents) / 100
-              }]
-            });
-            structuredData.conversational_response = `Successfully updated the bill amount to ${up.new_amount} PKR.`;
-          }
-        } else {
-          const { data: currentInvoice } = await supabase.from('invoices').select('*').eq('id', up.transaction_id).eq('user_id', user.id).single();
-          if (currentInvoice) {
-            await supabase.rpc('update_invoice_atomic', {
-              p_invoice_id: currentInvoice.id,
-              p_user_id: user.id,
-              p_customer_id: currentInvoice.customer_id,
-              p_issue_date: currentInvoice.issue_date,
-              p_due_date: currentInvoice.due_date,
-              p_status: currentInvoice.status,
-              p_total_amount: Math.round(safeAmountCents) / 100,
-              p_receipt_url: currentInvoice.receipt_url,
-              p_line_items: [{
-                product_id: null,
-                description: 'Updated via AI',
-                quantity: 1,
-                unit_price: Math.round(safeAmountCents) / 100,
-                total: Math.round(safeAmountCents) / 100
-              }]
-            });
-            structuredData.conversational_response = `Successfully updated the invoice amount to ${up.new_amount} PKR.`;
-          }
-        }
-      } else {
-        structuredData.conversational_response = "I need to know which transaction you want to update and the new amount. (Please click the edit icon in the UI if this is an older transaction).";
       }
     }
 
