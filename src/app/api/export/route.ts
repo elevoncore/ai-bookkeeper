@@ -76,15 +76,20 @@ export async function POST(request: Request) {
       startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     }
 
-    // 1. FETCH ALL BASE DATA IN PARALLEL
+    // 1. FETCH ALL BASE DATA IN PARALLEL (Harden joins against schema updates)
     const [accountsRes, journalsRes, invoicesRes, billsRes, customersRes, suppliersRes] = await Promise.all([
       supabase.from('accounts').select('*').eq('user_id', user.id).order('name', { ascending: true }),
-      supabase.from('journal_entries').select('*, journal_lines(*, accounts(id, name, type, code, parent_account_id, parent_id))').eq('user_id', user.id).order('date', { ascending: false }),
-      supabase.from('invoices').select('*, customers(id, name, email, phone), invoice_lines(*, accounts(name, type), products(id, name, cost, price, is_inventory_tracked))').eq('user_id', user.id).order('issue_date', { ascending: false }),
-      supabase.from('bills').select('*, suppliers(id, name, email, phone), bill_lines(*, accounts(name, type), products(id, name, cost, price))').eq('user_id', user.id).order('issue_date', { ascending: false }),
+      supabase.from('journal_entries').select('*, journal_lines(*, accounts(id, name, type, parent_account_id, parent_id))').eq('user_id', user.id).order('date', { ascending: false }),
+      supabase.from('invoices').select('*, customers(id, name, email, phone), invoice_lines(*, products(id, name, cost, price, is_inventory_tracked))').eq('user_id', user.id).order('issue_date', { ascending: false }),
+      supabase.from('bills').select('*, suppliers(id, name, email, phone), bill_lines(*, accounts(id, name, type), products(id, name, cost, price))').eq('user_id', user.id).order('issue_date', { ascending: false }),
       supabase.from('customers').select('*').eq('user_id', user.id).order('name', { ascending: true }),
       supabase.from('suppliers').select('*').eq('user_id', user.id).order('name', { ascending: true })
     ]);
+
+    if (accountsRes.error) console.error("[Export API] Accounts Query Error:", accountsRes.error);
+    if (journalsRes.error) console.error("[Export API] Journals Query Error:", journalsRes.error);
+    if (invoicesRes.error) console.error("[Export API] Invoices Query Error:", invoicesRes.error);
+    if (billsRes.error) console.error("[Export API] Bills Query Error:", billsRes.error);
 
     const accounts = accountsRes.data || [];
     const journalEntries = journalsRes.data || [];
@@ -92,6 +97,8 @@ export async function POST(request: Request) {
     const bills = billsRes.data || [];
     const allCustomers = customersRes.data || [];
     const allSuppliers = suppliersRes.data || [];
+
+    console.log(`[Export API] Successfully loaded: ${accounts.length} accounts, ${journalEntries.length} journals, ${invoices.length} invoices, ${bills.length} bills.`);
 
     // Helper map for accounts
     const accountsMap = new Map<string, any>();
@@ -149,7 +156,6 @@ export async function POST(request: Request) {
 
     // Helper to format Entity IDs
     function formatEntityId(prefix: string, item: any): string {
-      if (item.code) return item.code;
       if (item.invoice_number) return item.invoice_number;
       if (item.bill_number) return item.bill_number;
       if (item.name === 'Walk-in Customer') return 'CUST-WALKIN';
@@ -171,8 +177,7 @@ export async function POST(request: Request) {
       let filename = `export_${exportType}_${new Date().toISOString().split('T')[0]}.csv`;
 
       if (exportType === 'ledger' || exportType === 'all') {
-        // General Ledger CSV
-        const headers = ['Date', 'Entry Description', 'Account Code', 'Account Name', 'Category / Parent', 'Account Type', 'Debit (PKR)', 'Credit (PKR)'];
+        const headers = ['Date', 'Entry Description', 'Account Name', 'Category / Parent', 'Account Type', 'Debit (PKR)', 'Credit (PKR)'];
         const rows: any[] = [];
         const filteredJournals = startDate
           ? journalEntries.filter(j => (j.date || '').split('T')[0] >= startDate)
@@ -192,7 +197,6 @@ export async function POST(request: Request) {
             rows.push([
               entryDate,
               `"${desc.replace(/"/g, '""')}"`,
-              `"${acc.code || '-'}"`,
               `"${(acc.name || 'General Account').replace(/"/g, '""')}"`,
               `"${parentName.replace(/"/g, '""')}"`,
               `"${(acc.type || '').toUpperCase()}"`,
@@ -203,14 +207,13 @@ export async function POST(request: Request) {
         });
         csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
       } else if (exportType === 'balance_sheet') {
-        // Balance Sheet CSV with Debt Hierarchy & SME Owner's Equity
-        const headers = ['Classification', 'Category / Parent', 'Account Code', 'Account Name', 'Balance (PKR)'];
+        const headers = ['Classification', 'Category / Parent', 'Account Name', 'Balance (PKR)'];
         const rows: any[] = [];
 
         // Assets
         const assetAccs = accounts.filter(a => (a.type || '').toLowerCase() === 'asset');
         assetAccs.forEach(a => {
-          rows.push(['ASSET', 'Current Assets', a.code || '-', `"${a.name}"`, getAccountBalance(a, false).toFixed(2)]);
+          rows.push(['ASSET', 'Current Assets', `"${a.name}"`, getAccountBalance(a, false).toFixed(2)]);
         });
 
         // Liabilities with Debt Hierarchy
@@ -220,13 +223,13 @@ export async function POST(request: Request) {
           const parentName = parent ? parent.name : a.name;
           const isChild = !!parent;
           const displayName = isChild ? `  ↳ ${a.name} (Sub-Account)` : a.name;
-          rows.push(['LIABILITY', `"${parentName}"`, a.code || '-', `"${displayName}"`, getAccountBalance(a, false).toFixed(2)]);
+          rows.push(['LIABILITY', `"${parentName}"`, `"${displayName}"`, getAccountBalance(a, false).toFixed(2)]);
         });
 
         // Equity
         const equityAccs = accounts.filter(a => (a.type || '').toLowerCase() === 'equity');
         equityAccs.forEach(a => {
-          rows.push(['EQUITY', "Owner's Equity", a.code || '-', `"${a.name}"`, getAccountBalance(a, false).toFixed(2)]);
+          rows.push(['EQUITY', "Owner's Equity", `"${a.name}"`, getAccountBalance(a, false).toFixed(2)]);
         });
 
         // Net Earnings (All-Time)
@@ -235,18 +238,17 @@ export async function POST(request: Request) {
         const allTimeRev = revenueAccs.reduce((s, a) => s + getAccountBalance(a, false), 0);
         const allTimeExp = expenseAccs.reduce((s, a) => s + getAccountBalance(a, false), 0);
         const netEarnings = allTimeRev - allTimeExp;
-        rows.push(['EQUITY', "Owner's Equity", '-', '"Owner\'s Net Income / Earnings (All-Time)"', netEarnings.toFixed(2)]);
+        rows.push(['EQUITY', "Owner's Equity", '"Owner\'s Net Income / Earnings (All-Time)"', netEarnings.toFixed(2)]);
 
         csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
       } else if (exportType === 'invoices') {
-        const headers = ['Invoice ID', 'Status', 'Issue Date', 'Due Date', 'Customer Name', 'Line Description', 'Product / Service', 'GL Account', 'Qty', 'Unit Price (PKR)', 'Total Amount (PKR)'];
+        const headers = ['Invoice ID', 'Status', 'Issue Date', 'Due Date', 'Customer Name', 'Line Description', 'Product / Service', 'Qty', 'Unit Price (PKR)', 'Total Amount (PKR)'];
         const rows: any[] = [];
         invoices.forEach(inv => {
           const custName = inv.customers?.name || 'Walk-in Customer';
           (inv.invoice_lines || []).forEach((line: any) => {
             const desc = line.description || line.products?.name || 'Ad-Hoc Service';
             const prodName = line.products?.name || 'Custom / Non-Inventory';
-            const accName = line.accounts?.name || 'Sales Revenue';
             rows.push([
               formatEntityId('INV', inv),
               inv.status || 'PAID',
@@ -255,7 +257,6 @@ export async function POST(request: Request) {
               `"${custName.replace(/"/g, '""')}"`,
               `"${desc.replace(/"/g, '""')}"`,
               `"${prodName.replace(/"/g, '""')}"`,
-              `"${accName.replace(/"/g, '""')}"`,
               line.quantity || 1,
               Number(line.unit_price || line.total || 0).toFixed(2),
               Number(line.total || 0).toFixed(2)
@@ -295,7 +296,6 @@ export async function POST(request: Request) {
         { key: 'colE', width: 24 }
       ];
 
-      // Banner Header
       overviewSheet.mergeCells('A1:E2');
       const titleCell = overviewSheet.getCell('A1');
       titleCell.value = 'AI BOOKKEEPER — EXECUTIVE FINANCIAL DASHBOARD';
@@ -303,7 +303,6 @@ export async function POST(request: Request) {
       titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
       titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
 
-      // Subtitle Info
       overviewSheet.mergeCells('A3:E3');
       const subCell = overviewSheet.getCell('A3');
       subCell.value = `Export Scope: ${timeframe.toUpperCase()} | Generated: ${new Date().toLocaleString()} | User: ${user.email || 'Authenticated User'}`;
@@ -311,7 +310,6 @@ export async function POST(request: Request) {
       subCell.alignment = { vertical: 'middle', horizontal: 'center' };
       subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
 
-      // Calculate Core KPIs
       const revenueAccounts = accounts.filter(a => (a.type || '').toLowerCase() === 'revenue');
       const expenseAccounts = accounts.filter(a => (a.type || '').toLowerCase() === 'expense');
       
@@ -336,7 +334,7 @@ export async function POST(request: Request) {
         return sum;
       }, 0);
 
-      overviewSheet.addRow([]); // Spacer
+      overviewSheet.addRow([]);
       const row5 = overviewSheet.addRow(['PROFIT & LOSS SUMMARY (PERIOD)', '', '', 'BALANCE & LIQUIDITY (ALL-TIME)', '']);
       row5.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
       overviewSheet.getCell('A5').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
@@ -427,7 +425,6 @@ export async function POST(request: Request) {
         { header: 'Customer Name', key: 'customer_name', width: 28 },
         { header: 'Line Description / Service', key: 'description', width: 45 },
         { header: 'Product Item', key: 'product_name', width: 28 },
-        { header: 'GL Account', key: 'account_name', width: 24 },
         { header: 'Quantity', key: 'quantity', width: 12 },
         { header: 'Unit Price (PKR)', key: 'unit_price', width: 18 },
         { header: 'Line Total (PKR)', key: 'total', width: 18 }
@@ -440,13 +437,11 @@ export async function POST(request: Request) {
         (inv.invoice_lines || []).forEach((line: any) => {
           const desc = line.description || line.products?.name || 'Custom Service';
           const prodName = line.products?.name || 'Ad-Hoc / Custom Item';
-          const accName = line.accounts?.name || 'Sales Revenue';
           const row = invLinesSheet.addRow({
             invoice_id: formatEntityId('INV', inv),
             customer_name: custName,
             description: desc,
             product_name: prodName,
-            account_name: accName,
             quantity: line.quantity || 1,
             unit_price: Number(line.unit_price || line.total || 0),
             total: Number(line.total || 0)
@@ -621,7 +616,6 @@ export async function POST(request: Request) {
       // 4.1 CHART OF ACCOUNTS (With Parent/Child Debt Hierarchy)
       const coaSheet = workbook.addWorksheet('Chart of Accounts');
       coaSheet.columns = [
-        { header: 'Account Code', key: 'code', width: 16 },
         { header: 'Account Name', key: 'name', width: 35 },
         { header: 'Parent Category / Control Account', key: 'parent_category', width: 32 },
         { header: 'Account Hierarchy', key: 'hierarchy', width: 18 },
@@ -635,7 +629,6 @@ export async function POST(request: Request) {
       coaSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
       coaSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } };
 
-      // Group parent control accounts and their sub-accounts
       const parents = accounts.filter(a => !a.parent_account_id && !a.parent_id);
       const children = accounts.filter(a => a.parent_account_id || a.parent_id);
 
@@ -648,7 +641,6 @@ export async function POST(request: Request) {
         });
       });
 
-      // Add any orphaned children
       children.forEach(c => {
         if (!orderedAccounts.find(o => o.account.id === c.id)) {
           const p = accountsMap.get(c.parent_account_id || c.parent_id);
@@ -663,7 +655,6 @@ export async function POST(request: Request) {
         const hierarchyLabel = isSubAccount ? 'Sub-Account' : (children.some(c => c.parent_account_id === acc.id || c.parent_id === acc.id) ? 'Control Category' : 'Standard Account');
 
         const row = coaSheet.addRow({
-          code: acc.code || '-',
           name: displayName,
           parent_category: parentName,
           hierarchy: hierarchyLabel,
@@ -718,7 +709,7 @@ export async function POST(request: Request) {
       rTotal.font = { bold: true };
       rTotal.getCell('amount').numFmt = '#,##0.00';
 
-      pnlSheet.addRow([]); // Spacer
+      pnlSheet.addRow([]);
 
       // COGS & GROSS PROFIT
       const cogsHeader = pnlSheet.addRow({ item: 'COST OF GOODS SOLD (COGS)' });
@@ -731,7 +722,7 @@ export async function POST(request: Request) {
       gpRow.font = { bold: true, size: 11, color: { argb: 'FF15803D' } };
       gpRow.getCell('amount').numFmt = '#,##0.00';
 
-      pnlSheet.addRow([]); // Spacer
+      pnlSheet.addRow([]);
 
       // OPERATING EXPENSES
       const expHeader = pnlSheet.addRow({ item: 'OPERATING EXPENSES' });
@@ -745,7 +736,7 @@ export async function POST(request: Request) {
       expTotal.font = { bold: true };
       expTotal.getCell('amount').numFmt = '#,##0.00';
 
-      pnlSheet.addRow([]); // Spacer
+      pnlSheet.addRow([]);
 
       // NET PROFIT
       const netRow = pnlSheet.addRow({ item: 'NET INCOME / (LOSS)', amount: netProfit });
@@ -789,25 +780,22 @@ export async function POST(request: Request) {
       astTotal.font = { bold: true, size: 11, color: { argb: 'FF0369A1' } };
       astTotal.getCell('amount').numFmt = '#,##0.00';
 
-      bsSheet.addRow([]); // Spacer
+      bsSheet.addRow([]);
 
       // LIABILITIES WITH DEBT HIERARCHY
       const liabHeader = bsSheet.addRow({ item: 'LIABILITIES' });
       liabHeader.font = { bold: true, color: { argb: 'FFDC2626' } };
 
-      // Split into Short-Term and Long-Term
       const shortTermDebtParent = liabAccs.find(a => a.name === 'Short-Term Debt');
       const longTermDebtParent = liabAccs.find(a => a.name === 'Long-Term Debt');
       const otherLiabilities = liabAccs.filter(a => a.name !== 'Short-Term Debt' && a.name !== 'Long-Term Debt' && !a.parent_account_id && !a.parent_id);
 
-      // Other Current Liabilities
       otherLiabilities.forEach(a => {
         const bal = getAccountBalance(a, false);
         const r = bsSheet.addRow({ item: `   ${a.name}`, amount: bal });
         r.getCell('amount').numFmt = '#,##0.00';
       });
 
-      // Short-Term Debt Hierarchy
       if (shortTermDebtParent) {
         const stSubs = liabAccs.filter(a => a.parent_account_id === shortTermDebtParent.id || a.parent_id === shortTermDebtParent.id);
         const stTotal = getAccountBalance(shortTermDebtParent, false) + stSubs.reduce((sum, s) => sum + getAccountBalance(s, false), 0);
@@ -822,7 +810,6 @@ export async function POST(request: Request) {
         });
       }
 
-      // Long-Term Debt Hierarchy
       if (longTermDebtParent) {
         const ltSubs = liabAccs.filter(a => a.parent_account_id === longTermDebtParent.id || a.parent_id === longTermDebtParent.id);
         const ltTotal = getAccountBalance(longTermDebtParent, false) + ltSubs.reduce((sum, s) => sum + getAccountBalance(s, false), 0);
@@ -841,7 +828,7 @@ export async function POST(request: Request) {
       liabTotal.font = { bold: true };
       liabTotal.getCell('amount').numFmt = '#,##0.00';
 
-      bsSheet.addRow([]); // Spacer
+      bsSheet.addRow([]);
 
       // SME OWNER'S EQUITY (No Retained Earnings)
       const eqHeader = bsSheet.addRow({ item: "OWNER'S EQUITY (SME)" });
@@ -858,9 +845,8 @@ export async function POST(request: Request) {
       eqTotal.font = { bold: true };
       eqTotal.getCell('amount').numFmt = '#,##0.00';
 
-      bsSheet.addRow([]); // Spacer
+      bsSheet.addRow([]);
 
-      // TOTAL LIABILITIES & EQUITY
       const liabEqTotal = bsSheet.addRow({ item: "TOTAL LIABILITIES & OWNER'S EQUITY", amount: totalLiabAndEquity });
       liabEqTotal.font = { bold: true, size: 11, color: { argb: 'FF0369A1' } };
       liabEqTotal.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
@@ -869,7 +855,6 @@ export async function POST(request: Request) {
       // 4.4 TRIAL BALANCE
       const tbSheet = workbook.addWorksheet('Trial Balance');
       tbSheet.columns = [
-        { header: 'Account Code', key: 'code', width: 16 },
         { header: 'Account Name', key: 'name', width: 35 },
         { header: 'Category / Parent', key: 'parent_category', width: 28 },
         { header: 'Account Type', key: 'type', width: 18 },
@@ -893,7 +878,6 @@ export async function POST(request: Request) {
           totalTbCredits += c;
 
           const row = tbSheet.addRow({
-            code: acc.code || '-',
             name: acc.name,
             parent_category: parent ? parent.name : 'Primary Control',
             type: (acc.type || '').toUpperCase(),
@@ -906,7 +890,6 @@ export async function POST(request: Request) {
       });
 
       const tbTotalRow = tbSheet.addRow({
-        code: '',
         name: 'TOTALS (BALANCED)',
         parent_category: '',
         type: '',
@@ -923,7 +906,6 @@ export async function POST(request: Request) {
       glSheet.columns = [
         { header: 'Date', key: 'date', width: 14 },
         { header: 'Description / Particulars', key: 'desc', width: 45 },
-        { header: 'Account Code', key: 'account_code', width: 16 },
         { header: 'Account Name', key: 'account_name', width: 30 },
         { header: 'Category / Parent', key: 'parent_category', width: 28 },
         { header: 'Debit (PKR)', key: 'debit', width: 18 },
@@ -951,7 +933,6 @@ export async function POST(request: Request) {
             const row = glSheet.addRow({
               date: entryDate,
               desc: cleanDesc,
-              account_code: acc.code || '-',
               account_name: accName,
               parent_category: parent ? parent.name : 'Primary Control',
               debit: debit > 0 ? debit : 0,
