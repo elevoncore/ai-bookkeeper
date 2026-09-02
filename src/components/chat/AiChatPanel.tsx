@@ -16,13 +16,15 @@ interface ChatMessage {
  imagePreview?: string | null;
  extractedDraft?: {
  intent: string;
- entity_name: string; // customer or supplier
+ entity_name: string; // customer or supplier or journal
  amount: number;
  status: InvoiceStatus;
  issue_date: string;
  due_date?: string | null;
  draft_id?: string;
  is_approved?: boolean;
+ lender_name?: string | null;
+ parent_account_name?: string | null;
  line_items?: Array<{
  description: string;
  quantity?: number;
@@ -30,6 +32,10 @@ interface ChatMessage {
  total?: number;
  amount?: number;
  account_name: string;
+ parent_account_name?: string | null;
+ product_id?: string | null;
+ product_name?: string | null;
+ is_inventory_tracked?: boolean;
  is_debit?: boolean;
  debit?: number;
  credit?: number;
@@ -148,47 +154,88 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
  if (fileInputRef.current) fileInputRef.current.value = '';
  }
 
- // Helper function to resolve account with fuzzy matching and fallback to General Operating Expense
- async function resolveAccountId(accName: string | null | undefined, intent: string) {
- const isBill = intent === 'LOG_BILL';
- const defaultFallback = isBill ? 'General Operating Expense' : 'Sales Revenue';
+  // Helper function to resolve account with fuzzy matching and debt parent linking
+  async function resolveAccountId(accName: string | null | undefined, intent: string, parentCategoryName?: string | null) {
+    const isBill = intent === 'LOG_BILL';
+    const isInvoice = intent === 'LOG_INVOICE';
+    const defaultFallback = isBill ? 'General Operating Expense' : (isInvoice ? 'Sales Revenue' : 'General Operating Expense');
 
- const { data: { user } } = await supabase.auth.getUser();
- if (!user) return null;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
 
- // 1. Fetch user's complete active accounts list from DB
- const { data: dbAccounts } = await supabase
- .from('accounts')
- .select('id, name, type')
- .eq('user_id', user.id);
+    // 1. Fetch user's complete active accounts list from DB
+    const { data: dbAccounts } = await supabase
+      .from('accounts')
+      .select('*')
+      .eq('user_id', user.id);
 
- const availableAccounts = dbAccounts && dbAccounts.length > 0 ? dbAccounts : (chartOfAccounts || []);
+    const availableAccounts = (dbAccounts && dbAccounts.length > 0 ? dbAccounts : (chartOfAccounts || [])) as any[];
 
- if (accName) {
- // Perform fuzzy Levenshtein match across available accounts (55% similarity threshold)
- const fuzzyMatch = findBestAccountMatch(accName, availableAccounts, 0.55);
- if (fuzzyMatch) {
- return fuzzyMatch.account.id;
- }
- }
+    if (accName) {
+      // Direct exact or case-insensitive match
+      const exactMatch = availableAccounts.find(a => a.name.trim().toLowerCase() === accName.trim().toLowerCase());
+      if (exactMatch) return exactMatch.id;
 
- // Fallback to General Operating Expense for bills / Sales Revenue for invoices
- const fallbackMatch = findBestAccountMatch(defaultFallback, availableAccounts, 0.50);
- if (fallbackMatch) {
- return fallbackMatch.account.id;
- }
+      // Handle standard SME Equity accounts
+      if (accName.toLowerCase() === 'owner drawings' || accName.toLowerCase() === "owner's drawing") {
+        const drawAcc = availableAccounts.find(a => a.name === "Owner's Drawings");
+        if (drawAcc) return drawAcc.id;
+      }
+      if (accName.toLowerCase() === 'owner capital' || accName.toLowerCase() === "owners capital" || accName.toLowerCase() === "owner's equity") {
+        const capAcc = availableAccounts.find(a => a.name === "Owner's Capital");
+        if (capAcc) return capAcc.id;
+      }
 
- // Ultimate safety net: Insert default account if not present
- const accType = isBill ? 'expense' : 'revenue';
- const finalName = accName || defaultFallback;
- const { data: newAccount } = await supabase
- .from('accounts')
- .insert({ user_id: user.id, name: finalName, type: accType, is_system: true })
- .select('id')
- .single();
+      // Fuzzy match across available accounts (60% similarity threshold)
+      const fuzzyMatch = findBestAccountMatch(accName, availableAccounts, 0.60);
+      if (fuzzyMatch) {
+        return fuzzyMatch.account.id;
+      }
 
- return newAccount?.id;
- }
+      // If this is a specific loan/lender liability account (e.g. "Meezan Bank", "Uncle Ahmed", "Askari Bank")
+      const lower = accName.toLowerCase();
+      const isLoanOrLender = lower.includes('loan') || lower.includes('bank') || parentCategoryName?.toLowerCase().includes('debt');
+      if (isLoanOrLender || parentCategoryName) {
+        const parentName = parentCategoryName || (lower.includes('short') || lower.includes('6 month') ? 'Short-Term Debt' : 'Long-Term Debt');
+        const parentAcc = availableAccounts.find(a => a.type === 'liability' && a.name === parentName) 
+          || availableAccounts.find(a => a.type === 'liability' && a.name === 'Long-Term Debt');
+
+        // Insert new specific lender liability account with strict parent hierarchy and is_cash_account: false
+        const { data: newLenderAcc } = await supabase
+          .from('accounts')
+          .insert({
+            user_id: user.id,
+            name: accName.trim(),
+            type: 'liability',
+            is_system: false,
+            is_cash_account: false,
+            parent_account_id: parentAcc?.id || null,
+            parent_id: parentAcc?.id || null
+          })
+          .select('id')
+          .single();
+
+        if (newLenderAcc) return newLenderAcc.id;
+      }
+    }
+
+    // Fallback match
+    const fallbackMatch = findBestAccountMatch(defaultFallback, availableAccounts, 0.50);
+    if (fallbackMatch) {
+      return fallbackMatch.account.id;
+    }
+
+    // Ultimate safety net: Insert default account if not present
+    const accType = isBill ? 'expense' : (isInvoice ? 'revenue' : 'expense');
+    const finalName = accName || defaultFallback;
+    const { data: newAccount } = await supabase
+      .from('accounts')
+      .insert({ user_id: user.id, name: finalName, type: accType, is_system: false, is_cash_account: false })
+      .select('id')
+      .single();
+
+    return newAccount?.id;
+  }
 
  // Helper function to resolve or create product
  async function resolveProductId(prodName: string, price: number, isInventoryTracked: boolean = false, passedProductId?: string | null) {
@@ -407,17 +454,26 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
 
  const resolvedLines = [];
  for (const item of ext.line_items || []) {
- const safePrice = parseToCents(item.unit_price || 0) / 100;
- const targetProdName = item.product_name || item.description;
- const productId = await resolveProductId(targetProdName, safePrice, item.is_inventory_tracked, item.product_id);
- if (!productId) throw new Error(`Product resolution failed for ${targetProdName}`);
- resolvedLines.push({
- product_id: productId,
- description: item.description,
- quantity: item.quantity || 1,
- unit_price: safePrice,
- total: parseToCents(item.total || 0) / 100
- });
+  const safePrice = parseToCents(item.unit_price || item.total || 0) / 100;
+  let productId = null;
+  let accountId = null;
+
+  if (item.product_id || (item.product_name && item.is_inventory_tracked)) {
+    const targetProdName = item.product_name || item.description;
+    productId = await resolveProductId(targetProdName, safePrice, item.is_inventory_tracked, item.product_id);
+  }
+
+  const accToResolve = item.account_name || (productId ? 'Sales Revenue' : 'Service Revenue');
+  accountId = await resolveAccountId(accToResolve, 'LOG_INVOICE');
+
+  resolvedLines.push({
+    product_id: productId,
+    account_id: accountId,
+    description: item.description || item.product_name || 'Service / Product',
+    quantity: item.quantity || 1,
+    unit_price: safePrice,
+    total: parseToCents(item.total || item.unit_price || 0) / 100
+  });
  }
 
  const { data: invoiceId, error: rpcError } = await supabase.rpc('create_invoice_with_lines_atomic', {
@@ -548,7 +604,11 @@ export default function AiChatPanel({ chartOfAccounts, onDataChanged, onClose }:
  const journalLines = [];
  let idx = 0;
  for (const item of msg.extractedDraft.line_items) {
- const accId = await resolveAccountId(item.account_name, 'LOG_JOURNAL_ENTRY');
+ const accId = await resolveAccountId(
+  item.account_name, 
+  'LOG_JOURNAL_ENTRY', 
+  item.parent_account_name || (msg.extractedDraft as any).parent_account_name
+ );
  if (!accId) {
  alert(`Could not resolve account "${item.account_name}"`);
  return;
