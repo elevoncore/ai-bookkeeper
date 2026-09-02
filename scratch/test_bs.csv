@@ -1,0 +1,20 @@
+Classification,Category / Parent,Account Code,Account Name,Balance (PKR)
+ASSET,Current Assets,-,"Accounts Receivable",0.00
+ASSET,Current Assets,-,"Cash",0.00
+ASSET,Current Assets,-,"Fixed Assets - Equipment/Furniture",0.00
+ASSET,Current Assets,-,"Fixed Assets - Office/Equipment",0.00
+ASSET,Current Assets,-,"Inventory Asset",0.00
+ASSET,Current Assets,-,"Main Bank Account",0.00
+ASSET,Current Assets,-,"Petty Cash",0.00
+ASSET,Current Assets,-,"Supplier Advances / Prepaid Expenses",0.00
+LIABILITY,"Accounts Payable",-,"Accounts Payable",0.00
+LIABILITY,"Long-Term Debt",-,"  ↳ Askari Bank (Sub-Account)",0.00
+LIABILITY,"Customer Advances / Unearned Revenue",-,"Customer Advances / Unearned Revenue",0.00
+LIABILITY,"Long-Term Debt",-,"  ↳ Loan - Ali (Sub-Account)",0.00
+LIABILITY,"Long-Term Debt",-,"Long-Term Debt",0.00
+LIABILITY,"Long-Term Debt",-,"  ↳ Meezan Bank (Sub-Account)",0.00
+LIABILITY,"Sales Tax Payable",-,"Sales Tax Payable",0.00
+LIABILITY,"Short-Term Debt",-,"Short-Term Debt",0.00
+EQUITY,Owner's Equity,-,"Owner's Capital",0.00
+EQUITY,Owner's Equity,-,"Owner's Drawings",0.00
+EQUITY,Owner's Equity,-,"Owner's Net Income / Earnings (All-Time)",0.00

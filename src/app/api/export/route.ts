@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     const { data: cookieAuthData } = await supabase.auth.getUser();
     user = cookieAuthData?.user;
 
-    // Fallback for Bearer token in Authorization header (for test scripts / automation)
+    // Fallback for Bearer token in Authorization header
     if (!user) {
       const authHeader = request.headers.get("authorization");
       if (authHeader && authHeader.startsWith("Bearer ")) {
@@ -58,7 +58,13 @@ export async function POST(request: Request) {
     // Ensure default chart of accounts exist
     await supabase.rpc('initialize_default_accounts', { p_user_id: user.id });
 
-    const { timeframe = 'all', selectedModules = ['Overview', 'Sales', 'Purchases', 'Accounting'] } = await request.json();
+    const body = await request.json().catch(() => ({}));
+    const { 
+      timeframe = 'all', 
+      selectedModules = ['Overview', 'Sales', 'Purchases', 'Accounting'],
+      format = 'xlsx', // 'xlsx' | 'csv'
+      exportType = 'all' // 'all' | 'ledger' | 'balance_sheet' | 'pnl' | 'invoices' | 'bills' | 'coa'
+    } = body;
 
     let startDate: string | null = null;
     const now = new Date();
@@ -71,24 +77,27 @@ export async function POST(request: Request) {
     }
 
     // 1. FETCH ALL BASE DATA IN PARALLEL
-    const [accountsRes, journalsRes, invoicesRes, billsRes] = await Promise.all([
+    const [accountsRes, journalsRes, invoicesRes, billsRes, customersRes, suppliersRes] = await Promise.all([
       supabase.from('accounts').select('*').eq('user_id', user.id).order('name', { ascending: true }),
-      supabase.from('journal_entries').select('*, journal_lines(*, accounts(name, type))').eq('user_id', user.id).order('date', { ascending: false }),
-      supabase.from('invoices').select('*, customers(id, name, email, phone), invoice_lines(description, quantity, total, products(name, cost))').eq('user_id', user.id).order('issue_date', { ascending: false }),
-      supabase.from('bills').select('*, suppliers(id, name, email, phone), bill_lines(description, quantity, amount, unit_price)').eq('user_id', user.id).order('issue_date', { ascending: false })
+      supabase.from('journal_entries').select('*, journal_lines(*, accounts(id, name, type, code, parent_account_id, parent_id))').eq('user_id', user.id).order('date', { ascending: false }),
+      supabase.from('invoices').select('*, customers(id, name, email, phone), invoice_lines(*, accounts(name, type), products(id, name, cost, price, is_inventory_tracked))').eq('user_id', user.id).order('issue_date', { ascending: false }),
+      supabase.from('bills').select('*, suppliers(id, name, email, phone), bill_lines(*, accounts(name, type), products(id, name, cost, price))').eq('user_id', user.id).order('issue_date', { ascending: false }),
+      supabase.from('customers').select('*').eq('user_id', user.id).order('name', { ascending: true }),
+      supabase.from('suppliers').select('*').eq('user_id', user.id).order('name', { ascending: true })
     ]);
 
     const accounts = accountsRes.data || [];
     const journalEntries = journalsRes.data || [];
     const invoices = invoicesRes.data || [];
     const bills = billsRes.data || [];
+    const allCustomers = customersRes.data || [];
+    const allSuppliers = suppliersRes.data || [];
 
     // Helper map for accounts
     const accountsMap = new Map<string, any>();
     accounts.forEach(acc => accountsMap.set(acc.id, acc));
 
     // 2. MATHEMATICAL AGGREGATIONS (DEBIT & CREDIT PARSING)
-    // Structure: cents-based calculations to eliminate floating point issues
     const accountBalances = new Map<string, { debitsCents: number, creditsCents: number, periodDebitsCents: number, periodCreditsCents: number }>();
     for (const acc of accounts) {
       accountBalances.set(acc.id, { debitsCents: 0, creditsCents: 0, periodDebitsCents: 0, periodCreditsCents: 0 });
@@ -148,11 +157,120 @@ export async function POST(request: Request) {
       return `${prefix}-${idStr}`;
     }
 
-    // Helper to format raw descriptions (replace raw UUIDs with human-readable entity references)
+    // Helper to sanitize description
     function sanitizeDescription(desc: string | null | undefined): string {
       if (!desc) return '-';
       return desc.replace(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi, (match) => {
         return match.substring(0, 6).toUpperCase();
+      });
+    }
+
+    // Handle CSV Export Mode directly if requested
+    if (format === 'csv') {
+      let csvContent = "";
+      let filename = `export_${exportType}_${new Date().toISOString().split('T')[0]}.csv`;
+
+      if (exportType === 'ledger' || exportType === 'all') {
+        // General Ledger CSV
+        const headers = ['Date', 'Entry Description', 'Account Code', 'Account Name', 'Category / Parent', 'Account Type', 'Debit (PKR)', 'Credit (PKR)'];
+        const rows: any[] = [];
+        const filteredJournals = startDate
+          ? journalEntries.filter(j => (j.date || '').split('T')[0] >= startDate)
+          : journalEntries;
+
+        filteredJournals.forEach(entry => {
+          const entryDate = entry.date ? entry.date.split('T')[0] : '-';
+          const desc = sanitizeDescription(entry.description);
+
+          (entry.journal_lines || []).forEach((line: any) => {
+            const acc = line.accounts || accountsMap.get(line.account_id) || {};
+            const parentAcc = (acc.parent_account_id || acc.parent_id) ? accountsMap.get(acc.parent_account_id || acc.parent_id) : null;
+            const parentName = parentAcc ? parentAcc.name : (acc.name || '-');
+            const debit = Number(line.debit || 0);
+            const credit = Number(line.credit || 0);
+
+            rows.push([
+              entryDate,
+              `"${desc.replace(/"/g, '""')}"`,
+              `"${acc.code || '-'}"`,
+              `"${(acc.name || 'General Account').replace(/"/g, '""')}"`,
+              `"${parentName.replace(/"/g, '""')}"`,
+              `"${(acc.type || '').toUpperCase()}"`,
+              debit > 0 ? debit.toFixed(2) : '0.00',
+              credit > 0 ? credit.toFixed(2) : '0.00'
+            ]);
+          });
+        });
+        csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      } else if (exportType === 'balance_sheet') {
+        // Balance Sheet CSV with Debt Hierarchy & SME Owner's Equity
+        const headers = ['Classification', 'Category / Parent', 'Account Code', 'Account Name', 'Balance (PKR)'];
+        const rows: any[] = [];
+
+        // Assets
+        const assetAccs = accounts.filter(a => (a.type || '').toLowerCase() === 'asset');
+        assetAccs.forEach(a => {
+          rows.push(['ASSET', 'Current Assets', a.code || '-', `"${a.name}"`, getAccountBalance(a, false).toFixed(2)]);
+        });
+
+        // Liabilities with Debt Hierarchy
+        const liabAccs = accounts.filter(a => (a.type || '').toLowerCase() === 'liability');
+        liabAccs.forEach(a => {
+          const parent = (a.parent_account_id || a.parent_id) ? accountsMap.get(a.parent_account_id || a.parent_id) : null;
+          const parentName = parent ? parent.name : a.name;
+          const isChild = !!parent;
+          const displayName = isChild ? `  ↳ ${a.name} (Sub-Account)` : a.name;
+          rows.push(['LIABILITY', `"${parentName}"`, a.code || '-', `"${displayName}"`, getAccountBalance(a, false).toFixed(2)]);
+        });
+
+        // Equity
+        const equityAccs = accounts.filter(a => (a.type || '').toLowerCase() === 'equity');
+        equityAccs.forEach(a => {
+          rows.push(['EQUITY', "Owner's Equity", a.code || '-', `"${a.name}"`, getAccountBalance(a, false).toFixed(2)]);
+        });
+
+        // Net Earnings (All-Time)
+        const revenueAccs = accounts.filter(a => (a.type || '').toLowerCase() === 'revenue');
+        const expenseAccs = accounts.filter(a => (a.type || '').toLowerCase() === 'expense');
+        const allTimeRev = revenueAccs.reduce((s, a) => s + getAccountBalance(a, false), 0);
+        const allTimeExp = expenseAccs.reduce((s, a) => s + getAccountBalance(a, false), 0);
+        const netEarnings = allTimeRev - allTimeExp;
+        rows.push(['EQUITY', "Owner's Equity", '-', '"Owner\'s Net Income / Earnings (All-Time)"', netEarnings.toFixed(2)]);
+
+        csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      } else if (exportType === 'invoices') {
+        const headers = ['Invoice ID', 'Status', 'Issue Date', 'Due Date', 'Customer Name', 'Line Description', 'Product / Service', 'GL Account', 'Qty', 'Unit Price (PKR)', 'Total Amount (PKR)'];
+        const rows: any[] = [];
+        invoices.forEach(inv => {
+          const custName = inv.customers?.name || 'Walk-in Customer';
+          (inv.invoice_lines || []).forEach((line: any) => {
+            const desc = line.description || line.products?.name || 'Ad-Hoc Service';
+            const prodName = line.products?.name || 'Custom / Non-Inventory';
+            const accName = line.accounts?.name || 'Sales Revenue';
+            rows.push([
+              formatEntityId('INV', inv),
+              inv.status || 'PAID',
+              inv.issue_date || '-',
+              inv.due_date || '-',
+              `"${custName.replace(/"/g, '""')}"`,
+              `"${desc.replace(/"/g, '""')}"`,
+              `"${prodName.replace(/"/g, '""')}"`,
+              `"${accName.replace(/"/g, '""')}"`,
+              line.quantity || 1,
+              Number(line.unit_price || line.total || 0).toFixed(2),
+              Number(line.total || 0).toFixed(2)
+            ]);
+          });
+        });
+        csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      }
+
+      return new NextResponse(csvContent, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${filename}"`
+        }
       });
     }
 
@@ -162,7 +280,7 @@ export async function POST(request: Request) {
     workbook.created = new Date();
 
     // -------------------------------------------------------------
-    // SHEET 1: OVERVIEW DASHBOARD (Advanced Visual Dashboard)
+    // SHEET 1: OVERVIEW DASHBOARD
     // -------------------------------------------------------------
     if (selectedModules.includes('Overview')) {
       const overviewSheet = workbook.addWorksheet('Overview', {
@@ -170,10 +288,10 @@ export async function POST(request: Request) {
       });
 
       overviewSheet.columns = [
-        { key: 'colA', width: 32 },
+        { key: 'colA', width: 34 },
         { key: 'colB', width: 24 },
         { key: 'colC', width: 6 },
-        { key: 'colD', width: 32 },
+        { key: 'colD', width: 34 },
         { key: 'colE', width: 24 }
       ];
 
@@ -182,7 +300,7 @@ export async function POST(request: Request) {
       const titleCell = overviewSheet.getCell('A1');
       titleCell.value = 'AI BOOKKEEPER — EXECUTIVE FINANCIAL DASHBOARD';
       titleCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
-      titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } }; // Slate 800
+      titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
       titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
 
       // Subtitle Info
@@ -201,19 +319,9 @@ export async function POST(request: Request) {
       const totalExpensesPeriod = expenseAccounts.reduce((sum, a) => sum + getAccountBalance(a, true), 0);
       const netProfitPeriod = totalRevenuePeriod - totalExpensesPeriod;
 
-      const cashAccounts = accounts.filter(a => {
-        if ((a.type || '').toLowerCase() !== 'asset') return false;
-        if (a.is_cash_account) return true;
-        const name = (a.name || '').toLowerCase();
-        return name.includes('bank') || name.includes('cash') || name.includes('wallet') || name.includes('petty');
-      });
+      const cashAccounts = accounts.filter(a => (a.type || '').toLowerCase() === 'asset' && (a.is_cash_account || a.name.toLowerCase().includes('bank') || a.name.toLowerCase().includes('cash')));
       const totalLiquidCash = cashAccounts.reduce((sum, a) => sum + getAccountBalance(a, false), 0);
 
-      // AR / AP Calculations
-      const arAccount = accounts.find(a => (a.name || '').toLowerCase().includes('accounts receivable'));
-      const apAccount = accounts.find(a => (a.name || '').toLowerCase().includes('accounts payable'));
-      
-      // Compute from unpaid invoices / bills for exact consistency with UI
       const totalARInvoices = invoices.reduce((sum, inv) => {
         if (inv.status !== 'paid' && inv.status !== 'PAID') {
           return sum + Number(inv.balance_due ?? (Number(inv.total_amount || 0) - Number(inv.amount_paid || 0)));
@@ -228,19 +336,14 @@ export async function POST(request: Request) {
         return sum;
       }, 0);
 
-      const totalAR = arAccount ? Math.max(getAccountBalance(arAccount, false), totalARInvoices) : totalARInvoices;
-      const totalAP = apAccount ? Math.max(getAccountBalance(apAccount, false), totalAPBills) : totalAPBills;
-
-      // Section 1 Header
-      overviewSheet.addRow([]); // Row 4 spacer
+      overviewSheet.addRow([]); // Spacer
       const row5 = overviewSheet.addRow(['PROFIT & LOSS SUMMARY (PERIOD)', '', '', 'BALANCE & LIQUIDITY (ALL-TIME)', '']);
       row5.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
-      overviewSheet.getCell('A5').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } }; // Blue 600
+      overviewSheet.getCell('A5').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
       overviewSheet.getCell('B5').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
-      overviewSheet.getCell('D5').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D9488' } }; // Teal 600
+      overviewSheet.getCell('D5').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D9488' } };
       overviewSheet.getCell('E5').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D9488' } };
 
-      // Row 6: Revenue & Cash
       const row6 = overviewSheet.addRow(['Total Operating Revenue', totalRevenuePeriod, '', 'Total Liquid Cash Reserves', totalLiquidCash]);
       overviewSheet.getCell('A6').font = { bold: true, color: { argb: 'FF334155' } };
       overviewSheet.getCell('B6').font = { bold: true, size: 12, color: { argb: 'FF16A34A' } };
@@ -249,8 +352,7 @@ export async function POST(request: Request) {
       overviewSheet.getCell('E6').font = { bold: true, size: 12, color: { argb: 'FF0284C7' } };
       overviewSheet.getCell('E6').numFmt = '#,##0.00 "PKR"';
 
-      // Row 7: Expenses & AR
-      const row7 = overviewSheet.addRow(['Total Operating Expenses', totalExpensesPeriod, '', 'Accounts Receivable (A/R Owed to You)', totalAR]);
+      const row7 = overviewSheet.addRow(['Total Operating Expenses', totalExpensesPeriod, '', 'Accounts Receivable (A/R Owed)', totalARInvoices]);
       overviewSheet.getCell('A7').font = { bold: true, color: { argb: 'FF334155' } };
       overviewSheet.getCell('B7').font = { bold: true, size: 12, color: { argb: 'FFDC2626' } };
       overviewSheet.getCell('B7').numFmt = '#,##0.00 "PKR"';
@@ -258,88 +360,27 @@ export async function POST(request: Request) {
       overviewSheet.getCell('E7').font = { bold: true, size: 12, color: { argb: 'FF059669' } };
       overviewSheet.getCell('E7').numFmt = '#,##0.00 "PKR"';
 
-      // Row 8: Net Profit & AP
-      const row8 = overviewSheet.addRow(['Net Profit / (Loss)', netProfitPeriod, '', 'Accounts Payable (A/P Owed by You)', totalAP]);
+      const row8 = overviewSheet.addRow(['Net Profit / (Loss)', netProfitPeriod, '', 'Accounts Payable (A/P Owed)', totalAPBills]);
       overviewSheet.getCell('A8').font = { bold: true, color: { argb: 'FF0F172A' } };
       overviewSheet.getCell('B8').font = { bold: true, size: 13, color: { argb: netProfitPeriod >= 0 ? 'FF16A34A' : 'FFDC2626' } };
       overviewSheet.getCell('B8').numFmt = '#,##0.00 "PKR"';
       overviewSheet.getCell('D8').font = { bold: true, color: { argb: 'FF0F172A' } };
       overviewSheet.getCell('E8').font = { bold: true, size: 12, color: { argb: 'FFE11D48' } };
       overviewSheet.getCell('E8').numFmt = '#,##0.00 "PKR"';
-
-      // Section 2: A/R & A/P Aging Analysis
-      overviewSheet.addRow([]); // Row 9
-      const row10 = overviewSheet.addRow(['A/R & A/P AGING BREAKDOWN', '', '', '', '']);
-      overviewSheet.mergeCells('A10:E10');
-      overviewSheet.getCell('A10').font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
-      overviewSheet.getCell('A10').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
-
-      const row11 = overviewSheet.addRow(['Aging Bracket', 'A/R (Receivables)', '', 'Aging Bracket', 'A/P (Payables)']);
-      row11.font = { bold: true, color: { argb: 'FF475569' } };
-
-      // Calculate Buckets
-      function calculateAgingBuckets(items: any[]) {
-        const buckets = { current: 0, d1To30: 0, d31To60: 0, dOver60: 0, total: 0 };
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        for (const item of items) {
-          const balance = Number(item.balance_due ?? (Number(item.total_amount || 0) - Number(item.amount_paid || 0)));
-          if (balance > 0 && item.status !== 'draft') {
-            buckets.total += balance;
-            if (!item.due_date) {
-              buckets.current += balance;
-              continue;
-            }
-            const dueDate = new Date(item.due_date);
-            const diffDays = Math.ceil((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
-            if (diffDays <= 0) buckets.current += balance;
-            else if (diffDays <= 30) buckets.d1To30 += balance;
-            else if (diffDays <= 60) buckets.d31To60 += balance;
-            else buckets.dOver60 += balance;
-          }
-        }
-        return buckets;
-      }
-
-      const arBuckets = calculateAgingBuckets(invoices);
-      const apBuckets = calculateAgingBuckets(bills);
-
-      const agingRows = [
-        ['Current (Not Overdue)', arBuckets.current, '', 'Current (Not Overdue)', apBuckets.current],
-        ['1-30 Days Overdue', arBuckets.d1To30, '', '1-30 Days Overdue', apBuckets.d1To30],
-        ['31-60 Days Overdue', arBuckets.d31To60, '', '31-60 Days Overdue', apBuckets.d31To60],
-        ['60+ Days Overdue (Critical)', arBuckets.dOver60, '', '60+ Days Overdue (Critical)', apBuckets.dOver60],
-        ['Total Outstanding A/R', arBuckets.total, '', 'Total Outstanding A/P', apBuckets.total]
-      ];
-
-      agingRows.forEach((r, idx) => {
-        const added = overviewSheet.addRow(r);
-        const isTotal = idx === agingRows.length - 1;
-        if (isTotal) {
-          added.font = { bold: true };
-          overviewSheet.getCell(`A${added.number}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-          overviewSheet.getCell(`B${added.number}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-          overviewSheet.getCell(`D${added.number}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-          overviewSheet.getCell(`E${added.number}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-        }
-        overviewSheet.getCell(`B${added.number}`).numFmt = '#,##0.00 "PKR"';
-        overviewSheet.getCell(`E${added.number}`).numFmt = '#,##0.00 "PKR"';
-      });
     }
 
     // -------------------------------------------------------------
-    // SHEET 2: SALES MODULE (Invoices & Customers)
+    // SHEET 2: SALES MODULE (Invoices & Detailed Lines)
     // -------------------------------------------------------------
     if (selectedModules.includes('Sales')) {
-      const invoicesSheet = workbook.addWorksheet('Invoices');
+      const invoicesSheet = workbook.addWorksheet('Invoices Summary');
       invoicesSheet.columns = [
         { header: 'Invoice ID', key: 'invoice_id', width: 18 },
         { header: 'Status', key: 'status', width: 16 },
         { header: 'Issue Date', key: 'issue_date', width: 14 },
         { header: 'Due Date', key: 'due_date', width: 14 },
         { header: 'Customer Name', key: 'customer_name', width: 28 },
-        { header: 'Products / Items', key: 'items', width: 45 },
+        { header: 'Line Item Summary', key: 'items', width: 45 },
         { header: 'Total Amount (PKR)', key: 'total_amount', width: 20 },
         { header: 'Amount Paid (PKR)', key: 'amount_paid', width: 20 },
         { header: 'Balance Due (PKR)', key: 'balance_due', width: 20 }
@@ -353,13 +394,11 @@ export async function POST(request: Request) {
         : invoices;
 
       filteredInvoices.forEach(inv => {
-        // Collect line items
         const lineItems = (inv.invoice_lines || [])
-          .map((l: any) => l.description || l.products?.name || 'Item')
+          .map((l: any) => l.description || l.products?.name || 'Custom Item')
           .filter(Boolean);
         const itemsStr = lineItems.length > 0 ? lineItems.join(', ') : 'Invoice Services/Goods';
-
-        const custName = inv.customers?.name || (inv.customer_id === 'CUST-WALKIN' ? 'Walk-in Customer' : 'Walk-in Customer');
+        const custName = inv.customers?.name || 'Walk-in Customer';
         const totalAmount = Number(inv.total_amount || 0);
         const amountPaid = Number(inv.amount_paid ?? (totalAmount - Number(inv.balance_due || 0)));
         const balanceDue = Number(inv.balance_due ?? (totalAmount - amountPaid));
@@ -381,7 +420,43 @@ export async function POST(request: Request) {
         row.getCell('balance_due').numFmt = '#,##0.00';
       });
 
-      // Customers Tab
+      // Detailed Line Items Sheet
+      const invLinesSheet = workbook.addWorksheet('Invoice Line Items');
+      invLinesSheet.columns = [
+        { header: 'Invoice ID', key: 'invoice_id', width: 18 },
+        { header: 'Customer Name', key: 'customer_name', width: 28 },
+        { header: 'Line Description / Service', key: 'description', width: 45 },
+        { header: 'Product Item', key: 'product_name', width: 28 },
+        { header: 'GL Account', key: 'account_name', width: 24 },
+        { header: 'Quantity', key: 'quantity', width: 12 },
+        { header: 'Unit Price (PKR)', key: 'unit_price', width: 18 },
+        { header: 'Line Total (PKR)', key: 'total', width: 18 }
+      ];
+      invLinesSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      invLinesSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
+
+      filteredInvoices.forEach(inv => {
+        const custName = inv.customers?.name || 'Walk-in Customer';
+        (inv.invoice_lines || []).forEach((line: any) => {
+          const desc = line.description || line.products?.name || 'Custom Service';
+          const prodName = line.products?.name || 'Ad-Hoc / Custom Item';
+          const accName = line.accounts?.name || 'Sales Revenue';
+          const row = invLinesSheet.addRow({
+            invoice_id: formatEntityId('INV', inv),
+            customer_name: custName,
+            description: desc,
+            product_name: prodName,
+            account_name: accName,
+            quantity: line.quantity || 1,
+            unit_price: Number(line.unit_price || line.total || 0),
+            total: Number(line.total || 0)
+          });
+          row.getCell('unit_price').numFmt = '#,##0.00';
+          row.getCell('total').numFmt = '#,##0.00';
+        });
+      });
+
+      // Customers Sheet
       const customersSheet = workbook.addWorksheet('Customers');
       customersSheet.columns = [
         { header: 'Customer ID', key: 'id', width: 18 },
@@ -389,13 +464,12 @@ export async function POST(request: Request) {
         { header: 'Email', key: 'email', width: 28 },
         { header: 'Phone', key: 'phone', width: 20 },
         { header: 'Total Invoiced (PKR)', key: 'total_invoiced', width: 22 },
-        { header: 'Outstanding Balance (PKR)', key: 'balance', width: 25 }
+        { header: 'Outstanding A/R (PKR)', key: 'balance', width: 25 }
       ];
       customersSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
       customersSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
 
-      const { data: allCustomers } = await supabase.from('customers').select('*').eq('user_id', user.id).order('name', { ascending: true });
-      (allCustomers || []).forEach(c => {
+      allCustomers.forEach(c => {
         const custInvoices = invoices.filter(inv => inv.customer_id === c.id);
         const totalInvoiced = custInvoices.reduce((s, inv) => s + Number(inv.total_amount || 0), 0);
         const totalOutstanding = custInvoices.reduce((s, inv) => {
@@ -419,10 +493,10 @@ export async function POST(request: Request) {
     }
 
     // -------------------------------------------------------------
-    // SHEET 3: PURCHASES MODULE (Bills & Suppliers)
+    // SHEET 3: PURCHASES MODULE (Bills & Detailed Lines)
     // -------------------------------------------------------------
     if (selectedModules.includes('Purchases')) {
-      const billsSheet = workbook.addWorksheet('Bills');
+      const billsSheet = workbook.addWorksheet('Bills Summary');
       billsSheet.columns = [
         { header: 'Bill ID', key: 'bill_id', width: 18 },
         { header: 'Vendor Ref / Invoice #', key: 'ref', width: 25 },
@@ -430,14 +504,14 @@ export async function POST(request: Request) {
         { header: 'Issue Date', key: 'issue_date', width: 14 },
         { header: 'Due Date', key: 'due_date', width: 14 },
         { header: 'Supplier Name', key: 'supplier_name', width: 28 },
-        { header: 'Purchased Items / Expense', key: 'items', width: 45 },
+        { header: 'Line Item Summary', key: 'items', width: 45 },
         { header: 'Total Amount (PKR)', key: 'total_amount', width: 20 },
         { header: 'Amount Paid (PKR)', key: 'amount_paid', width: 20 },
         { header: 'Balance Due (PKR)', key: 'balance_due', width: 20 }
       ];
 
       billsSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      billsSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4338CA' } }; // Indigo 700
+      billsSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4338CA' } };
 
       const filteredBills = startDate 
         ? bills.filter(b => (b.issue_date || '').split('T')[0] >= startDate)
@@ -448,7 +522,6 @@ export async function POST(request: Request) {
           .map((l: any) => l.description || 'Expense Item')
           .filter(Boolean);
         const itemsStr = lineItems.length > 0 ? lineItems.join(', ') : 'Vendor Bill / Purchase';
-
         const suppName = b.suppliers?.name || 'Unknown Supplier';
         const totalAmount = Number(b.total_amount || 0);
         const amountPaid = Number(b.amount_paid ?? (totalAmount - Number(b.balance_due || 0)));
@@ -472,7 +545,40 @@ export async function POST(request: Request) {
         row.getCell('balance_due').numFmt = '#,##0.00';
       });
 
-      // Suppliers Tab
+      // Detailed Bill Lines
+      const billLinesSheet = workbook.addWorksheet('Bill Line Items');
+      billLinesSheet.columns = [
+        { header: 'Bill ID', key: 'bill_id', width: 18 },
+        { header: 'Supplier Name', key: 'supplier_name', width: 28 },
+        { header: 'Line Description / Expense', key: 'description', width: 45 },
+        { header: 'GL Expense Account', key: 'account_name', width: 28 },
+        { header: 'Quantity', key: 'quantity', width: 12 },
+        { header: 'Unit Cost (PKR)', key: 'unit_price', width: 18 },
+        { header: 'Line Total (PKR)', key: 'amount', width: 18 }
+      ];
+      billLinesSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      billLinesSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4338CA' } };
+
+      filteredBills.forEach(b => {
+        const suppName = b.suppliers?.name || 'Unknown Supplier';
+        (b.bill_lines || []).forEach((line: any) => {
+          const desc = line.description || 'Expense Item';
+          const accName = line.accounts?.name || 'General Operating Expense';
+          const row = billLinesSheet.addRow({
+            bill_id: formatEntityId('BILL', b),
+            supplier_name: suppName,
+            description: desc,
+            account_name: accName,
+            quantity: line.quantity || 1,
+            unit_price: Number(line.unit_price || line.amount || 0),
+            amount: Number(line.amount || 0)
+          });
+          row.getCell('unit_price').numFmt = '#,##0.00';
+          row.getCell('amount').numFmt = '#,##0.00';
+        });
+      });
+
+      // Suppliers Sheet
       const suppliersSheet = workbook.addWorksheet('Suppliers');
       suppliersSheet.columns = [
         { header: 'Supplier ID', key: 'id', width: 18 },
@@ -480,13 +586,12 @@ export async function POST(request: Request) {
         { header: 'Email', key: 'email', width: 28 },
         { header: 'Phone', key: 'phone', width: 20 },
         { header: 'Total Billed (PKR)', key: 'total_billed', width: 22 },
-        { header: 'Outstanding Balance (PKR)', key: 'balance', width: 25 }
+        { header: 'Outstanding A/P (PKR)', key: 'balance', width: 25 }
       ];
       suppliersSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
       suppliersSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4338CA' } };
 
-      const { data: allSuppliers } = await supabase.from('suppliers').select('*').eq('user_id', user.id).order('name', { ascending: true });
-      (allSuppliers || []).forEach(s => {
+      allSuppliers.forEach(s => {
         const suppBills = bills.filter(b => b.supplier_id === s.id);
         const totalBilled = suppBills.reduce((acc, b) => acc + Number(b.total_amount || 0), 0);
         const totalOutstanding = suppBills.reduce((acc, b) => {
@@ -513,53 +618,85 @@ export async function POST(request: Request) {
     // SHEET 4: ACCOUNTING & FINANCIAL STATEMENTS
     // -------------------------------------------------------------
     if (selectedModules.includes('Accounting')) {
-      // 4.1 CHART OF ACCOUNTS (With Verified Running Balances)
+      // 4.1 CHART OF ACCOUNTS (With Parent/Child Debt Hierarchy)
       const coaSheet = workbook.addWorksheet('Chart of Accounts');
       coaSheet.columns = [
-        { header: 'Account Name', key: 'name', width: 32 },
+        { header: 'Account Code', key: 'code', width: 16 },
+        { header: 'Account Name', key: 'name', width: 35 },
+        { header: 'Parent Category / Control Account', key: 'parent_category', width: 32 },
+        { header: 'Account Hierarchy', key: 'hierarchy', width: 18 },
         { header: 'Type', key: 'type', width: 16 },
-        { header: 'System Protected', key: 'is_system', width: 18 },
-        { header: 'Is Cash Account', key: 'is_cash', width: 18 },
+        { header: 'Liquid Cash', key: 'is_cash', width: 14 },
         { header: 'Total Debits (PKR)', key: 'debits', width: 22 },
         { header: 'Total Credits (PKR)', key: 'credits', width: 22 },
         { header: 'Running Balance (PKR)', key: 'balance', width: 25 }
       ];
 
       coaSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      coaSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } }; // Teal 700
+      coaSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } };
 
-      accounts.forEach(acc => {
+      // Group parent control accounts and their sub-accounts
+      const parents = accounts.filter(a => !a.parent_account_id && !a.parent_id);
+      const children = accounts.filter(a => a.parent_account_id || a.parent_id);
+
+      const orderedAccounts: Array<{ account: any, isSubAccount: boolean, parentName: string }> = [];
+      parents.forEach(p => {
+        orderedAccounts.push({ account: p, isSubAccount: false, parentName: 'None (Control Account)' });
+        const subs = children.filter(c => (c.parent_account_id === p.id || c.parent_id === p.id));
+        subs.forEach(s => {
+          orderedAccounts.push({ account: s, isSubAccount: true, parentName: p.name });
+        });
+      });
+
+      // Add any orphaned children
+      children.forEach(c => {
+        if (!orderedAccounts.find(o => o.account.id === c.id)) {
+          const p = accountsMap.get(c.parent_account_id || c.parent_id);
+          orderedAccounts.push({ account: c, isSubAccount: true, parentName: p ? p.name : 'Unknown Parent' });
+        }
+      });
+
+      orderedAccounts.forEach(({ account: acc, isSubAccount, parentName }) => {
         const b = accountBalances.get(acc.id) || { debitsCents: 0, creditsCents: 0, periodDebitsCents: 0, periodCreditsCents: 0 };
         const balance = getAccountBalance(acc, false);
-        const typeStr = (acc.type || '').toUpperCase();
+        const displayName = isSubAccount ? `   ↳ ${acc.name} (Sub-Account)` : acc.name;
+        const hierarchyLabel = isSubAccount ? 'Sub-Account' : (children.some(c => c.parent_account_id === acc.id || c.parent_id === acc.id) ? 'Control Category' : 'Standard Account');
 
         const row = coaSheet.addRow({
-          name: acc.name,
-          type: typeStr,
-          is_system: acc.is_system ? 'Yes' : 'No',
-          is_cash: acc.is_cash_account ? 'Yes' : 'No',
+          code: acc.code || '-',
+          name: displayName,
+          parent_category: parentName,
+          hierarchy: hierarchyLabel,
+          type: (acc.type || '').toUpperCase(),
+          is_cash: (acc.type === 'asset' && acc.is_cash_account) ? 'Yes' : 'No',
           debits: b.debitsCents / 100,
           credits: b.creditsCents / 100,
           balance: balance
         });
+
+        if (hierarchyLabel === 'Control Category') {
+          row.font = { bold: true };
+          row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F3FF' } };
+        } else if (isSubAccount) {
+          row.getCell('name').font = { italic: true, color: { argb: 'FF1E40AF' } };
+        }
 
         row.getCell('debits').numFmt = '#,##0.00';
         row.getCell('credits').numFmt = '#,##0.00';
         row.getCell('balance').numFmt = '#,##0.00';
       });
 
-      // 4.2 PROFIT & LOSS (Detailed Financial Subsections)
+      // 4.2 PROFIT & LOSS
       const pnlSheet = workbook.addWorksheet('Profit & Loss');
       pnlSheet.columns = [
-        { header: 'Line Item / Account Name', key: 'item', width: 42 },
+        { header: 'Account / Line Item', key: 'item', width: 45 },
         { header: 'Amount (PKR)', key: 'amount', width: 25 }
       ];
       pnlSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      pnlSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF15803D' } }; // Green 700
+      pnlSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF15803D' } };
 
       const revenueAccs = accounts.filter(a => (a.type || '').toLowerCase() === 'revenue');
       const expenseAccs = accounts.filter(a => (a.type || '').toLowerCase() === 'expense');
-
       const cogsAcc = expenseAccs.find(a => (a.name || '').toLowerCase() === 'cost of goods sold');
       const operatingExpenseAccs = expenseAccs.filter(a => (a.name || '').toLowerCase() !== 'cost of goods sold');
 
@@ -569,7 +706,7 @@ export async function POST(request: Request) {
       const totalOperatingExp = operatingExpenseAccs.reduce((s, a) => s + getAccountBalance(a, true), 0);
       const netProfit = grossProfit - totalOperatingExp;
 
-      // REVENUE SECTION
+      // REVENUE
       const rHeader = pnlSheet.addRow({ item: 'OPERATING REVENUE' });
       rHeader.font = { bold: true, color: { argb: 'FF15803D' } };
       revenueAccs.forEach(a => {
@@ -596,7 +733,7 @@ export async function POST(request: Request) {
 
       pnlSheet.addRow([]); // Spacer
 
-      // OPERATING EXPENSES SECTION
+      // OPERATING EXPENSES
       const expHeader = pnlSheet.addRow({ item: 'OPERATING EXPENSES' });
       expHeader.font = { bold: true, color: { argb: 'FFDC2626' } };
       operatingExpenseAccs.forEach(a => {
@@ -610,35 +747,35 @@ export async function POST(request: Request) {
 
       pnlSheet.addRow([]); // Spacer
 
-      // NET PROFIT SECTION
+      // NET PROFIT
       const netRow = pnlSheet.addRow({ item: 'NET INCOME / (LOSS)', amount: netProfit });
       netRow.font = { bold: true, size: 12, color: { argb: netProfit >= 0 ? 'FF15803D' : 'FFDC2626' } };
       netRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
       netRow.getCell('amount').numFmt = '#,##0.00';
 
-      // 4.3 BALANCE SHEET (Certified Equation: Assets = Liabilities + Equity)
+      // 4.3 BALANCE SHEET (With Debt Hierarchy & SME Owner's Equity)
       const bsSheet = workbook.addWorksheet('Balance Sheet');
       bsSheet.columns = [
-        { header: 'Line Item / Account Name', key: 'item', width: 42 },
+        { header: 'Account / Financial Classification', key: 'item', width: 45 },
         { header: 'Amount (PKR)', key: 'amount', width: 25 }
       ];
       bsSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      bsSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0369A1' } }; // Sky 700
+      bsSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0369A1' } };
 
       const assetAccs = accounts.filter(a => (a.type || '').toLowerCase() === 'asset');
       const liabAccs = accounts.filter(a => (a.type || '').toLowerCase() === 'liability');
-      const equityAccs = accounts.filter(a => (a.type || '').toLowerCase() === 'equity' && !a.name.toLowerCase().includes('retained earnings'));
+      const equityAccs = accounts.filter(a => (a.type || '').toLowerCase() === 'equity');
 
       const totalAssets = assetAccs.reduce((s, a) => s + getAccountBalance(a, false), 0);
       const totalLiab = liabAccs.reduce((s, a) => s + getAccountBalance(a, false), 0);
       const contributedEquity = equityAccs.reduce((s, a) => s + getAccountBalance(a, false), 0);
 
-      // All-time net income rolls into Retained Earnings
+      // All-time net income rolls into Owner's Equity (Net Earnings)
       const allTimeRevenue = revenueAccs.reduce((s, a) => s + getAccountBalance(a, false), 0);
       const allTimeExpenses = expenseAccs.reduce((s, a) => s + getAccountBalance(a, false), 0);
-      const retainedEarnings = allTimeRevenue - allTimeExpenses;
-      const totalEquity = contributedEquity + retainedEarnings;
-      const totalLiabAndEquity = totalLiab + totalEquity;
+      const netIncomeAllTime = allTimeRevenue - allTimeExpenses;
+      const totalOwnerEquity = contributedEquity + netIncomeAllTime;
+      const totalLiabAndEquity = totalLiab + totalOwnerEquity;
 
       // ASSETS
       const astHeader = bsSheet.addRow({ item: 'ASSETS' });
@@ -654,39 +791,77 @@ export async function POST(request: Request) {
 
       bsSheet.addRow([]); // Spacer
 
-      // LIABILITIES
+      // LIABILITIES WITH DEBT HIERARCHY
       const liabHeader = bsSheet.addRow({ item: 'LIABILITIES' });
       liabHeader.font = { bold: true, color: { argb: 'FFDC2626' } };
-      liabAccs.forEach(a => {
+
+      // Split into Short-Term and Long-Term
+      const shortTermDebtParent = liabAccs.find(a => a.name === 'Short-Term Debt');
+      const longTermDebtParent = liabAccs.find(a => a.name === 'Long-Term Debt');
+      const otherLiabilities = liabAccs.filter(a => a.name !== 'Short-Term Debt' && a.name !== 'Long-Term Debt' && !a.parent_account_id && !a.parent_id);
+
+      // Other Current Liabilities
+      otherLiabilities.forEach(a => {
         const bal = getAccountBalance(a, false);
         const r = bsSheet.addRow({ item: `   ${a.name}`, amount: bal });
         r.getCell('amount').numFmt = '#,##0.00';
       });
+
+      // Short-Term Debt Hierarchy
+      if (shortTermDebtParent) {
+        const stSubs = liabAccs.filter(a => a.parent_account_id === shortTermDebtParent.id || a.parent_id === shortTermDebtParent.id);
+        const stTotal = getAccountBalance(shortTermDebtParent, false) + stSubs.reduce((sum, s) => sum + getAccountBalance(s, false), 0);
+        const stRow = bsSheet.addRow({ item: `   ${shortTermDebtParent.name} (Control Category)`, amount: stTotal });
+        stRow.font = { bold: true };
+        stRow.getCell('amount').numFmt = '#,##0.00';
+        stSubs.forEach(s => {
+          const sBal = getAccountBalance(s, false);
+          const r = bsSheet.addRow({ item: `      ↳ ${s.name} (Sub-Account)`, amount: sBal });
+          r.font = { italic: true, color: { argb: 'FF475569' } };
+          r.getCell('amount').numFmt = '#,##0.00';
+        });
+      }
+
+      // Long-Term Debt Hierarchy
+      if (longTermDebtParent) {
+        const ltSubs = liabAccs.filter(a => a.parent_account_id === longTermDebtParent.id || a.parent_id === longTermDebtParent.id);
+        const ltTotal = getAccountBalance(longTermDebtParent, false) + ltSubs.reduce((sum, s) => sum + getAccountBalance(s, false), 0);
+        const ltRow = bsSheet.addRow({ item: `   ${longTermDebtParent.name} (Control Category)`, amount: ltTotal });
+        ltRow.font = { bold: true };
+        ltRow.getCell('amount').numFmt = '#,##0.00';
+        ltSubs.forEach(s => {
+          const sBal = getAccountBalance(s, false);
+          const r = bsSheet.addRow({ item: `      ↳ ${s.name} (Sub-Account)`, amount: sBal });
+          r.font = { italic: true, color: { argb: 'FF475569' } };
+          r.getCell('amount').numFmt = '#,##0.00';
+        });
+      }
+
       const liabTotal = bsSheet.addRow({ item: 'TOTAL LIABILITIES', amount: totalLiab });
       liabTotal.font = { bold: true };
       liabTotal.getCell('amount').numFmt = '#,##0.00';
 
       bsSheet.addRow([]); // Spacer
 
-      // EQUITY
-      const eqHeader = bsSheet.addRow({ item: 'EQUITY' });
+      // SME OWNER'S EQUITY (No Retained Earnings)
+      const eqHeader = bsSheet.addRow({ item: "OWNER'S EQUITY (SME)" });
       eqHeader.font = { bold: true, color: { argb: 'FF7C3AED' } };
       equityAccs.forEach(a => {
         const bal = getAccountBalance(a, false);
         const r = bsSheet.addRow({ item: `   ${a.name}`, amount: bal });
         r.getCell('amount').numFmt = '#,##0.00';
       });
-      const retRow = bsSheet.addRow({ item: '   Retained Earnings (All-Time Net Income)', amount: retainedEarnings });
-      retRow.getCell('amount').numFmt = '#,##0.00';
+      const netEarnRow = bsSheet.addRow({ item: "   Owner's Net Income / Earnings (All-Time)", amount: netIncomeAllTime });
+      netEarnRow.getCell('amount').numFmt = '#,##0.00';
 
-      const eqTotal = bsSheet.addRow({ item: 'TOTAL EQUITY', amount: totalEquity });
+      const eqTotal = bsSheet.addRow({ item: "TOTAL OWNER'S EQUITY", amount: totalOwnerEquity });
       eqTotal.font = { bold: true };
       eqTotal.getCell('amount').numFmt = '#,##0.00';
 
       bsSheet.addRow([]); // Spacer
 
       // TOTAL LIABILITIES & EQUITY
-      const liabEqTotal = bsSheet.addRow({ item: 'TOTAL LIABILITIES & EQUITY', amount: totalLiabAndEquity });
+      const liabEqTotal = bsSheet.addRow({ item: "TOTAL LIABILITIES & OWNER'S EQUITY", amount: totalLiabAndEquity });
       liabEqTotal.font = { bold: true, size: 11, color: { argb: 'FF0369A1' } };
       liabEqTotal.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
       liabEqTotal.getCell('amount').numFmt = '#,##0.00';
@@ -694,7 +869,9 @@ export async function POST(request: Request) {
       // 4.4 TRIAL BALANCE
       const tbSheet = workbook.addWorksheet('Trial Balance');
       tbSheet.columns = [
+        { header: 'Account Code', key: 'code', width: 16 },
         { header: 'Account Name', key: 'name', width: 35 },
+        { header: 'Category / Parent', key: 'parent_category', width: 28 },
         { header: 'Account Type', key: 'type', width: 18 },
         { header: 'Total Debits (PKR)', key: 'debit', width: 22 },
         { header: 'Total Credits (PKR)', key: 'credit', width: 22 }
@@ -709,13 +886,16 @@ export async function POST(request: Request) {
         const b = accountBalances.get(acc.id) || { debitsCents: 0, creditsCents: 0, periodDebitsCents: 0, periodCreditsCents: 0 };
         const d = b.debitsCents / 100;
         const c = b.creditsCents / 100;
+        const parent = (acc.parent_account_id || acc.parent_id) ? accountsMap.get(acc.parent_account_id || acc.parent_id) : null;
 
         if (d > 0 || c > 0) {
           totalTbDebits += d;
           totalTbCredits += c;
 
           const row = tbSheet.addRow({
+            code: acc.code || '-',
             name: acc.name,
+            parent_category: parent ? parent.name : 'Primary Control',
             type: (acc.type || '').toUpperCase(),
             debit: d,
             credit: c
@@ -726,7 +906,9 @@ export async function POST(request: Request) {
       });
 
       const tbTotalRow = tbSheet.addRow({
+        code: '',
         name: 'TOTALS (BALANCED)',
+        parent_category: '',
         type: '',
         debit: totalTbDebits,
         credit: totalTbCredits
@@ -736,12 +918,14 @@ export async function POST(request: Request) {
       tbTotalRow.getCell('debit').numFmt = '#,##0.00';
       tbTotalRow.getCell('credit').numFmt = '#,##0.00';
 
-      // 4.5 GENERAL LEDGER (All Journal Lines with Clean Names & Formatted Amounts)
+      // 4.5 GENERAL LEDGER
       const glSheet = workbook.addWorksheet('General Ledger');
       glSheet.columns = [
         { header: 'Date', key: 'date', width: 14 },
         { header: 'Description / Particulars', key: 'desc', width: 45 },
+        { header: 'Account Code', key: 'account_code', width: 16 },
         { header: 'Account Name', key: 'account_name', width: 30 },
+        { header: 'Category / Parent', key: 'parent_category', width: 28 },
         { header: 'Debit (PKR)', key: 'debit', width: 18 },
         { header: 'Credit (PKR)', key: 'credit', width: 18 }
       ];
@@ -758,14 +942,18 @@ export async function POST(request: Request) {
 
         if (entry.journal_lines && Array.isArray(entry.journal_lines)) {
           entry.journal_lines.forEach((line: any) => {
-            const accName = line.accounts?.name || accountsMap.get(line.account_id)?.name || 'General Ledger Account';
+            const acc = line.accounts || accountsMap.get(line.account_id) || {};
+            const parent = (acc.parent_account_id || acc.parent_id) ? accountsMap.get(acc.parent_account_id || acc.parent_id) : null;
+            const accName = acc.name || 'General Ledger Account';
             const debit = Number(line.debit || 0);
             const credit = Number(line.credit || 0);
 
             const row = glSheet.addRow({
               date: entryDate,
               desc: cleanDesc,
+              account_code: acc.code || '-',
               account_name: accName,
+              parent_category: parent ? parent.name : 'Primary Control',
               debit: debit > 0 ? debit : 0,
               credit: credit > 0 ? credit : 0
             });

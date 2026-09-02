@@ -121,6 +121,29 @@ export default function TransactionsExplorer({ transactions }: TransactionsExplo
  }));
  }
 
+  function exportToCSV() {
+    if (filteredData.length === 0) return;
+    const headers = ['Date', 'Contact', 'Account', 'Type', 'Status', 'Description', 'Amount (PKR)'];
+    const rows = filteredData.map(t => [
+      t.issue_date || '',
+      `"${(t.contacts?.name || 'Unknown').replace(/"/g, '""')}"`,
+      `"${(t.chart_of_accounts?.name || 'Uncategorized').replace(/"/g, '""')}"`,
+      t.entry_type === 'credit' ? 'Invoice/AR' : 'Bill/AP',
+      t.status,
+      `"${(t.description || '').replace(/"/g, '""')}"`,
+      t.amount || 0
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `transactions-explorer-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
  return (
  <div className="bg-white/80 backdrop-blur-3xl rounded-2xl shadow-xl border border-white/60 overflow-hidden transition-colors duration-300">
  
@@ -131,7 +154,10 @@ export default function TransactionsExplorer({ transactions }: TransactionsExplo
  <h2 className="text-base sm:text-lg font-bold text-slate-900 ">Data Explorer</h2>
  <p className="text-xs sm:text-sm text-slate-500 ">Search, filter, and export all your double-entry ledger entries.</p>
  </div>
- <button className="flex items-center gap-2 px-4 py-2 min-h-[44px] bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200/60 text-xs font-bold rounded-xl transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500">
+ <button 
+    onClick={exportToCSV}
+    className="flex items-center gap-2 px-4 py-2 min-h-[44px] bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200/60 text-xs font-bold rounded-xl transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500"
+ >
  <Download className="w-4 h-4" /> Export CSV
  </button>
  </div>
