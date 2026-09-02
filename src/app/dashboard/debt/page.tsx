@@ -32,6 +32,7 @@ interface AccountRow {
   is_cash_account: boolean;
   balance: number;
   interestPaid?: number;
+  parent_account_id?: string | null;
   parent_id?: string | null;
 }
 
@@ -49,23 +50,22 @@ function DebtContent() {
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [interestExpense, setInterestExpense] = useState(0);
 
-  // Modal States
+  // Modals state
   const [isReceiveOpen, setIsReceiveOpen] = useState(false);
   const [isRepayOpen, setIsRepayOpen] = useState(false);
 
-  // Receive Loan Form State
-  const [recAmount, setRecAmount] = useState('');
-  const [recBankId, setRecBankId] = useState('');
+  // Form states
   const [recLoanId, setRecLoanId] = useState('');
+  const [recBankId, setRecBankId] = useState('');
+  const [recAmount, setRecAmount] = useState('');
   const [recDesc, setRecDesc] = useState('Loan Inflow');
   const [isRecSubmitting, setIsRecSubmitting] = useState(false);
 
-  // Repay Loan Form State
+  const [repayLoanId, setRepayLoanId] = useState('');
+  const [repayBankId, setRepayBankId] = useState('');
   const [repayTotal, setRepayTotal] = useState('');
   const [repayInterest, setRepayInterest] = useState('');
-  const [repayBankId, setRepayBankId] = useState('');
-  const [repayLoanId, setRepayLoanId] = useState('');
-  const [repayDesc, setRepayDesc] = useState('Loan Repayment & Interest Service');
+  const [repayDesc, setRepayDesc] = useState('Loan Repayment');
   const [isRepaySubmitting, setIsRepaySubmitting] = useState(false);
 
   useEffect(() => {
@@ -76,21 +76,23 @@ function DebtContent() {
     setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/login');
-        return;
-      }
+      if (!user) return;
       setUserEmail(user.email || '');
 
-      try {
-        await supabase.rpc('initialize_default_accounts', { p_user_id: user.id });
-      } catch (e) {}
-
       // Fetch accounts
-      const { data: accData } = await supabase
+      let { data: accData, error: accErr } = await supabase
         .from('accounts')
         .select('*')
         .eq('user_id', user.id);
+
+      if (accErr) throw accErr;
+
+      // Seed if empty
+      if (!accData || accData.length === 0) {
+        await supabase.rpc('initialize_default_accounts', { p_user_id: user.id });
+        const res = await supabase.from('accounts').select('*').eq('user_id', user.id);
+        accData = res.data || [];
+      }
 
       // Fetch journal lines
       const accIds = (accData || []).map(a => a.id);
@@ -151,7 +153,7 @@ function DebtContent() {
       }
 
       // Format accounts with balance and interestPaid
-      const formatted = (accData || []).map(a => {
+      const formatted: AccountRow[] = (accData || []).map(a => {
         const totals = linesMap[a.id] || { debit: 0, credit: 0 };
         const isDebitNormal = a.type === 'asset' || a.type === 'expense';
         const bal = isDebitNormal ? (totals.debit - totals.credit) : (totals.credit - totals.debit);
@@ -161,10 +163,11 @@ function DebtContent() {
           code: a.code || '',
           type: a.type,
           is_system: !!a.is_system,
-          is_cash_account: !!a.is_cash_account,
+          is_cash_account: a.type === 'asset' && !!a.is_cash_account,
           balance: bal,
           interestPaid: interestPaidMap[a.id] || 0,
-          parent_id: a.parent_id
+          parent_account_id: a.parent_account_id || a.parent_id,
+          parent_id: a.parent_account_id || a.parent_id
         };
       });
 
@@ -182,25 +185,25 @@ function DebtContent() {
     }
   }
 
-      // Helper properties
-  const stParent = accounts.find(a => a.type === 'liability' && a.name === 'Loan Payable');
-  const ltParent = accounts.find(a => a.type === 'liability' && a.name === 'Long-Term Loan Payable');
+  // Helper properties
+  const stParent = accounts.find(a => a.type === 'liability' && (a.name === 'Short-Term Debt' || a.name === 'Loan Payable'));
+  const ltParent = accounts.find(a => a.type === 'liability' && (a.name === 'Long-Term Debt' || a.name === 'Long-Term Loan Payable'));
 
   const loanAccounts = accounts.filter(a => a.type === 'liability' && a.is_system === false);
 
   const shortTermLoans = accounts.filter(a => 
     a.type === 'liability' && 
     !a.is_system && 
-    (a.parent_id === stParent?.id || (!a.parent_id && !a.name.toLowerCase().includes('long-term')))
+    (a.parent_account_id === stParent?.id || a.parent_id === stParent?.id || (!a.parent_account_id && !a.parent_id && !a.name.toLowerCase().includes('long-term')))
   );
 
   const longTermLoans = accounts.filter(a => 
     a.type === 'liability' && 
     !a.is_system && 
-    (a.parent_id === ltParent?.id || (!a.parent_id && a.name.toLowerCase().includes('long-term')))
+    (a.parent_account_id === ltParent?.id || a.parent_id === ltParent?.id || (!a.parent_account_id && !a.parent_id && a.name.toLowerCase().includes('long-term')))
   );
 
-  const cashAccounts = accounts.filter(a => a.is_cash_account === true);
+  const cashAccounts = accounts.filter(a => a.type === 'asset' && a.is_cash_account === true);
 
   const totalPrincipalOutstanding = loanAccounts.reduce((sum, a) => sum + Math.max(0, a.balance), 0);
 
@@ -244,10 +247,8 @@ function DebtContent() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
-      const isShortTerm = window.confirm(`Is "${name}" a Short-Term loan (< 12 months)?\n\nClick "OK" for Short-Term, or "Cancel" for Long-Term.`);
-      const timeHorizon = isShortTerm ? 'short' : 'long';
-      
-      const parentName = isShortTerm ? 'Loan Payable' : 'Long-Term Loan Payable';
+      const isShortTerm = window.confirm(`Is "${name}" a Short-Term loan (< 12 months)?\n\nClick "OK" for Short-Term (< 12 Months)\nClick "Cancel" for Long-Term (> 12 Months)`);
+      const parentName = isShortTerm ? 'Short-Term Debt' : 'Long-Term Debt';
       
       // Find or create parent account ID
       let parentId;
@@ -268,41 +269,53 @@ function DebtContent() {
             user_id: user.id,
             name: parentName,
             type: 'liability',
-            is_system: true
+            is_system: true,
+            is_cash_account: false
           })
           .select('id')
           .single();
         parentId = newParent?.id;
       }
 
-      const { data, error } = await supabase
+      let insertPayload: any = {
+        user_id: user.id,
+        name,
+        type: 'liability',
+        is_system: false,
+        is_cash_account: false,
+        parent_account_id: parentId,
+        parent_id: parentId
+      };
+
+      let { data, error } = await supabase
         .from('accounts')
-        .insert({
-          user_id: user.id,
-          name,
-          type: 'liability',
-          is_system: false,
-          is_cash_account: false,
-          parent_id: parentId
-        })
+        .insert(insertPayload)
         .select('*')
         .single();
 
-      if (error) {
-        toast.error(`Failed to create loan account: ${error.message}`);
+      if (error && error.message?.includes('parent_account_id')) {
+        delete insertPayload.parent_account_id;
+        const res = await supabase.from('accounts').insert(insertPayload).select('*').single();
+        data = res.data;
+        error = res.error;
+      }
+
+      if (error || !data) {
+        toast.error(`Failed to create loan account: ${error?.message || 'Unknown error'}`);
         return null;
       }
 
-      toast.success(`Loan Account "${name}" created successfully!`);
-      const newAcc = {
+      toast.success(`Loan Account "${name}" created under ${parentName}!`);
+      const newAcc: AccountRow = {
         id: data.id,
         name: data.name,
         code: data.code || '',
         type: data.type,
         is_system: !!data.is_system,
-        is_cash_account: !!data.is_cash_account,
+        is_cash_account: false,
         balance: 0,
-        parent_id: data.parent_id,
+        parent_account_id: data.parent_account_id || data.parent_id,
+        parent_id: data.parent_account_id || data.parent_id,
         interestPaid: 0
       };
       setAccounts(prev => [...prev, newAcc]);
@@ -331,7 +344,7 @@ function DebtContent() {
       const selectedLoan = loanAccounts.find(la => la.id === recLoanId);
       if (!selectedLoan) throw new Error("Selected loan account not found.");
 
-      const isLongTerm = selectedLoan.parent_id === ltParent?.id || selectedLoan.name.toLowerCase().includes('long-term');
+      const isLongTerm = selectedLoan.parent_account_id === ltParent?.id || selectedLoan.parent_id === ltParent?.id || selectedLoan.name.toLowerCase().includes('long-term');
       const timeHorizon = isLongTerm ? 'long' : 'short';
 
       const { error } = await supabase.rpc('receive_loan_atomic', {

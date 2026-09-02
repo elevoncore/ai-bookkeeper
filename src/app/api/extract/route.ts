@@ -156,14 +156,14 @@ export async function POST(request: Request) {
   - OPERATING EXPENSES: Map electricity/water/utility bills to 'Utilities', office rent to 'Rent Expense', server/cloud hosting to 'Software & Hosting', interest charges to 'Interest Expense', and general/office supplies to 'General Operating Expense'.
   - If a user prompt mentions multiple expenses (e.g. "rent and AWS bill together"), you MUST split them into separate line items in "line_items" and assign each item its specific account category.
   - You must place the exact account name in the "account_name" field of each line item.
-  5. Journal Entry Balancing & Loan/Equity Workflows (CRITICAL for LOG_JOURNAL_ENTRY): If intent is LOG_JOURNAL_ENTRY, you MUST output balanced debit and credit lines in "line_items" using exact Chart of Accounts names: ['Main Bank Account', 'Petty Cash', 'Accounts Receivable', 'Inventory Asset', 'Fixed Assets - Office/Equipment', 'Fixed Assets - Equipment/Furniture', 'Accounts Payable', 'Sales Tax Payable', 'Loan Payable', 'Long-Term Loan Payable', 'Owners Equity', 'Owner Drawings', 'Retained Earnings', 'Sales Revenue', 'Service Revenue', 'Cost of Goods Sold', 'Rent Expense', 'Utilities', 'Software & Hosting', 'Interest Expense', 'General Operating Expense', 'Customer Advances / Unearned Revenue', 'Supplier Advances / Prepaid Expenses'].
+  5. Journal Entry Balancing & Loan/Equity Workflows (CRITICAL for LOG_JOURNAL_ENTRY): If intent is LOG_JOURNAL_ENTRY, you MUST output balanced debit and credit lines in "line_items" using exact Chart of Accounts names: ['Main Bank Account', 'Petty Cash', 'Accounts Receivable', 'Inventory Asset', 'Fixed Assets - Office/Equipment', 'Fixed Assets - Equipment/Furniture', 'Accounts Payable', 'Sales Tax Payable', 'Short-Term Debt', 'Long-Term Debt', 'Owner\'s Capital', 'Owner\'s Drawings', 'Sales Revenue', 'Service Revenue', 'Cost of Goods Sold', 'Rent Expense', 'Utilities', 'Software & Hosting', 'Interest Expense', 'General Operating Expense', 'Customer Advances / Unearned Revenue', 'Supplier Advances / Prepaid Expenses'].
   - Capital Investment e.g. "Investing 100,000 ${defaultCurrency} into bank as owner capital":
     - Line 1 (DEBIT): description: "Capital Investment", account_name: "Main Bank Account", total: 100000, is_debit: true
-    - Line 2 (CREDIT): description: "Owner Equity Contribution", account_name: "Owners Equity", total: 100000, is_debit: false
+    - Line 2 (CREDIT): description: "Owner Equity Contribution", account_name: "Owner's Capital", total: 100000, is_debit: false
   - Receiving a Loan e.g. "I received a 500,000 ${defaultCurrency} loan from the bank" or "Got a loan of 500,000 ${defaultCurrency}":
     - Line 1 (DEBIT): description: "Bank Loan Proceeds", account_name: "Main Bank Account", total: 500000, is_debit: true
-    - Line 2 (CREDIT): description: "Loan Principal Obligation", account_name: "Loan Payable", total: 500000, is_debit: false
-    - CRITICAL: Receiving a loan INCREASES Main Bank Account (DEBIT) and INCREASES Loan Payable (CREDIT).
+    - Line 2 (CREDIT): description: "Loan Principal Obligation", account_name: "Long-Term Debt", total: 500000, is_debit: false
+    - CRITICAL: Receiving a loan INCREASES Main Bank Account (DEBIT) and INCREASES Long-Term Debt (CREDIT).
   - Customer Advance Deposit / Unearned Revenue e.g. "Received 50,000 ${defaultCurrency} advance deposit from Customer John" or "Customer paid 50,000 ${defaultCurrency} upfront before job":
     - Line 1 (DEBIT): description: "Advance Received into Bank", account_name: "Main Bank Account", total: 50000, is_debit: true
     - Line 2 (CREDIT): description: "Customer Advance Deposit", account_name: "Customer Advances / Unearned Revenue", total: 50000, is_debit: false
@@ -173,7 +173,7 @@ export async function POST(request: Request) {
     - Line 2 (CREDIT): description: "Advance Paid from Bank", account_name: "Main Bank Account", total: 30000, is_debit: false
     - CRITICAL: Supplier advances DEBIT "Supplier Advances / Prepaid Expenses" (Asset increases) and CREDIT Cash/Bank.
   - Repaying a Loan with Interest Split e.g. "Paid 20,000 to my HBL Loan from the main bank. 5,000 of that was interest":
-    - Line 1 (DEBIT): description: "Loan Principal Repayment", account_name: "Loan Payable", total: 15000, is_debit: true
+    - Line 1 (DEBIT): description: "Loan Principal Repayment", account_name: "Long-Term Debt", total: 15000, is_debit: true
     - Line 2 (DEBIT): description: "Interest Expense", account_name: "Interest Expense", total: 5000, is_debit: true
     - Line 3 (CREDIT): description: "Cash Paid for Principal and Interest", account_name: "Main Bank Account", total: 20000, is_debit: false
     - CRITICAL: Repaying a loan DECREASES the specific Loan liability (DEBIT principal), INVOICES Interest Expense (DEBIT fee), and DECREASES Main Bank Account (CREDIT total). Total Debits MUST equal Total Credits.
