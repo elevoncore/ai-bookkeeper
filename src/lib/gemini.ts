@@ -38,15 +38,28 @@ export const expenseSchema = {
           product_name: { type: SchemaType.STRING, nullable: true },
           is_inventory_tracked: { type: SchemaType.BOOLEAN, nullable: true },
           is_debit: { type: SchemaType.BOOLEAN, nullable: true }
-        },
-        required: ["description", "quantity", "unit_price", "total", "account_name"]
-      }
+        }
+      },
+      nullable: true
+    },
+    journal_lines: {
+      type: SchemaType.ARRAY,
+      description: "Array of balanced debit/credit lines",
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          account_name: { type: SchemaType.STRING },
+          debit: { type: SchemaType.NUMBER },
+          credit: { type: SchemaType.NUMBER },
+          description: { type: SchemaType.STRING, nullable: true }
+        }
+      },
+      nullable: true
     },
     query_parameters: {
       type: SchemaType.OBJECT,
       nullable: true,
       properties: {
-        tool_call: { type: SchemaType.STRING, description: "get_account_balance | get_open_invoices | get_open_bills | get_inventory_levels | get_customer_advances | get_supplier_advances | get_financial_summary", nullable: true },
         account_name: { type: SchemaType.STRING, description: "Name of the ledger account to query (e.g. Askari Bank, Meezan Bank, Main Bank Account, Accounts Receivable)", nullable: true },
         entity_name: { type: SchemaType.STRING, description: "Name of the customer, supplier, or lender", nullable: true },
         target: { type: SchemaType.STRING, description: "balance | revenue | expenses | debt | inventory | all", nullable: true },
@@ -70,13 +83,41 @@ export const expenseSchema = {
   required: ["intent", "is_complete"],
 } as const;
 
+export const actionItemsSchema = {
+  type: SchemaType.ARRAY,
+  description: "Array of CFO action items detecting financial anomalies, liquidity risks, aging receivables, or expense spikes.",
+  items: {
+    type: SchemaType.OBJECT,
+    properties: {
+      severity: { type: SchemaType.STRING, description: "high | medium | low" },
+      headline: { type: SchemaType.STRING, description: "Max 6 words, e.g. 'Severe Aging Receivables Detected'" },
+      description: { type: SchemaType.STRING, description: "Concise 1-2 sentence explanation of the financial anomaly" },
+      action_label: { type: SchemaType.STRING, description: "Button text, e.g. 'Review Overdue Invoices' or 'Manage Debt'" },
+      action_route: { type: SchemaType.STRING, description: "URL path to redirect user, e.g. '/dashboard?tab=invoices' or '/dashboard/debt'" }
+    },
+    required: ["severity", "headline", "description", "action_label", "action_route"]
+  }
+} as const;
+
 export const getGeminiModel = () => {
   return genAI.getGenerativeModel({
-    model: "gemini-3.5-flash-lite",
+    model: "gemini-3.6-flash",
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: expenseSchema as any,
       temperature: 0.1,
+    },
+  });
+};
+
+export const getGeminiCfoModel = (modelName: string = "gemini-3.6-flash") => {
+  return genAI.getGenerativeModel({
+    model: modelName,
+    systemInstruction: `You are a Chief Financial Officer. Do not summarize the numbers. Look for anomalies, liquidity risks, stagnant accounts receivable, or unusual expense spikes. Output strict JSON containing an array of actionable items matching the schema.`,
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: actionItemsSchema as any,
+      temperature: 0.2,
     },
   });
 };
