@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function Navbar() {
@@ -25,9 +24,6 @@ export default function Navbar() {
  
  {/* Brand Logo */}
  <Link href="/" className="flex items-center gap-2.5 group">
- <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold shadow-sm shadow-purple-500/20 group-hover:scale-105 transition-transform">
- <BookOpen className="w-4 h-4" />
- </div>
  <span className="text-lg font-bold text-slate-900 tracking-tight">
  Inscribe<span className="text-purple-600">AI</span>
  </span>
@@ -71,7 +67,6 @@ export default function Navbar() {
  className="group inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 min-h-[44px] rounded-full bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs sm:text-sm transition-all shadow-md hover:shadow-purple-500/20 cursor-pointer focus-visible:ring-2 focus-visible:ring-purple-500"
  >
  <span>Dashboard</span>
- <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
  </Link>
  </div>
  </nav>

@@ -2,7 +2,6 @@
 
 import React, { useState, memo, useCallback } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import { Check, Trash2, Receipt, FileText, Loader2 } from 'lucide-react';
 
 export type PendingItem = {
   id: string;
@@ -38,11 +37,11 @@ const PendingTableRow = memo(function PendingTableRow({
       <td className="px-6 py-3.5">
         {item.type === 'invoice' ? (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <FileText className="w-3.5 h-3.5" /> Invoice
+            Invoice
           </span>
         ) : (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
-            <Receipt className="w-3.5 h-3.5" /> Bill
+            Bill
           </span>
         )}
         {item.receiptUrl && (
@@ -79,17 +78,16 @@ const PendingTableRow = memo(function PendingTableRow({
             className="flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500"
             aria-label={`Verify transaction for ${item.entityName}`}
           >
-            {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-            Verify
+            {isProcessing ? 'Verifying...' : 'Verify'}
           </button>
           <button
             onClick={() => onDelete(item.id, item.type)}
             disabled={isProcessing}
-            className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-500"
+            className="px-3 py-2 min-h-[44px] text-xs font-bold text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-500"
             aria-label={`Delete transaction draft for ${item.entityName}`}
             title="Delete draft"
           >
-            <Trash2 className="w-4 h-4" />
+            Delete
           </button>
         </div>
       </td>

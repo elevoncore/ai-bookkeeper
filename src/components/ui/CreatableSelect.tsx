@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Check, ChevronDown, Loader2, UserPlus, Building, Package, Plus } from 'lucide-react';
 
 interface Option {
   id: string;
@@ -77,13 +76,6 @@ export default function CreatableSelect({
     }
   }
 
-  function getEntityIcon() {
-    if (entityType === 'customer') return <UserPlus className="w-4 h-4 text-emerald-600" />;
-    if (entityType === 'supplier') return <Building className="w-4 h-4 text-emerald-600" />;
-    if (entityType === 'product') return <Package className="w-4 h-4 text-emerald-600" />;
-    return <Plus className="w-4 h-4 text-emerald-600" />;
-  }
-
   const buttonClasses = compact
     ? "w-full px-2 py-1.5 min-h-[34px] rounded-lg border border-gray-300 bg-white text-xs text-left text-gray-900 outline-none focus:ring-2 focus:ring-blue-600 flex items-center justify-between gap-1 shadow-xs cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed"
     : "w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-gray-300 bg-white text-xs text-left text-gray-900 outline-none focus:ring-2 focus:ring-blue-600 flex items-center justify-between gap-2 shadow-xs cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed";
@@ -99,7 +91,7 @@ export default function CreatableSelect({
         <span className={selectedOption ? 'font-bold text-gray-900 truncate' : 'text-gray-400 font-normal truncate'}>
           {selectedOption ? selectedOption.name : placeholder}
         </span>
-        <ChevronDown className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+        <span className="text-gray-400 text-xs shrink-0">▼</span>
       </button>
 
       {isOpen && (
@@ -123,11 +115,6 @@ export default function CreatableSelect({
                 disabled={isCreating}
                 className="w-full px-2.5 py-2 min-h-[38px] rounded-lg text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 flex items-center gap-2 transition-all cursor-pointer border border-emerald-200"
               >
-                {isCreating ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-                ) : (
-                  getEntityIcon()
-                )}
                 <span className="truncate">
                   {isCreating ? `Creating "${searchQuery.trim()}"...` : `+ Create new product "${searchQuery.trim()}"`}
                 </span>
@@ -156,7 +143,7 @@ export default function CreatableSelect({
                 }`}
               >
                 <span className="truncate">{option.name}</span>
-                {value === option.id && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                {value === option.id && <span className="text-blue-600 text-xs shrink-0 font-bold">✓</span>}
               </button>
             ))}
           </div>

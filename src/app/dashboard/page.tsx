@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import dynamic from 'next/dynamic';
-import { Loader2, MessageSquare } from 'lucide-react';
 import HeaderNav from '@/components/layout/HeaderNav';
 import BentoStatsPanel from '@/components/dashboard/BentoStatsPanel';
 import AgingSummaryPanel from '@/components/dashboard/AgingSummaryPanel';
@@ -48,7 +47,6 @@ const ReportsHub = dynamic(() => import('@/components/dashboard/ReportsHub'), {
 const AiChatPanel = dynamic(() => import('@/components/chat/AiChatPanel'), {
   loading: () => (
     <div className="h-full w-full bg-white/80 backdrop-blur-3xl rounded-3xl border border-white/60 p-6 flex flex-col items-center justify-center gap-3 animate-pulse shadow-xl">
-      <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
       <span className="text-xs font-bold text-slate-500">Initializing AI Assistant...</span>
     </div>
   ),
@@ -323,7 +321,6 @@ export default function DashboardPage() {
             aria-label="Open AI Assistant Chat"
             aria-expanded={mobileChatOpen}
           >
-            <MessageSquare className="w-5 h-5" />
             <span>AI Assistant</span>
           </button>
 

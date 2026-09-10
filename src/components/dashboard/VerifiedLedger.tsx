@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, memo } from 'react';
-import { Wallet, Download } from 'lucide-react';
 import { useVirtualList } from '@/utils/useVirtualList';
 
 type Transaction = {
@@ -121,7 +120,6 @@ export default function VerifiedLedger({ transactions }: VerifiedLedgerProps) {
             title="Export CSV"
             aria-label="Export Verified Ledger to CSV"
           >
-            <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Export CSV</span>
           </button>
         </div>
@@ -146,7 +144,6 @@ export default function VerifiedLedger({ transactions }: VerifiedLedgerProps) {
             {transactions.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                  <Wallet className="w-8 h-8 mx-auto mb-2 opacity-50" />
                   No verified transactions yet.
                 </td>
               </tr>

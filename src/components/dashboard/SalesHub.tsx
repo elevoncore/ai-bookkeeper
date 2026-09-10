@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { createBrowserClient } from '@supabase/ssr';
-import { Plus, Search, FileText, Users, Package, Edit2, Trash2, Loader2, X, AlertCircle, DollarSign, Zap } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { parseToCents } from '@/utils/currency';
 import { createJournalEntryAtomic, JournalLineItem } from '@/utils/journalEntry';
@@ -969,19 +968,19 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  onClick={() => setActiveTab('invoices')}
  className={`flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-lg transition-all cursor-pointer whitespace-nowrap ${activeTab === 'invoices' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-blue-700 font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
  >
- <FileText className="w-4 h-4" /> Invoices
+ Invoices
  </button>
  <button
  onClick={() => setActiveTab('customers')}
  className={`flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-lg transition-all cursor-pointer whitespace-nowrap ${activeTab === 'customers' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-emerald-700 font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
  >
- <Users className="w-4 h-4" /> Customers
+ Customers
  </button>
  <button
  onClick={() => setActiveTab('products')}
  className={`flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-lg transition-all cursor-pointer whitespace-nowrap ${activeTab === 'products' ? 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-purple-700 font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
  >
- <Package className="w-4 h-4" /> Products
+ Products
  </button>
  </div>
  </div>
@@ -993,13 +992,12 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
  <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
  <div className="relative w-full sm:w-64">
- <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
  <input 
  type="text" 
  value={searchTerm}
  onChange={(e) => setSearchTerm(e.target.value)}
  placeholder={`Search ${activeTab}...`} 
- className="w-full pl-9 pr-4 py-2.5 min-h-[44px] bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all"
+ className="w-full pl-4 pr-4 py-2.5 min-h-[44px] bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all"
  />
  </div>
  {activeTab === 'invoices' && (
@@ -1038,7 +1036,6 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
                 }}
                 className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
               >
-                <DollarSign className="w-4 h-4 font-bold" />
                 + Customer Advance
               </button>
 
@@ -1063,7 +1060,6 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
                 }}
                 className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
               >
-                <Zap className="w-4 h-4 font-bold" />
                 + Quick Cash Sale
               </button>
             </>
@@ -1087,8 +1083,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  }}
  className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 transition-all cursor-pointer"
  >
- <Plus className="w-4 h-4 font-bold" />
- New {activeTab === 'invoices' ? 'Invoice' : activeTab === 'products' ? 'Product' : 'Customer'}
+ + New {activeTab === 'invoices' ? 'Invoice' : activeTab === 'products' ? 'Product' : 'Customer'}
  </button>
  </div>
  </div>
@@ -1096,9 +1091,9 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  {/* LISTING */}
  <div className="p-0 overflow-x-auto custom-scrollbar min-w-0">
  {isLoading ? (
- <div className="flex flex-col items-center justify-center py-20 text-blue-600">
- <Loader2 className="w-8 h-8 animate-spin" />
- </div>
+  <div className="flex flex-col items-center justify-center py-20 text-gray-400 font-medium">
+    Loading data...
+  </div>
  ) : (
  <table className="w-full text-left text-sm whitespace-nowrap min-w-[850px]">
  <thead className="bg-gray-50 text-gray-700 font-bold border-b border-gray-200">
@@ -1127,7 +1122,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  {activeTab === 'customers' && (
               <tr>
                 <th className="px-6 py-4">Customer ID</th>
-                <th className="px-6 py-4">Name (Click for Statement)</th>
+                <th className="px-6 py-4">Name</th>
                 <th className="px-6 py-4">Email</th>
                 <th className="px-6 py-4">Phone</th>
                 <th className="px-6 py-4 text-right">Available Advance</th>
@@ -1153,9 +1148,6 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  <tr>
  <td colSpan={10} className="px-6 py-16 text-center">
  <div className="flex flex-col items-center justify-center space-y-3">
- <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-500">
- <FileText className="w-6 h-6" />
- </div>
  <p className="text-gray-500 font-medium">No invoices found</p>
  <p className="text-xs text-gray-400">Create one manually or use the AI Assistant to extract from a receipt.</p>
  </div>
@@ -1191,9 +1183,9 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  {getEntityId('INV', inv)}
  </span>
  {inv.created_by_source === 'AI' || (inv.is_ai_verified && inv.created_by_source !== 'MANUAL') ? (
- <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">🤖 AI</span>
+ <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">AI</span>
  ) : (
- <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">👤 Manual</span>
+ <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">Manual</span>
  )}
  </td>
  <td className="px-6 py-4 font-semibold text-blue-700 truncate" title={inv.customers?.name}>
@@ -1246,7 +1238,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  {inv.is_ai_verified ? (
  <span className="text-emerald-500 text-xs font-semibold flex justify-center">Yes</span>
  ) : (
- <span className="text-amber-500 text-xs font-semibold flex justify-center items-center gap-1"><AlertCircle className="w-4 h-4" /> Pending</span>
+ <span className="text-amber-500 text-xs font-semibold flex justify-center items-center gap-1">Pending</span>
  )}
  </td>
  <td className="px-6 py-4 text-right">
@@ -1267,7 +1259,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  title="Log Payment"
  aria-label="Log Payment"
  >
- <DollarSign className="w-3.5 h-3.5" /> Pay
+ Pay
  </button>
  )}
  <button 
@@ -1276,7 +1268,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  aria-label="Edit Invoice"
  title="Edit Invoice"
  >
- <Edit2 className="w-4 h-4" />
+ Edit
  </button>
  <button 
  onClick={() => handleDeleteInvoice(inv.id)} 
@@ -1284,7 +1276,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  aria-label="Delete Invoice"
  title="Delete Invoice"
  >
- <Trash2 className="w-4 h-4" />
+ Delete
  </button>
  </div>
  </td>
@@ -1309,14 +1301,14 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  {c.name}
  </button>
  {isSystemCustomer ? (
- <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-50 text-purple-700 border border-purple-200">🔒 System Protected</span>
+ <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-50 text-purple-700 border border-purple-200">System</span>
  ) : c.created_by_source === 'AI' ? (
- <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">🤖 AI</span>
+ <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">AI</span>
  ) : (
- <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">👤 Manual</span>
+ <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">Manual</span>
  )}
  {c.is_manually_edited && !isSystemCustomer && (
- <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200">✏️ Edited</span>
+ <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200">Edited</span>
  )}
  </td>
  <td className="px-6 py-4 text-gray-500">{c.email || '-'}</td>
@@ -1345,12 +1337,12 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  <td className="px-6 py-4 font-semibold text-gray-900 flex items-center gap-2">
  <span>{p.name}</span>
  {p.created_by_source === 'AI' ? (
- <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">🤖 AI</span>
+ <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">AI</span>
  ) : (
- <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">👤 Manual</span>
+ <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">Manual</span>
  )}
  {p.is_manually_edited && (
- <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200">✏️ Edited</span>
+ <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200">Edited</span>
  )}
  </td>
  <td className="px-6 py-4 text-gray-500 text-right font-medium">{p.currency_code || 'PKR'} {p.price.toLocaleString()}</td>
@@ -1370,7 +1362,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  title="Edit Product"
  aria-label="Edit Product"
  >
- <Edit2 className="w-4 h-4" />
+ Edit
  </button>
  </td>
  </tr>
@@ -1389,7 +1381,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
  <h2 className="text-lg font-bold text-gray-900">{isEditing ? 'Edit Invoice' : 'Create New Invoice'}</h2>
  <button onClick={closeModal} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors cursor-pointer" aria-label="Close modal">
- <X className="w-5 h-5" />
+ Close
  </button>
  </div>
  
@@ -1570,7 +1562,6 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
                   <div className="p-4 bg-indigo-50 border-2 border-indigo-200 rounded-xl space-y-3 mt-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex items-start gap-2.5">
-                        <DollarSign className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
                         <div>
                           <span className="text-xs font-black text-indigo-950 uppercase tracking-wider block">
                             Customer Advance Available: {availableAdvance.toLocaleString()} PKR
@@ -1589,7 +1580,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
                           }}
                           className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5"
                         >
-                          ⚡ Apply {maxApplicable.toLocaleString()} PKR Advance
+                          Apply {maxApplicable.toLocaleString()} PKR Advance
                         </button>
                       ) : (
                         <button
@@ -1656,7 +1647,6 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
  <div>
  <h2 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
- <DollarSign className="w-5 h-5 text-green-600 shrink-0" />
  Log Received Payment
  </h2>
  {selectedInvoiceForPayment && (
@@ -1666,7 +1656,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  )}
  </div>
  <button onClick={() => setIsPaymentModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer" aria-label="Close modal">
- <X className="w-5 h-5" />
+ Close
  </button>
  </div>
  
@@ -1818,7 +1808,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  Cancel
  </button>
  <button type="submit" form="paymentForm" disabled={isSubmitting} className="px-5 py-2.5 min-h-[44px] bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors shadow-sm shadow-green-600/20 cursor-pointer disabled:opacity-50 flex items-center justify-center text-sm">
- {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Record Payment'}
+ {isSubmitting ? 'Submitting...' : 'Record Payment'}
  </button>
  </div>
  </div>
@@ -1838,8 +1828,8 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  <span className="text-xs font-black uppercase text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">Customer Statement</span>
  <span className="font-mono text-xs font-bold text-gray-500">{getEntityId('CUST', selectedCustomerStatement)}</span>
  </div>
- <h2 className="text-xl font-extrabold text-gray-900 mt-1 flex items-center gap-2">
- <Users className="w-5 h-5 text-blue-600" /> {selectedCustomerStatement.name}
+ <h2 className="text-xl font-extrabold text-gray-900 mt-1">
+ {selectedCustomerStatement.name}
  </h2>
  {(selectedCustomerStatement.email || selectedCustomerStatement.phone) && (
  <p className="text-xs text-gray-500 mt-0.5">
@@ -1852,7 +1842,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
  aria-label="Close modal"
  >
- <X className="w-5 h-5" />
+ Close
  </button>
  </div>
 
@@ -1899,7 +1889,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
                 {custAdvances.length > 0 && (
                   <div className="space-y-2">
                     <h3 className="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
-                      <DollarSign className="w-3.5 h-3.5 text-indigo-600" /> Advance Receipts & Deposits History
+                      Advance Receipts & Deposits History
                     </h3>
                     <div className="border border-indigo-100 rounded-xl overflow-hidden shadow-xs bg-indigo-50/30">
                       <table className="w-full text-left text-xs whitespace-nowrap">
@@ -2021,11 +2011,10 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
  <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
  <h2 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
- <Package className="w-5 h-5 text-purple-600 shrink-0" />
  Edit Product / Service Catalog
  </h2>
  <button onClick={() => setIsProductModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer" aria-label="Close modal">
- <X className="w-5 h-5" />
+ Close
  </button>
  </div>
  
@@ -2085,7 +2074,6 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  </div>
 
  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] flex gap-2 items-start">
- <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
  <span>Changes here only apply to future transactions. Past verified invoices and bills remain locked to preserve ledger integrity.</span>
  </div>
  </form>
@@ -2109,11 +2097,10 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
  <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
  <h2 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
- <Users className="w-5 h-5 text-blue-600 shrink-0" />
  Add New Customer
  </h2>
  <button onClick={() => setIsCustomerModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer" aria-label="Close modal">
- <X className="w-5 h-5" />
+ Close
  </button>
  </div>
  
@@ -2173,9 +2160,6 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  {/* Modal Header */}
  <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-emerald-50 to-teal-50 shrink-0">
  <div className="flex items-center gap-3">
- <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/20">
- <Zap className="w-5 h-5" />
- </div>
  <div>
  <h2 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
  Quick Cash Sale
@@ -2191,7 +2175,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
  className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
  aria-label="Close modal"
  >
- <X className="w-5 h-5" />
+ Close
  </button>
  </div>
 
@@ -2420,7 +2404,6 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
 
               {/* Double Entry Notice */}
               <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs flex gap-2 items-start">
-                <Zap className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-bold block">Double-Entry Accounting:</span>
                   <span>
@@ -2463,8 +2446,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
                 disabled={isSubmitting}
                 className="px-6 py-2.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50 flex items-center gap-2"
               >
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                Log Cash Sale
+                {isSubmitting ? "Submitting..." : "Log Cash Sale"}
               </button>
             </div>
           </div>
@@ -2476,11 +2458,8 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
       {mounted && isAdvanceModalOpen && createPortal(
         <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl w-[calc(100%-2rem)] max-w-xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200 border border-gray-100">
-            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-indigo-50 to-blue-50 shrink-0">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
-                  <DollarSign className="w-5 h-5" />
-                </div>
                 <div>
                   <h2 className="font-bold text-gray-900 text-base sm:text-lg">
                     Log Customer Advance / Deposit
@@ -2495,7 +2474,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
                 className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
                 aria-label="Close modal"
               >
-                <X className="w-5 h-5" />
+                Close
               </button>
             </div>
 
@@ -2635,8 +2614,7 @@ async function handleLogCustomerAdvance(e: React.FormEvent) {
                 disabled={isAdvanceSubmitting}
                 className="px-5 py-2.5 min-h-[44px] bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-500/20 cursor-pointer text-sm flex items-center gap-2 disabled:opacity-50"
               >
-                {isAdvanceSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <DollarSign className="w-4 h-4" />}
-                Log Customer Advance
+                {isAdvanceSubmitting ? "Submitting..." : "Log Customer Advance"}
               </button>
             </div>
           </div>

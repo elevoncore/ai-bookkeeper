@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Download, FileSpreadsheet, CheckCircle2, Loader2 } from 'lucide-react';
 
 interface ExportDataModalProps {
   isOpen: boolean;
@@ -89,9 +88,6 @@ export default function ExportDataModal({ isOpen, onClose }: ExportDataModalProp
         {/* Header */}
         <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-              <FileSpreadsheet className="w-5 h-5" />
-            </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900">Export Data</h2>
               <p className="text-sm text-gray-500">Generate a multi-sheet Excel backup</p>
@@ -99,9 +95,9 @@ export default function ExportDataModal({ isOpen, onClose }: ExportDataModalProp
           </div>
           <button 
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+            className="px-2.5 py-1 text-xs font-bold text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
           >
-            <X className="w-5 h-5" />
+            Close
           </button>
         </div>
 
@@ -156,15 +152,8 @@ export default function ExportDataModal({ isOpen, onClose }: ExportDataModalProp
                       : 'border-gray-200 hover:border-blue-200 hover:bg-gray-50'
                   }`}
                 >
-                  <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
-                    selectedModules.includes(mod)
-                      ? 'bg-blue-600 border-blue-600'
-                      : 'bg-white border-gray-300'
-                  }`}>
-                    {selectedModules.includes(mod) && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
-                  </div>
                   <span className={`font-medium ${selectedModules.includes(mod) ? 'text-blue-900' : 'text-gray-700'}`}>
-                    {mod}
+                    {selectedModules.includes(mod) ? `[x] ${mod}` : `[ ] ${mod}`}
                   </span>
                 </div>
               ))}
@@ -174,7 +163,6 @@ export default function ExportDataModal({ isOpen, onClose }: ExportDataModalProp
           {/* Download Complete Mode Note */}
           {isAllSelected && timeframe === 'all' && (
             <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
               <div>
                 <h4 className="text-sm font-semibold text-emerald-800">Download Complete (Full Backup)</h4>
                 <p className="text-xs text-emerald-600 mt-1">
@@ -207,20 +195,11 @@ export default function ExportDataModal({ isOpen, onClose }: ExportDataModalProp
             }`}
           >
             {isDownloading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Generating...
-              </>
+              'Generating...'
             ) : downloadComplete ? (
-              <>
-                <CheckCircle2 className="w-4 h-4" />
-                Downloaded!
-              </>
+              'Downloaded!'
             ) : (
-              <>
-                <Download className="w-4 h-4" />
-                Generate Excel
-              </>
+              'Generate Excel'
             )}
           </button>
         </div>

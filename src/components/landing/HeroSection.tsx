@@ -1,8 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
-import { ArrowRight } from 'lucide-react';
 
 export default function HeroSection() {
   return (
@@ -15,7 +13,7 @@ export default function HeroSection() {
             {/* Large Centered Headline */}
             <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold text-[#111827] tracking-tight leading-[1.1] font-sans drop-shadow-sm">
               Next-Generation <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-600">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
                 AI Bookkeeping
               </span>
             </h1>
@@ -29,10 +27,9 @@ export default function HeroSection() {
             <div className="flex flex-row items-center justify-center gap-4 pt-4">
               <Link 
                 href="/dashboard"
-                className="inline-flex justify-center items-center gap-2 px-8 py-4 bg-purple-600 hover:bg-purple-700 text-white font-bold text-base rounded-full shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:-translate-y-1 transition-all duration-300 cursor-pointer whitespace-nowrap border border-purple-500/50"
+                className="inline-flex justify-center items-center gap-2 px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-base rounded-full shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-1 transition-all duration-300 cursor-pointer whitespace-nowrap border border-blue-500/50"
               >
                 <span>Enter Dashboard</span>
-                <ArrowRight className="w-5 h-5" />
               </Link>
               
               <button 

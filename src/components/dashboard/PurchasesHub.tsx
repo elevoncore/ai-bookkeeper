@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { createBrowserClient } from '@supabase/ssr';
-import { Plus, Search, Receipt, Truck, Edit2, Trash2, Loader2, X, AlertCircle, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { parseToCents } from '@/utils/currency';
 import { createJournalEntryAtomic, JournalLineItem } from '@/utils/journalEntry';
@@ -782,7 +781,6 @@ async function handleSaveSupplier(e: React.FormEvent) {
  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-xs">
  <div>
  <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
- <Receipt className="w-6 h-6 text-indigo-600 shrink-0" />
  Purchases & Bills Hub
  </h1>
  <p className="text-xs sm:text-sm text-gray-500 mt-1">Manage vendor bills, expenses, and track accounts payable balances.</p>
@@ -790,76 +788,60 @@ async function handleSaveSupplier(e: React.FormEvent) {
 
  {/* TAB BUTTONS */}
  <div className="flex bg-gray-100 p-1 rounded-xl w-full sm:w-auto">
- <button
- onClick={() => setActiveTab('bills')}
- className={`flex-1 sm:flex-none px-4 py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${
- activeTab === 'bills' ? 'bg-white text-indigo-600 shadow-xs' : 'text-gray-600 hover:text-gray-900'
- }`}
- >
- <Receipt className="w-4 h-4" /> Bills ({bills.length})
- </button>
- <button
- onClick={() => setActiveTab('suppliers')}
- className={`flex-1 sm:flex-none px-4 py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${
- activeTab === 'suppliers' ? 'bg-white text-indigo-600 shadow-xs' : 'text-gray-600 hover:text-gray-900'
- }`}
- >
- <Truck className="w-4 h-4" /> Suppliers ({suppliers.length})
- </button>
- </div>
- </div>
-
- {/* SEARCH AND FILTERS */}
- <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
- <div className="p-4 sm:p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between gap-4">
- <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto flex-1 max-w-xl">
- <div className="relative flex-1">
- <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
- <input 
- type="text" 
- value={searchTerm}
- onChange={(e) => setSearchTerm(e.target.value)}
- placeholder={`Search ${activeTab}...`} 
- className="w-full pl-9 pr-4 py-2.5 min-h-[44px] bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
- />
- </div>
- {activeTab === 'bills' && (
- <select
- value={statusFilter}
- onChange={(e: any) => setStatusFilter(e.target.value)}
- className="w-full sm:w-auto px-3 py-2.5 min-h-[44px] bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 cursor-pointer"
- >
- <option value="all">All Statuses</option>
- <option value="pending">Pending Verification</option>
- <option value="verified">AI Verified</option>
- <option value="paid">Paid</option>
- </select>
- )}
- </div>
+  <button
+  onClick={() => setActiveTab('bills')}
+  className={`flex-1 sm:flex-none px-4 py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${
+  activeTab === 'bills' ? 'bg-white text-indigo-600 shadow-xs' : 'text-gray-600 hover:text-gray-900'
+  }`}
+  >
+  Bills ({bills.length})
+  </button>
+  <button
+  onClick={() => setActiveTab('suppliers')}
+  className={`flex-1 sm:flex-none px-4 py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${
+  activeTab === 'suppliers' ? 'bg-white text-indigo-600 shadow-xs' : 'text-gray-600 hover:text-gray-900'
+  }`}
+  >
+  Suppliers ({suppliers.length})
+  </button>
+  </div>
+  </div>
  
- <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+  {/* SEARCH AND FILTERS */}
+  <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
+  <div className="p-4 sm:p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between gap-4">
+  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto flex-1 max-w-xl">
+  <div className="relative flex-1">
+  <input 
+  type="text" 
+  value={searchTerm}
+  onChange={(e) => setSearchTerm(e.target.value)}
+  placeholder={`Search ${activeTab}...`} 
+  className="w-full pl-4 pr-4 py-2.5 min-h-[44px] border border-gray-200 bg-gray-50 rounded-xl text-xs text-gray-900 outline-none focus:ring-2 focus:ring-indigo-600 font-medium"
+  />
+  </div>
+  </div>
+
+  {/* ACTION BUTTONS */}
+  <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 w-full sm:w-auto">
           {activeTab === 'bills' && (
             <>
               <button
                 onClick={() => {
-                  const defaultCashAcc = chartOfAccounts.find(a => 
-                    a.is_cash_account || 
-                    a.name.toLowerCase().includes('main bank') || 
-                    a.name.toLowerCase().includes('petty cash')
-                  );
+                  const defaultSupplier = suppliers[0]?.id || '';
+                  const defaultAssetAcc = chartOfAccounts.find(a => a.is_cash_account || a.name.toLowerCase().includes('cash') || a.name.toLowerCase().includes('bank'))?.id || '';
                   setAdvanceData({
-                    supplier_id: '',
+                    supplier_id: defaultSupplier,
                     amount: '',
+                    payment_account_id: defaultAssetAcc,
                     date: new Date().toISOString().split('T')[0],
                     method: 'Bank Transfer',
-                    payment_account_id: defaultCashAcc?.id || '',
-                    notes: ''
+                    notes: 'Upfront Supplier Prepayment / Advance'
                   });
                   setIsAdvanceModalOpen(true);
                 }}
                 className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
               >
-                <DollarSign className="w-4 h-4 font-bold" />
                 + Supplier Advance
               </button>
 
@@ -889,7 +871,6 @@ async function handleSaveSupplier(e: React.FormEvent) {
                 }}
                 className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
               >
-                <Receipt className="w-4 h-4 font-bold" />
                 Record Loan Payment
               </button>
             </>
@@ -908,8 +889,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
             }}
             className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-md shadow-gray-900/20 transition-all cursor-pointer"
           >
-            <Plus className="w-4 h-4 font-bold" />
-            New {activeTab === 'bills' ? 'Bill' : 'Supplier'}
+            + New {activeTab === 'bills' ? 'Bill' : 'Supplier'}
           </button>
         </div>
  </div>
@@ -917,55 +897,42 @@ async function handleSaveSupplier(e: React.FormEvent) {
  {/* LISTING */}
  <div className="p-0 overflow-x-auto custom-scrollbar min-w-0">
  {isLoading ? (
- <div className="flex flex-col items-center justify-center py-20 text-indigo-600">
- <Loader2 className="w-8 h-8 animate-spin" />
- </div>
+  <div className="flex flex-col items-center justify-center py-20 text-gray-400 font-medium">
+    Loading data...
+  </div>
  ) : (
  <table className="w-full text-left text-sm whitespace-nowrap min-w-[850px]">
  <thead className="bg-gray-50 text-gray-700 font-bold border-b border-gray-200">
  {activeTab === 'bills' && (
  <tr>
- <th onClick={() => toggleSort('id')} className="px-6 py-4 cursor-pointer hover:bg-gray-100/60 transition-colors select-none">
- Bill ID {sortField === 'id' && (sortOrder === 'asc' ? '↑' : '↓')}
- </th>
- <th onClick={() => toggleSort('supplier')} className="px-6 py-4 cursor-pointer hover:bg-gray-100/60 transition-colors select-none">
- Supplier {sortField === 'supplier' && (sortOrder === 'asc' ? '↑' : '↓')}
- </th>
- <th className="px-6 py-4">Items</th>
- <th onClick={() => toggleSort('date')} className="px-6 py-4 cursor-pointer hover:bg-gray-100/60 transition-colors select-none">
- Issue Date {sortField === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}
- </th>
- <th onClick={() => toggleSort('amount')} className="px-6 py-4 text-right cursor-pointer hover:bg-gray-100/60 transition-colors select-none">
- Total {sortField === 'amount' && (sortOrder === 'asc' ? '↑' : '↓')}
- </th>
+ <th className="px-6 py-4">Bill ID / Ref</th>
+ <th className="px-6 py-4">Supplier</th>
+ <th className="px-6 py-4">Description</th>
+ <th className="px-6 py-4">Issue Date</th>
+ <th className="px-6 py-4 text-right">Total Amount</th>
  <th className="px-6 py-4 text-right">Paid</th>
  <th className="px-6 py-4 text-right">Balance Due</th>
  <th className="px-6 py-4 text-center">Status</th>
- <th className="px-6 py-4 text-center">AI Verified</th>
+ <th className="px-6 py-4 text-center">Verified</th>
  <th className="px-6 py-4 text-right">Actions</th>
  </tr>
  )}
  {activeTab === 'suppliers' && (
  <tr>
  <th className="px-6 py-4">Supplier ID</th>
- <th className="px-6 py-4">Name (Click for Statement)</th>
+ <th className="px-6 py-4">Supplier Name</th>
  <th className="px-6 py-4">Email</th>
  <th className="px-6 py-4">Phone</th>
- <th className="px-6 py-4 text-right">Available Advance</th>
- <th className="px-6 py-4">Added</th>
+ <th className="px-6 py-4 text-right">Prepaid Advance</th>
+ <th className="px-6 py-4 text-xs">Created At</th>
  </tr>
  )}
  </thead>
- <tbody className="divide-y divide-gray-100 text-gray-700">
- 
- {/* EMPTY STATES */}
+ <tbody>
  {activeTab === 'bills' && filteredBills.length === 0 && (
  <tr>
  <td colSpan={10} className="px-6 py-16 text-center">
  <div className="flex flex-col items-center justify-center space-y-3">
- <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-500">
- <Receipt className="w-6 h-6" />
- </div>
  <p className="text-gray-500 font-medium">No bills found</p>
  </div>
  </td>
@@ -975,9 +942,6 @@ async function handleSaveSupplier(e: React.FormEvent) {
  <tr>
  <td colSpan={5} className="px-6 py-16 text-center">
  <div className="flex flex-col items-center justify-center space-y-3">
- <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500">
- <Truck className="w-6 h-6" />
- </div>
  <p className="text-gray-500 font-medium">No suppliers found</p>
  <p className="text-xs text-gray-400">Suppliers are automatically created when the AI logs a new bill.</p>
  </div>
@@ -1000,9 +964,9 @@ async function handleSaveSupplier(e: React.FormEvent) {
  {getEntityId('BILL', bill)}
  </span>
  {bill.created_by_source === 'AI' || (bill.is_ai_verified && bill.created_by_source !== 'MANUAL') ? (
- <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">🤖 AI</span>
+ <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">AI</span>
  ) : (
- <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">👤 Manual</span>
+ <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">Manual</span>
  )}
  </div>
  {bill.external_reference_number && (
@@ -1063,7 +1027,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
  {bill.is_ai_verified ? (
  <span className="text-emerald-500 text-xs font-semibold flex justify-center">Yes</span>
  ) : (
- <span className="text-amber-500 text-xs font-semibold flex justify-center items-center gap-1"><AlertCircle className="w-4 h-4" /> Pending</span>
+ <span className="text-amber-500 text-xs font-semibold flex justify-center items-center gap-1">Pending</span>
  )}
  </td>
  <td className="px-6 py-4 text-right">
@@ -1083,24 +1047,24 @@ async function handleSaveSupplier(e: React.FormEvent) {
  title="Log Payment"
  aria-label="Log Payment"
  >
- <DollarSign className="w-3.5 h-3.5" /> Pay
+ Pay
  </button>
  )}
  <button 
  onClick={() => openEditModal(bill)} 
- className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-colors cursor-pointer"
+ className="px-3 py-2 min-h-[44px] text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition-colors cursor-pointer"
  aria-label="Edit Bill"
  title="Edit Bill"
  >
- <Edit2 className="w-4 h-4" />
+ Edit
  </button>
  <button 
  onClick={() => handleDeleteBill(bill.id)} 
- className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
+ className="px-3 py-2 min-h-[44px] text-xs font-bold bg-red-50 text-red-700 hover:bg-red-100 rounded-xl transition-colors cursor-pointer"
  aria-label="Delete Bill"
  title="Delete Bill"
  >
- <Trash2 className="w-4 h-4" />
+ Delete
  </button>
  </div>
  </td>
@@ -1123,9 +1087,9 @@ async function handleSaveSupplier(e: React.FormEvent) {
  {c.name}
  </button>
  {c.created_by_source === 'AI' ? (
- <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">🤖 AI</span>
+ <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">AI</span>
  ) : (
- <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">👤 Manual</span>
+ <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">Manual</span>
  )}
  </td>
  <td className="px-6 py-4 text-gray-500 font-mono text-xs">{c.email || '-'}</td>
@@ -1155,11 +1119,10 @@ async function handleSaveSupplier(e: React.FormEvent) {
  <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
  <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
  <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
- <Receipt className="w-5 h-5 text-indigo-600" />
  {isEditing ? 'Edit Bill / Purchase' : 'Create New Bill / Expense'}
  </h2>
  <button onClick={closeModal} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors cursor-pointer" aria-label="Close modal">
- <X className="w-5 h-5" />
+ Close
  </button>
  </div>
  
@@ -1362,7 +1325,6 @@ async function handleSaveSupplier(e: React.FormEvent) {
             <div className="p-4 bg-purple-50 border-2 border-purple-200 rounded-xl space-y-3 mt-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-start gap-2.5">
-                  <DollarSign className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
                   <div>
                     <span className="text-xs font-black text-purple-950 uppercase tracking-wider block">
                       Supplier Advance Available: {availableAdvance.toLocaleString()} PKR
@@ -1381,7 +1343,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
                     }}
                     className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5"
                   >
-                    ⚡ Apply {maxApplicable.toLocaleString()} PKR Advance
+                    Apply {maxApplicable.toLocaleString()} PKR Advance
                   </button>
                 ) : (
                   <button
@@ -1417,7 +1379,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
                     <div className="p-2.5 bg-white rounded-lg border border-purple-100 text-xs text-purple-950 font-bold flex justify-between">
                       <span>Bill Total: {billAmt.toLocaleString()} PKR &minus; Advance Applied: {applyAmt.toLocaleString()} PKR</span>
                       <span className="text-emerald-700 font-extrabold">
-                        {applyAmt >= billAmt ? "✓ Fully Covered (PAID)" : `Net Balance Due: ${(billAmt - applyAmt).toLocaleString()} PKR`}
+                        {applyAmt >= billAmt ? "Fully Covered (PAID)" : `Net Balance Due: ${(billAmt - applyAmt).toLocaleString()} PKR`}
                       </span>
                     </div>
                   )}
@@ -1438,8 +1400,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
  disabled={isSubmitting} 
  className="px-5 py-2.5 min-h-[44px] bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-all cursor-pointer text-sm shadow-md shadow-indigo-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
  >
- {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
- {isEditing ? 'Save Changes' : 'Create Bill'}
+ {isSubmitting ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create Bill')}
  </button>
  </div>
  </div>
@@ -1453,10 +1414,10 @@ async function handleSaveSupplier(e: React.FormEvent) {
  <div className="bg-white rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-lg max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200">
  <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
  <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
- <Truck className="w-5 h-5 text-indigo-600" /> Add New Supplier
+ Add New Supplier
  </h2>
  <button onClick={() => setIsSupplierModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors cursor-pointer" aria-label="Close modal">
- <X className="w-5 h-5" />
+ Close
  </button>
  </div>
  
@@ -1506,8 +1467,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
  disabled={isSubmitting} 
  className="px-5 py-2.5 min-h-[44px] bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-all cursor-pointer text-sm shadow-md shadow-indigo-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
  >
- {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
- Add Supplier
+ {isSubmitting ? 'Adding...' : 'Add Supplier'}
  </button>
  </div>
  </div>
@@ -1522,7 +1482,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
   <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
   <div>
   <h3 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
-  <DollarSign className="w-5 h-5 text-green-600" /> Log Vendor Payment
+  Log Vendor Payment
   </h3>
   {selectedBillForPayment && (
   <span className="text-xs text-gray-500 font-medium">
@@ -1531,7 +1491,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
   )}
   </div>
   <button onClick={() => setIsPaymentModalOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition-colors cursor-pointer" aria-label="Close modal">
-  <X className="w-5 h-5" />
+  Close
   </button>
   </div>
   
@@ -1596,7 +1556,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
               isSettlement ? 'bg-blue-600 text-white' : 'bg-white text-blue-700 border border-blue-300 hover:bg-blue-50'
             }`}
           >
-            {isSettlement ? '⚡ Settle Enabled' : '⚡ Use Advance'}
+            {isSettlement ? 'Settle Enabled' : 'Use Advance'}
           </button>
         </div>
       </div>
@@ -1618,11 +1578,11 @@ async function handleSaveSupplier(e: React.FormEvent) {
       <p className="text-[11px] text-gray-500 mt-1 font-medium">
         {Number(paymentData.amount) < Number(selectedBillForPayment.balance_due ?? selectedBillForPayment.total_amount) ? (
           <span className="text-amber-700 font-bold">
-            ⚠️ Partial Payment: Remaining balance will be {(Number(selectedBillForPayment.balance_due ?? selectedBillForPayment.total_amount) - Number(paymentData.amount)).toLocaleString()} PKR (Status: PARTIALLY PAID)
+            Partial Payment: Remaining balance will be {(Number(selectedBillForPayment.balance_due ?? selectedBillForPayment.total_amount) - Number(paymentData.amount)).toLocaleString()} PKR (Status: PARTIALLY PAID)
           </span>
         ) : (
           <span className="text-emerald-700 font-bold">
-            ✓ Full Payment: Bill will be marked PAID
+            Full Payment: Bill will be marked PAID
           </span>
         )}
       </p>
@@ -1692,8 +1652,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
   disabled={isSubmitting}
   className="px-5 py-2.5 min-h-[44px] bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-md shadow-green-500/20 transition-all cursor-pointer disabled:opacity-50"
   >
-  {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-  Confirm Payment
+  {isSubmitting ? 'Submitting...' : 'Confirm Payment'}
   </button>
   </div>
   </div>
@@ -1715,7 +1674,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
  <span className="font-mono text-xs font-bold text-gray-500">{getEntityId('SUPP', selectedSupplierStatement)}</span>
  </div>
  <h2 className="text-xl font-extrabold text-gray-900 mt-1 flex items-center gap-2">
- <Truck className="w-5 h-5 text-indigo-600" /> {selectedSupplierStatement.name}
+ {selectedSupplierStatement.name}
  </h2>
  {(selectedSupplierStatement.email || selectedSupplierStatement.phone) && (
  <p className="text-xs text-gray-500 mt-0.5">
@@ -1728,7 +1687,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
  className="text-gray-400 hover:text-gray-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
  aria-label="Close modal"
  >
- <X className="w-5 h-5" />
+ Close
  </button>
  </div>
 
@@ -1776,7 +1735,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
               {suppAdvances.length > 0 && (
                 <div className="space-y-2">
                   <h3 className="text-xs font-bold text-purple-900 uppercase tracking-wider flex items-center gap-1.5">
-                    <DollarSign className="w-3.5 h-3.5 text-purple-600" /> Advance Payments & Prepayments History
+                    Advance Payments & Prepayments History
                   </h3>
                   <div className="border border-purple-100 rounded-xl overflow-hidden shadow-xs bg-purple-50/30">
                     <table className="w-full text-left text-xs whitespace-nowrap">
@@ -1803,6 +1762,19 @@ async function handleSaveSupplier(e: React.FormEvent) {
                 </div>
               )}
 
+              <div className="flex justify-end gap-2 mt-4">
+                <button 
+                  onClick={() => {
+                    setSelectedSupplierStatement(null);
+                    setIsAdvanceModalOpen(true);
+                    setAdvanceData({ ...advanceData, supplier_id: selectedSupplierStatement.id });
+                  }}
+                  className="text-xs font-bold bg-purple-600 text-white px-4 py-2 rounded-xl hover:bg-purple-700 transition-colors"
+                >
+                  Pay Advance
+                </button>
+              </div>
+
               {/* TRANSACTIONS TABLE */}
               <div className="space-y-2">
                 <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Bill & Payment History</h3>
@@ -1827,18 +1799,18 @@ async function handleSaveSupplier(e: React.FormEvent) {
                           </td>
                         </tr>
                       ) : (
-                        suppBills.map((b) => {
-                          const paid = Number(b.amount_paid || (b.total_amount - (b.balance_due ?? 0)));
-                          const due = Number(b.balance_due ?? (b.total_amount - paid));
-                          const isPaid = b.status === 'paid' || due <= 0;
+                        suppBills.map((bill) => {
+                          const paid = Number(bill.amount_paid || (bill.total_amount - (bill.balance_due ?? 0)));
+                          const due = Number(bill.balance_due ?? (bill.total_amount - paid));
+                          const isPaid = bill.status === 'paid' || due <= 0;
                           const isPartial = !isPaid && paid > 0;
 
                           return (
-                            <tr key={b.id} className="hover:bg-gray-50">
-                              <td className="px-4 py-3 font-mono font-bold text-indigo-700">{getEntityId('BILL', b)}</td>
-                              <td className="px-4 py-3 text-gray-500">{b.issue_date}</td>
-                              <td className="px-4 py-3 text-gray-800 truncate max-w-xs">{b.bill_lines?.map((l: any) => l.description).join(', ') || 'Bill'}</td>
-                              <td className="px-4 py-3 text-right font-bold text-gray-900">{Number(b.total_amount).toLocaleString()} PKR</td>
+                            <tr key={bill.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 font-mono font-bold text-indigo-700">{getEntityId('BILL', bill)}</td>
+                              <td className="px-4 py-3 text-gray-500">{bill.issue_date}</td>
+                              <td className="px-4 py-3 text-gray-800 truncate max-w-xs">{bill.bill_lines?.map((l: any) => l.description).join(', ') || 'Bill'}</td>
+                              <td className="px-4 py-3 text-right font-bold text-gray-900">{Number(bill.total_amount).toLocaleString()} PKR</td>
                               <td className="px-4 py-3 text-right font-bold text-emerald-600">{paid > 0 ? `${paid.toLocaleString()} PKR` : '-'}</td>
                               <td className="px-4 py-3 text-right font-bold text-rose-600">{due > 0 ? `${due.toLocaleString()} PKR` : '0 PKR'}</td>
                               <td className="px-4 py-3 text-center">
@@ -1847,7 +1819,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
                                 ) : isPartial ? (
                                   <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-amber-100 text-amber-800">PARTIALLY PAID</span>
                                 ) : (
-                                  <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-blue-100 text-blue-800">OPEN</span>
+                                  <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-indigo-100 text-indigo-800">OPEN</span>
                                 )}
                               </td>
                             </tr>
@@ -1883,11 +1855,8 @@ async function handleSaveSupplier(e: React.FormEvent) {
       {mounted && isAdvanceModalOpen && createPortal(
         <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl w-[calc(100%-2rem)] max-w-xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200 border border-gray-100">
-            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50 shrink-0">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-md shadow-purple-500/20">
-                  <DollarSign className="w-5 h-5" />
-                </div>
                 <div>
                   <h2 className="font-bold text-gray-900 text-base sm:text-lg">
                     Log Supplier Advance / Prepayment
@@ -1902,7 +1871,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
                 className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
                 aria-label="Close modal"
               >
-                <X className="w-5 h-5" />
+                Close
               </button>
             </div>
 
@@ -2044,8 +2013,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
                 disabled={isAdvanceSubmitting}
                 className="px-5 py-2.5 min-h-[44px] bg-purple-600 text-white font-semibold rounded-xl hover:bg-purple-700 transition-colors shadow-md shadow-purple-500/20 cursor-pointer text-sm flex items-center gap-2 disabled:opacity-50"
               >
-                {isAdvanceSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <DollarSign className="w-4 h-4" />}
-                Log Supplier Advance
+                {isAdvanceSubmitting ? "Submitting..." : "Log Supplier Advance"}
               </button>
             </div>
           </div>
@@ -2057,11 +2025,8 @@ async function handleSaveSupplier(e: React.FormEvent) {
       {mounted && isLoanModalOpen && createPortal(
         <div className="fixed inset-0 z-[9999] w-screen h-screen bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl w-[calc(100%-2rem)] max-w-xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200 border border-gray-100">
-            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-emerald-50 to-teal-50 shrink-0">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/20">
-                  <Receipt className="w-5 h-5" />
-                </div>
                 <div>
                   <h2 className="font-bold text-gray-900 text-base sm:text-lg">
                     Record Loan Payment & Interest Split
@@ -2076,7 +2041,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
                 className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
                 aria-label="Close modal"
               >
-                <X className="w-5 h-5" />
+                Close
               </button>
             </div>
 
@@ -2230,8 +2195,7 @@ async function handleSaveSupplier(e: React.FormEvent) {
                 disabled={isLoanSubmitting}
                 className="px-5 py-2.5 min-h-[44px] bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-colors shadow-md shadow-emerald-500/20 cursor-pointer text-sm flex items-center gap-2 disabled:opacity-50"
               >
-                {isLoanSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />}
-                Record Loan Payment
+                {isLoanSubmitting ? "Submitting..." : "Record Loan Payment"}
               </button>
             </div>
           </div>

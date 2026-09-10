@@ -5,22 +5,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserClient } from '@supabase/ssr';
-import { 
-  Receipt, 
-  Bell, 
-  Settings, 
-  LogOut, 
-  User as UserIcon, 
-  ChevronDown, 
-  LayoutDashboard,
-  FileSpreadsheet,
-  BarChart3,
-  CheckCircle2,
-  Menu,
-  X,
-  ArrowRight,
-  Landmark
-} from 'lucide-react';
+import { ChevronDown, Bell, User, Settings, LogOut, LayoutDashboard, TrendingUp, ShoppingBag, FileText } from 'lucide-react';
 
 export interface NotificationItem {
   id: string;
@@ -208,7 +193,7 @@ export default function HeaderNav({
               }`}
               aria-current={activeTab === 'overview' ? 'page' : undefined}
             >
-              <LayoutDashboard className="w-4 h-4 text-blue-600" />
+              <LayoutDashboard className="w-3.5 h-3.5" />
               <span>Overview</span>
             </button>
 
@@ -221,7 +206,7 @@ export default function HeaderNav({
               }`}
               aria-current={activeTab === 'sales' ? 'page' : undefined}
             >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
               <span>Revenue & Invoices</span>
               {pendingCount > 0 && (
                 <span className="w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
@@ -239,7 +224,7 @@ export default function HeaderNav({
               }`}
               aria-current={activeTab === 'purchases' ? 'page' : undefined}
             >
-              <Receipt className="w-4 h-4 text-indigo-600" />
+              <ShoppingBag className="w-3.5 h-3.5 text-blue-600" />
               <span>Expenses & Bills</span>
             </button>
 
@@ -252,7 +237,7 @@ export default function HeaderNav({
               }`}
               aria-current={activeTab === 'reports' ? 'page' : undefined}
             >
-              <BarChart3 className="w-4 h-4 text-purple-600" />
+              <FileText className="w-3.5 h-3.5 text-indigo-600" />
               <span>Reports</span>
             </button>
           </nav>
@@ -264,15 +249,18 @@ export default function HeaderNav({
             <div className="relative" ref={notificationsRef}>
               <button 
                 onClick={() => { setShowNotifications(true); setShowUserDropdown(false); }}
-                className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors relative cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-blue-500"
+                className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors relative cursor-pointer min-h-[44px] flex items-center justify-center gap-1.5 focus-visible:ring-2 focus-visible:ring-blue-500"
                 title="Notifications Drawer"
                 aria-label="Notifications"
                 aria-haspopup="dialog"
                 aria-expanded={showNotifications}
               >
-                <Bell className="w-5 h-5" />
+                <Bell className="w-4 h-4 text-slate-600" />
+                <span className="hidden sm:inline">Alerts</span>
                 {unreadCount > 0 && (
-                  <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-amber-500 rounded-full ring-2 ring-white animate-pulse" />
+                  <span className="px-1.5 py-0.5 bg-amber-500 text-white rounded-full text-[10px] font-bold">
+                    {unreadCount}
+                  </span>
                 )}
               </button>
             </div>
@@ -281,16 +269,16 @@ export default function HeaderNav({
             <div className="relative" ref={userDropdownRef}>
               <button
                 onClick={() => { setShowUserDropdown(!showUserDropdown); }}
-                className="flex items-center gap-2 p-1 rounded-full hover:bg-slate-100 transition-colors cursor-pointer border border-slate-200 min-h-[44px] focus-visible:ring-2 focus-visible:ring-blue-500"
-                aria-label="User Profile"
+                className="flex items-center gap-2 px-3 py-1 rounded-full hover:bg-slate-100 transition-colors cursor-pointer border border-slate-200 min-h-[44px] focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="User Profile Dropdown"
                 aria-haspopup="true"
                 aria-expanded={showUserDropdown}
               >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
                   {initials}
                 </div>
-                <div className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
-                <ChevronDown className="w-3.5 h-3.5 text-slate-500 mr-1 hidden sm:block" />
+                <span className="text-xs font-bold text-slate-700 hidden sm:inline">Account</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${showUserDropdown ? 'rotate-180' : ''}`} />
               </button>
 
               {/* User Dropdown */}
@@ -309,25 +297,28 @@ export default function HeaderNav({
                       href="/dashboard/settings?tab=account"
                       role="menuitem"
                       onClick={() => setShowUserDropdown(false)}
-                      className="w-full text-left px-4 py-2.5 min-h-[44px] text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
+                      className="w-full text-left px-4 py-2.5 min-h-[44px] text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 cursor-pointer transition-colors"
                     >
-                      <UserIcon className="w-4 h-4 text-slate-400" /> My Account
+                      <User className="w-4 h-4 text-slate-500" />
+                      <span>My Account</span>
                     </Link>
                     <Link
                       href="/dashboard/settings?tab=app"
                       role="menuitem"
                       onClick={() => setShowUserDropdown(false)}
-                      className="w-full text-left px-4 py-2.5 min-h-[44px] text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
+                      className="w-full text-left px-4 py-2.5 min-h-[44px] text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 cursor-pointer transition-colors"
                     >
-                      <Settings className="w-4 h-4 text-slate-400" /> App Settings
+                      <Settings className="w-4 h-4 text-slate-500" />
+                      <span>App Settings</span>
                     </Link>
                     <Link
                       href="/dashboard/debt"
                       role="menuitem"
                       onClick={() => setShowUserDropdown(false)}
-                      className="w-full text-left px-4 py-2.5 min-h-[44px] text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
+                      className="w-full text-left px-4 py-2.5 min-h-[44px] text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 cursor-pointer transition-colors"
                     >
-                      <Landmark className="w-4 h-4 text-slate-400" /> Debt & Loans Hub
+                      <FileText className="w-4 h-4 text-slate-500" />
+                      <span>Debt & Loans Hub</span>
                     </Link>
                   </div>
 
@@ -335,9 +326,10 @@ export default function HeaderNav({
                     <button
                       role="menuitem"
                       onClick={handleLogout}
-                      className="w-full text-left px-4 py-2.5 min-h-[44px] text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer"
+                      className="w-full text-left px-4 py-2.5 min-h-[44px] text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 cursor-pointer transition-colors"
                     >
-                      <LogOut className="w-4 h-4" /> Sign Out
+                      <LogOut className="w-4 h-4 text-rose-600" />
+                      <span>Sign Out</span>
                     </button>
                   </div>
                 </div>
@@ -347,11 +339,11 @@ export default function HeaderNav({
             {/* Mobile Hamburger Menu Toggle */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded-lg md:hidden cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500"
+              className="px-3 py-1.5 text-xs font-bold min-h-[44px] flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded-lg md:hidden cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500"
               aria-label="Toggle Navigation Menu"
               aria-expanded={mobileMenuOpen}
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {mobileMenuOpen ? 'Close' : 'Menu'}
             </button>
 
           </div>
@@ -370,7 +362,7 @@ export default function HeaderNav({
                 activeTab === 'overview' ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-700 hover:bg-slate-50'
               }`}
             >
-              <LayoutDashboard className="w-5 h-5 text-blue-600" /> Overview Dashboard
+              Overview Dashboard
             </button>
 
             <button
@@ -380,7 +372,7 @@ export default function HeaderNav({
               }`}
             >
               <div className="flex items-center gap-3">
-                <FileSpreadsheet className="w-5 h-5 text-emerald-600" /> Revenue & Invoices
+                Revenue & Invoices
               </div>
               {pendingCount > 0 && (
                 <span className="px-2 py-0.5 bg-amber-500 text-white rounded-full text-xs font-bold">
@@ -395,7 +387,7 @@ export default function HeaderNav({
                 activeTab === 'purchases' ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-700 hover:bg-slate-50'
               }`}
             >
-              <Receipt className="w-5 h-5 text-indigo-600" /> Expenses & Bills
+              Expenses & Bills
             </button>
 
             <button
@@ -404,7 +396,7 @@ export default function HeaderNav({
                 activeTab === 'reports' ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-700 hover:bg-slate-50'
               }`}
             >
-              <BarChart3 className="w-5 h-5 text-purple-600" /> Financial Reports
+              Financial Reports
             </button>
           </div>
         )}
@@ -430,9 +422,6 @@ export default function HeaderNav({
             {/* Drawer Header (Fixed) */}
             <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
-                  <Bell className="w-5 h-5" />
-                </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="font-bold text-base text-slate-900">Notifications</h2>
@@ -457,11 +446,11 @@ export default function HeaderNav({
                 )}
                 <button
                   onClick={() => setShowNotifications(false)}
-                  className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center"
+                  className="px-2.5 py-1 text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer"
                   title="Close Notifications"
                   aria-label="Close Notifications"
                 >
-                  <X className="w-5 h-5" />
+                  Close
                 </button>
               </div>
             </div>
@@ -479,14 +468,6 @@ export default function HeaderNav({
                         : 'border-slate-200/80 bg-white hover:border-blue-300 hover:shadow-md hover:bg-blue-50/30'
                     }`}
                   >
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
-                      item.type === 'bill' 
-                        ? 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100 border border-indigo-100' 
-                        : 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 border border-emerald-100'
-                    }`}>
-                      {item.type === 'bill' ? <Receipt className="w-5 h-5" /> : <FileSpreadsheet className="w-5 h-5" />}
-                    </div>
-
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1 mb-0.5">
                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
@@ -511,11 +492,11 @@ export default function HeaderNav({
 
                       <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-100">
                         <span className="text-xs text-blue-600 font-bold group-hover:text-blue-700 flex items-center gap-1">
-                          Review in {item.type === 'bill' ? 'Expenses' : 'Revenue'} <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+                          Review in {item.type === 'bill' ? 'Expenses' : 'Revenue'}
                         </span>
                         {!item.read && (
                           <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> Action required
+                            Action required
                           </span>
                         )}
                       </div>
@@ -524,9 +505,6 @@ export default function HeaderNav({
                 ))
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center mb-3 text-emerald-600">
-                    <CheckCircle2 className="w-8 h-8" />
-                  </div>
                   <h3 className="font-bold text-base text-slate-900">All caught up!</h3>
                   <p className="text-xs text-slate-500 max-w-xs mt-1 leading-relaxed">
                     There are no pending invoices, bills, or unverified AI drafts requiring your attention.

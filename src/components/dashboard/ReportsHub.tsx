@@ -2,22 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import { 
- FileSpreadsheet, 
- Download, 
- Loader2, 
- DollarSign, 
- Scale, 
- FolderTree, 
- Landmark, 
- CheckCircle2, 
- Sparkles, 
- TrendingUp, 
- BarChart3, 
- Calendar,
- Layers,
- Wallet
-} from 'lucide-react';
 import {
  ResponsiveContainer,
  AreaChart,
@@ -237,7 +221,7 @@ export default function ReportsHub() {
   onClick={() => setIsExportModalOpen(true)}
   className="flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-sm font-semibold transition-all cursor-pointer shrink-0"
  >
- <Download className="w-4 h-4" /> Export Data
+ Export Data
  </button>
  </div>
 
@@ -255,37 +239,37 @@ export default function ReportsHub() {
  onClick={() => setActiveTab('chart_of_accounts')}
  className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${activeTab === 'chart_of_accounts' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
  >
- <FolderTree className="w-4 h-4" /> Chart of Accounts
+ Chart of Accounts
  </button>
  <button
  onClick={() => setActiveTab('cashbook')}
  className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${activeTab === 'cashbook' ? 'bg-emerald-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
  >
- <Wallet className="w-4 h-4" /> Dedicated Cash Book
+ Dedicated Cash Book
  </button>
  <button
  onClick={() => setActiveTab('pnl')}
  className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${activeTab === 'pnl' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
  >
- <FileSpreadsheet className="w-4 h-4" /> Profit & Loss
+ Profit & Loss
  </button>
  <button
  onClick={() => setActiveTab('balance_sheet')}
  className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${activeTab === 'balance_sheet' ? 'bg-purple-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
  >
- <Landmark className="w-4 h-4" /> Balance Sheet
+ Balance Sheet
  </button>
  <button
  onClick={() => setActiveTab('trial_balance')}
  className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${activeTab === 'trial_balance' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
  >
- <Scale className="w-4 h-4" /> Trial Balance
+ Trial Balance
  </button>
  <button
  onClick={() => setActiveTab('ledger')}
  className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${activeTab === 'ledger' ? 'bg-blue-600 text-white shadow-md' : 'bg-white/70 backdrop-blur-md border border-white/50 shadow-sm text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
  >
- <DollarSign className="w-4 h-4" /> General Ledger
+ General Ledger
  </button>
  </div>
 
@@ -293,10 +277,9 @@ export default function ReportsHub() {
  <div className="bg-white/30 backdrop-blur-3xl shadow-2xl border border-white/50 rounded-2xl overflow-hidden min-h-[500px] min-w-0">
  
  {isLoading ? (
- <div className="flex flex-col items-center justify-center py-20 text-blue-600">
- <Loader2 className="w-8 h-8 animate-spin" />
- <span className="text-xs font-semibold text-gray-500 mt-2">Computing Double-Entry Statements...</span>
- </div>
+            <div className="flex flex-col items-center justify-center py-20 text-gray-400 font-medium">
+              Loading report data...
+            </div>
  ) : (
  <>
  {/* CHART OF ACCOUNTS MANAGER HUB */}
@@ -315,7 +298,7 @@ export default function ReportsHub() {
  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 min-w-0">
  <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-2xl min-w-0">
  <p className="text-emerald-700 text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
- <Wallet className="w-4 h-4" /> Total Liquid Cash Available
+ Total Liquid Cash Available
  </p>
  <h3 className="text-2xl font-black text-emerald-950 truncate">
  {cashbookSummary.totalCashBalance?.toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-xs font-bold text-emerald-700">PKR</span>
@@ -324,7 +307,7 @@ export default function ReportsHub() {
 
  <div className="bg-blue-50 border border-blue-100 p-5 rounded-2xl min-w-0">
  <p className="text-blue-700 text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
- <TrendingUp className="w-4 h-4" /> Total Cash In (Debits)
+ Total Cash In (Debits)
  </p>
  <h3 className="text-2xl font-black text-blue-950 truncate">
  {cashbookEntries.reduce((s, l) => s + Number(l.debit || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-xs font-bold text-blue-700">PKR</span>
@@ -333,7 +316,7 @@ export default function ReportsHub() {
 
  <div className="bg-rose-50 border border-rose-100 p-5 rounded-2xl min-w-0">
  <p className="text-rose-700 text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
- <DollarSign className="w-4 h-4" /> Total Cash Out (Credits)
+ Total Cash Out (Credits)
  </p>
  <h3 className="text-2xl font-black text-rose-950 truncate">
  {cashbookEntries.reduce((s, l) => s + Number(l.credit || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-xs font-bold text-rose-700">PKR</span>
@@ -346,7 +329,7 @@ export default function ReportsHub() {
  <div className="bg-white/70 backdrop-blur-md border border-gray-200 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
  <div>
  <h3 className="text-sm font-extrabold text-gray-900 flex items-center gap-2">
- <Wallet className="w-4 h-4 text-emerald-600" /> Cash Book Money Flow Register
+ Cash Book Money Flow Register
  </h3>
  <p className="text-xs text-gray-500 mt-0.5">Chronological record of all liquid money movements into and out of cash & bank accounts.</p>
  </div>
@@ -369,9 +352,8 @@ export default function ReportsHub() {
  {/* CASH BOOK TABLE */}
  <div className="overflow-x-auto custom-scrollbar min-w-0 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-xs">
  {isLoadingCashbook ? (
- <div className="flex flex-col items-center justify-center py-16 text-emerald-600">
- <Loader2 className="w-8 h-8 animate-spin" />
- <span className="text-xs font-semibold text-gray-500 mt-2">Loading Cash Book Register...</span>
+ <div className="flex flex-col items-center justify-center py-16 text-emerald-600 font-semibold text-xs">
+ Loading Cash Book Register...
  </div>
  ) : (
  <table className="w-full text-left text-sm whitespace-nowrap min-w-[750px]">
@@ -498,7 +480,6 @@ export default function ReportsHub() {
  {/* TIMEFRAME & RANGE CONTROL BAR */}
  <div className="bg-white/70 backdrop-blur-md border border-gray-200 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
  <div className="flex items-center gap-2">
- <BarChart3 className="w-5 h-5 text-blue-600" />
  <span className="text-sm font-extrabold text-gray-900">Dynamic Time-Series Analytics</span>
  </div>
 
@@ -535,7 +516,7 @@ export default function ReportsHub() {
  <div className="flex items-center justify-between">
  <div>
  <h3 className="font-extrabold text-base text-gray-900 flex items-center gap-2">
- <TrendingUp className="w-4 h-4 text-emerald-600" /> Financial Performance Trend
+ Financial Performance Trend
  </h3>
  <p className="text-xs text-gray-500 mt-0.5">Revenue, Operating Expenses, and Net Profit ({timeframe.toUpperCase()} buckets)</p>
  </div>
@@ -543,8 +524,8 @@ export default function ReportsHub() {
 
  <div className="h-72 w-full pt-2">
  {isLoadingTimeSeries ? (
- <div className="flex flex-col items-center justify-center h-full text-blue-600">
- <Loader2 className="w-6 h-6 animate-spin" />
+ <div className="flex flex-col items-center justify-center h-full text-blue-600 font-semibold text-xs">
+ Loading time-series data...
  </div>
  ) : timeSeriesData.length === 0 ? (
  <div className="flex items-center justify-center h-full text-xs text-gray-400">
@@ -662,9 +643,6 @@ export default function ReportsHub() {
  {/* BALANCING STATUS BANNER */}
  <div className={`p-4 rounded-2xl border flex items-center justify-between gap-3 ${balanceSheet.is_balanced ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-red-50 border-red-200 text-red-900'}`}>
  <div className="flex items-center gap-3">
- <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${balanceSheet.is_balanced ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}`}>
- <Scale className="w-5 h-5" />
- </div>
  <div>
  <h4 className="font-extrabold text-sm sm:text-base">
  {balanceSheet.is_balanced ? 'Books are Balanced! Total Assets equal Total Liabilities + Equity.' : 'Imbalance Detected in Ledger!'}
@@ -684,7 +662,7 @@ export default function ReportsHub() {
  <div>
  <span className="text-[10px] font-bold text-purple-400 tracking-widest uppercase block">FINANCIAL STATEMENT</span>
  <h2 className="text-lg font-black tracking-tight flex items-center gap-2">
- <Landmark className="w-5 h-5 text-purple-400" /> Statement of Financial Position
+ Statement of Financial Position
  </h2>
  <p className="text-xs text-gray-400 mt-1">Official Certified Double-Entry Balance Sheet</p>
  </div>
@@ -801,7 +779,6 @@ export default function ReportsHub() {
  </div>
  <div className="flex items-center gap-3">
  <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
- <CheckCircle2 className="w-4 h-4 text-emerald-400" />
  Equal to Total Assets ({balanceSheet.totals.total_assets.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR)
  </span>
  </div>
@@ -842,11 +819,11 @@ export default function ReportsHub() {
  <div className="p-6 bg-white border-t border-gray-100">
  {financials.total_debits === financials.total_credits ? (
  <div className="flex items-center gap-2 text-emerald-600 font-bold bg-emerald-50 p-3 rounded-xl border border-emerald-100">
- <Scale className="w-5 h-5 shrink-0" /> Debits equal Credits. Books are balanced!
+ Debits equal Credits. Books are balanced!
  </div>
  ) : (
  <div className="flex items-center gap-2 text-red-600 font-bold bg-red-50 p-3 rounded-xl border border-red-100">
- <Scale className="w-5 h-5 shrink-0" /> Imbalance Detected! Difference: {Math.abs(financials.total_debits - financials.total_credits).toLocaleString()} PKR
+ Imbalance Detected! Difference: {Math.abs(financials.total_debits - financials.total_credits).toLocaleString()} PKR
  </div>
  )}
  </div>

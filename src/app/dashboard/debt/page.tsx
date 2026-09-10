@@ -5,20 +5,6 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import { 
-  ArrowLeft, 
-  Landmark, 
-  Receipt, 
-  Coins, 
-  Loader2, 
-  AlertCircle, 
-  CheckCircle2, 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Plus, 
-  Layers 
-} from 'lucide-react';
 import toast from 'react-hot-toast';
 import CreatableSelect from '@/components/ui/CreatableSelect';
 import { createJournalEntryAtomic, JournalLineItem } from '@/utils/journalEntry';
@@ -423,7 +409,6 @@ function DebtContent() {
             href="/dashboard"
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4" />
             <span>Back to Dashboard</span>
           </Link>
           <div className="h-5 w-px bg-slate-200 hidden sm:block" />
@@ -436,7 +421,7 @@ function DebtContent() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+          <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
             {initials}
           </div>
           <span className="text-xs font-semibold text-slate-700 hidden md:inline-block truncate max-w-[180px]">
@@ -452,7 +437,6 @@ function DebtContent() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
-              <Landmark className="w-7 h-7 text-blue-600" />
               Debt & Loans Management
             </h1>
             <p className="text-sm text-slate-500 mt-1">
@@ -468,7 +452,7 @@ function DebtContent() {
               }}
               className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-600/20 transition-all cursor-pointer"
             >
-              <Plus className="w-4 h-4" /> + Receive Loan
+              + Receive Loan
             </button>
             <button
               onClick={() => {
@@ -477,7 +461,7 @@ function DebtContent() {
               }}
               className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
             >
-              <Receipt className="w-4 h-4" /> Record Repayment
+              Record Repayment
             </button>
           </div>
         </div>
@@ -491,9 +475,6 @@ function DebtContent() {
                 {totalPrincipalOutstanding.toLocaleString()} <span className="text-xs font-bold opacity-60">PKR</span>
               </p>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center border border-red-100 shrink-0">
-              <TrendingUp className="w-6 h-6" />
-            </div>
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-center justify-between shadow-xs">
@@ -502,9 +483,6 @@ function DebtContent() {
               <p className="text-2xl font-black text-slate-900 mt-1.5">
                 {interestExpense.toLocaleString()} <span className="text-xs font-bold opacity-60">PKR</span>
               </p>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100 shrink-0">
-              <TrendingDown className="w-6 h-6" />
             </div>
           </div>
         </div>
@@ -515,8 +493,8 @@ function DebtContent() {
             <h3 className="font-bold text-slate-800 text-sm">Short-Term Debt (&lt; 12 Months)</h3>
           </div>
           {isLoading ? (
-            <div className="p-10 flex items-center justify-center">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+            <div className="p-10 flex items-center justify-center text-xs font-bold text-blue-600">
+              Loading debt accounts...
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -567,8 +545,8 @@ function DebtContent() {
             <h3 className="font-bold text-slate-800 text-sm">Long-Term Debt (&gt; 12 Months)</h3>
           </div>
           {isLoading ? (
-            <div className="p-10 flex items-center justify-center">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+            <div className="p-10 flex items-center justify-center text-xs font-bold text-blue-600">
+              Loading debt accounts...
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -622,7 +600,7 @@ function DebtContent() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
             <div className="p-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
               <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                <Landmark className="w-5 h-5 text-blue-600" /> Receive Loan Proceeds
+                Receive Loan Proceeds
               </h3>
               <button onClick={() => setIsReceiveOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
             </div>
@@ -695,7 +673,7 @@ function DebtContent() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
             <div className="p-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
               <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                <Receipt className="w-5 h-5 text-emerald-600" /> Record Loan Repayment
+                Record Loan Repayment
               </h3>
               <button onClick={() => setIsRepayOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
             </div>
@@ -808,10 +786,8 @@ function DebtContent() {
               </button>
             </div>
 
-            {/* T-ACCOUNT CONTAINER */}
             {isTAccountLoading ? (
               <div className="flex flex-col items-center justify-center py-16 text-purple-600 flex-1">
-                <Loader2 className="w-8 h-8 animate-spin" />
                 <span className="text-xs font-semibold text-slate-500 mt-2">Loading T-Account entries...</span>
               </div>
             ) : (

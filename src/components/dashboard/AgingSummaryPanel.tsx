@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { Clock, AlertTriangle, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 interface AgingSummaryPanelProps {
  invoices: any[];
@@ -59,7 +58,6 @@ export default function AgingSummaryPanel({ invoices, bills }: AgingSummaryPanel
  <div className="bg-white/85 backdrop-blur-3xl border border-white/60 shadow-xl rounded-3xl p-5 sm:p-6 flex flex-col space-y-6 min-w-0">
  <div className="min-w-0">
  <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2 truncate">
- <Clock className="w-5 h-5 text-blue-600 shrink-0" />
  A/R & A/P Aging Summary
  </h2>
  <p className="text-xs sm:text-sm text-slate-500 mt-1 truncate">Outstanding balances grouped by due date.</p>
@@ -69,9 +67,6 @@ export default function AgingSummaryPanel({ invoices, bills }: AgingSummaryPanel
  {/* AR Panel */}
  <div className="border border-emerald-200 bg-emerald-50/70 rounded-2xl p-4 sm:p-5 min-w-0">
  <div className="flex items-center gap-2.5 mb-4 min-w-0">
- <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl shrink-0">
- <ArrowDownRight className="w-4 h-4" />
- </div>
  <h3 className="font-bold text-slate-900 text-sm truncate">Accounts Receivable (Owed to You)</h3>
  </div>
  <div className="space-y-3 text-xs sm:text-sm min-w-0">
@@ -88,7 +83,7 @@ export default function AgingSummaryPanel({ invoices, bills }: AgingSummaryPanel
  <span className="font-semibold shrink-0">{formatMoney(arBuckets.days31To60)} PKR</span>
  </div>
  <div className="flex justify-between items-center text-rose-700 font-bold gap-2 min-w-0">
- <span className="flex items-center gap-1 truncate"><AlertTriangle className="w-3.5 h-3.5 shrink-0"/> 60+ Days</span>
+ <span className="flex items-center gap-1 truncate">60+ Days</span>
  <span className="shrink-0">{formatMoney(arBuckets.daysOver60)} PKR</span>
  </div>
  <div className="pt-3 border-t border-emerald-200 flex justify-between items-center font-black text-slate-900 text-sm sm:text-base gap-2 min-w-0">
@@ -101,9 +96,6 @@ export default function AgingSummaryPanel({ invoices, bills }: AgingSummaryPanel
  {/* AP Panel */}
  <div className="border border-rose-200 bg-rose-50/60 rounded-2xl p-4 sm:p-5 min-w-0">
  <div className="flex items-center gap-2.5 mb-4 min-w-0">
- <div className="p-2 bg-rose-100 text-rose-700 rounded-xl shrink-0">
- <ArrowUpRight className="w-4 h-4" />
- </div>
  <h3 className="font-bold text-slate-900 text-sm truncate">Accounts Payable (You Owe)</h3>
  </div>
  <div className="space-y-3 text-xs sm:text-sm min-w-0">
@@ -120,7 +112,7 @@ export default function AgingSummaryPanel({ invoices, bills }: AgingSummaryPanel
  <span className="font-semibold shrink-0">{formatMoney(apBuckets.days31To60)} PKR</span>
  </div>
  <div className="flex justify-between items-center text-rose-700 font-bold gap-2 min-w-0">
- <span className="flex items-center gap-1 truncate"><AlertTriangle className="w-3.5 h-3.5 shrink-0"/> 60+ Days</span>
+ <span className="flex items-center gap-1 truncate">60+ Days</span>
  <span className="shrink-0">{formatMoney(apBuckets.daysOver60)} PKR</span>
  </div>
  <div className="pt-3 border-t border-rose-200 flex justify-between items-center font-black text-slate-900 text-sm sm:text-base gap-2 min-w-0">
