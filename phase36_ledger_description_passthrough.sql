@@ -214,7 +214,7 @@ BEGIN
 
         -- B. Post Line-level Revenue Credits
         FOR rec IN 
-            SELECT il.account_id, il.product_id, il.quantity, il.total, il.description, p.name AS product_name, p.is_inventory_tracked, p.cost 
+            SELECT il.product_id, il.quantity, il.total, il.description, p.name AS product_name, p.is_inventory_tracked, p.cost 
             FROM invoice_lines il 
             LEFT JOIN products p ON p.id = il.product_id 
             WHERE il.invoice_id = NEW.id 
@@ -228,14 +228,10 @@ BEGIN
 
                 v_cogs_amount := v_cogs_amount + (rec.quantity * COALESCE(rec.cost, 0));
             ELSE
-                IF rec.account_id IS NOT NULL THEN
-                    v_target_account := rec.account_id;
+                IF rec.product_id IS NOT NULL THEN
+                    v_target_account := COALESCE(v_service_revenue_id, v_sales_revenue_id);
                 ELSE
-                    IF rec.product_id IS NOT NULL THEN
-                        v_target_account := COALESCE(v_service_revenue_id, v_sales_revenue_id);
-                    ELSE
-                        v_target_account := v_sales_revenue_id;
-                    END IF;
+                    v_target_account := v_sales_revenue_id;
                 END IF;
             END IF;
 

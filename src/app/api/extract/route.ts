@@ -105,7 +105,7 @@ export async function POST(request: Request) {
     // Build Dynamic Prompt Instructions based on user settings
     let ambiguityRuleInstruction = '';
     if (userSettings.ai_ambiguity_strictness === 'permissive') {
-      ambiguityRuleInstruction = `9. Asset vs Inventory Ambiguity Rule (PERMISSIVE MODE ENABLED): The user has configured Permissive Ambiguity Strictness. You MUST NOT ask clarification questions for generic or common asset/equipment purchases (e.g., "I bought a table", "bought a chair", "bought a computer", "paid for a desk", "bought 5 laptops"). You MAY auto-map generic purchases directly to reasonable operational expense or equipment accounts (such as 'General Operating Expense' or 'Fixed Assets - Office/Equipment' or 'Rent Expense') without pausing or asking clarification. Set "is_complete": true and stage the transaction immediately as a LOG_BILL or LOG_JOURNAL_ENTRY.`;
+      ambiguityRuleInstruction = `9. Asset vs Inventory Ambiguity Rule (PERMISSIVE MODE ENABLED): The user has configured Permissive Ambiguity Strictness. You MUST NOT ask clarification questions for generic or common asset/equipment purchases (e.g., "I bought a table", "bought a chair", "bought a computer", "paid for a desk", "bought 5 laptops"). You MUST auto-map generic purchases directly to reasonable operational expense or equipment accounts (such as 'General Operating Expense' or 'Fixed Assets - Office/Equipment' or 'Rent Expense') without pausing or asking clarification. You MUST set "is_complete": true and stage the transaction immediately as a LOG_BILL or LOG_JOURNAL_ENTRY. DO NOT set is_complete: false in permissive mode unless critical info like amount or date is missing.`;
     } else if (userSettings.ai_ambiguity_strictness === 'balanced') {
       ambiguityRuleInstruction = `9. Asset vs Inventory Ambiguity Rule (BALANCED MODE): The user has configured Balanced Ambiguity Strictness. For routine purchases (< 10,000 ${userSettings.currency}), auto-map them to 'General Operating Expense' or 'Fixed Assets - Office/Equipment' without pausing (set is_complete: true). For large or high-value items (> 50,000 ${userSettings.currency}) where intent is completely unclear, set "is_complete": false and ask for clarification.`;
     } else {
@@ -248,9 +248,9 @@ export async function POST(request: Request) {
         "entity_name": "string | null",
         "target": "balance" | "revenue" | "expenses" | "debt" | "inventory" | "all" | null
       },
-      "is_complete": boolean,
-      "clarification_question": "string | null",
-      "conversational_response": "string | null"
+      "is_complete": "boolean (Set to false ONLY if you need more information)",
+      "clarification_question": "string | null (REQUIRED to be a clear question asking the user for details if is_complete is false, otherwise null)",
+      "conversational_response": "string | null (Provide a friendly message explaining what you did or why you need more info)"
     }`;
 
     const model = getGeminiModel();
@@ -338,8 +338,8 @@ export async function POST(request: Request) {
         }
         
         if (!structuredData.line_items || !Array.isArray(structuredData.line_items) || structuredData.line_items.length === 0) {
-          const matchedItem = ambiguousKeywords.find(k => lowerPrompt.includes(k)) || 'Asset/Supply';
-          const itemName = matchedItem.charAt(0).toUpperCase() + matchedItem.slice(1);
+          const matchedItem = ambiguousKeywords.find(k => lowerPrompt.includes(k));
+          const itemName = matchedItem ? matchedItem.charAt(0).toUpperCase() + matchedItem.slice(1) : 'Asset/Supply';
           const amt = structuredData.total_amount || 0;
           structuredData.line_items = [{
             description: `${itemName} purchase`,
@@ -370,6 +370,14 @@ export async function POST(request: Request) {
           }
           return { ...line, account_name: acc };
         });
+      }
+
+      // Universal Amount Fallback (if AI missed it)
+      if (!structuredData.total_amount && prompt) {
+        const matchAmount = prompt.match(/\b\d+([,.]\d+)?\b/);
+        if (matchAmount) {
+          structuredData.total_amount = parseFloat(matchAmount[0].replace(/,/g, ''));
+        }
       }
 
     // ----------------------------------------------------
@@ -444,6 +452,7 @@ export async function POST(request: Request) {
 
       // Tool 2: Open Invoices & Receivables (Who owes me money?)
       if (structuredData.intent === 'QUERY_DEBT' || lowerPrompt.includes('who owes') || lowerPrompt.includes('receivable')) {
+        structuredData.intent = 'QUERY_DEBT';
         const { data: unpaidInvoices } = await supabase
           .from('invoices')
           .select('id, total_amount, balance_due, issue_date, customers(name)')
@@ -487,10 +496,38 @@ export async function POST(request: Request) {
         }
         structuredData.is_complete = true;
       }
+
+      // Tool 4: Profit & Loss / Financial Summary
+      if (structuredData.intent === 'QUERY_REPORT' || lowerPrompt.includes('profit') || lowerPrompt.includes('revenue') || lowerPrompt.includes('expenses')) {
+        const { data: incomeLines } = await supabase
+          .from('journal_lines')
+          .select('debit, credit, accounts!inner(type)')
+          .in('accounts.type', ['revenue', 'expense']);
+        
+        let totalRev = 0;
+        let totalExp = 0;
+        (incomeLines || []).forEach((l: any) => {
+          if (l.accounts.type === 'revenue') {
+            totalRev += Number(l.credit || 0) - Number(l.debit || 0);
+          } else if (l.accounts.type === 'expense') {
+            totalExp += Number(l.debit || 0) - Number(l.credit || 0);
+          }
+        });
+        
+        const netProfit = totalRev - totalExp;
+        structuredData.conversational_response = `Based on your ledger, your total Revenue is **${totalRev.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR** and total Expenses are **${totalExp.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR**.\n\n**Net Profit:** **${netProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })} PKR**.`;
+        structuredData.is_complete = true;
+      }
     }
 
     // Real-Time Multi-Currency Conversion Engine
-    const detectedCurrency = (structuredData.currency_code || (lowerPrompt.includes('$') || lowerPrompt.includes('usd') ? 'USD' : (lowerPrompt.includes('€') || lowerPrompt.includes('eur') ? 'EUR' : (lowerPrompt.includes('£') || lowerPrompt.includes('gbp') ? 'GBP' : 'PKR')))).toUpperCase();
+    let detectedCurrency = 'PKR';
+    if (lowerPrompt.includes('$') || lowerPrompt.includes('usd')) detectedCurrency = 'USD';
+    else if (lowerPrompt.includes('€') || lowerPrompt.includes('eur')) detectedCurrency = 'EUR';
+    else if (lowerPrompt.includes('£') || lowerPrompt.includes('gbp')) detectedCurrency = 'GBP';
+    else if (structuredData.currency_code && structuredData.currency_code !== 'PKR') detectedCurrency = structuredData.currency_code;
+    
+    detectedCurrency = detectedCurrency.toUpperCase();
 
     if (detectedCurrency !== 'PKR' && structuredData.total_amount) {
       const rate = await fetchExchangeRate(detectedCurrency, 'PKR');
@@ -640,8 +677,7 @@ export async function POST(request: Request) {
         structuredData.conversational_response = "I need the product name and the actual physical stock count to reconcile inventory.";
         structuredData.is_complete = false;
       }
-    }
-
+      }
     } catch (e) {
       console.error("Failed to parse JSON from AI response:", e);
       // Graceful fallback instead of crashing

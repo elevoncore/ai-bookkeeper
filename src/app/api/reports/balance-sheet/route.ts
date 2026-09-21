@@ -78,17 +78,21 @@ export async function GET(request: Request) {
     // Format cutoff date to include full end-of-day (23:59:59.999) for timestamp fields
     const cutoffDate = asOfDate.includes('T') ? asOfDate : `${asOfDate} 23:59:59.999`;
 
-    // 2. Fetch Journal Lines for user WHERE date <= cutoffDate (Snapshot in time)
+    // 2. Fetch Journal Lines for user (Snapshot in time)
     const { data: journalLines, error: jlError } = await supabase
       .from('journal_lines')
       .select('account_id, debit, credit, journal_entries!inner(user_id, date)')
-      .eq('journal_entries.user_id', user.id)
-      .lte('journal_entries.date', cutoffDate);
+      .eq('journal_entries.user_id', user.id);
 
     if (jlError) {
       console.error("Journal lines error:", jlError);
       return NextResponse.json({ error: "Failed to fetch ledger lines" }, { status: 500 });
     }
+
+    // Filter by date manually to avoid PostgREST foreign table filter syntax errors
+    const filteredLines = (journalLines || []).filter((line: any) => {
+      return line.journal_entries && line.journal_entries.date <= asOfDate;
+    });
 
     // Aggregate debits & credits per account in cents
     const accountBalances = new Map<string, { debits: number, credits: number }>();
@@ -96,8 +100,8 @@ export async function GET(request: Request) {
       accountBalances.set(acc.id, { debits: 0, credits: 0 });
     }
 
-    if (journalLines) {
-      for (const line of journalLines) {
+    if (filteredLines) {
+      for (const line of filteredLines) {
         const debitCents = Math.round(Number(line.debit || 0) * 100);
         const creditCents = Math.round(Number(line.credit || 0) * 100);
         const current = accountBalances.get(line.account_id) || { debits: 0, credits: 0 };
