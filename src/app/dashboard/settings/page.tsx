@@ -53,6 +53,14 @@ function SettingsContent() {
       setIsLoading(true);
       try {
         const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          window.location.href = '/login';
+          return;
+        }
+        if (!user.email_confirmed_at && !(user as any).confirmed_at) {
+          window.location.href = `/verify-otp?email=${encodeURIComponent(user.email || '')}`;
+          return;
+        }
         if (user) {
           setUser(user);
           setUserEmail(user.email || '');
@@ -172,7 +180,7 @@ function SettingsContent() {
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      toast.success("Master password updated successfully! Re-authenticating session...");
+      toast.success("Password updated successfully! Please sign in again.");
       await supabase.auth.signOut();
       setTimeout(() => {
         router.push('/login?message=password_changed');
@@ -421,106 +429,60 @@ function SettingsContent() {
               </div>
             )}
 
-            {/* TAB: SECURITY & CREDENTIALS */}
+            {/* TAB: SECURITY & PASSWORD */}
             {activeTab === 'security' && (
-              <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm space-y-8 animate-in fade-in duration-200">
+              <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm space-y-6 animate-in fade-in duration-200">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                    Security &amp; Master Credentials
+                    Change Password
                   </h2>
                   <p className="text-xs text-slate-500 mt-1">
-                    Manage your authentication credentials, session encryption, and password policy.
+                    Update your password. You will need to sign in again after updating.
                   </p>
                 </div>
 
-                {/* Telemetry Status Card */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-                    <span className="text-[10px] font-mono uppercase text-slate-400 font-bold">BRUTE-FORCE SHIELD</span>
-                    <p className="text-sm font-bold text-slate-800 mt-1">3 Strikes / 24h Lockout</p>
-                    <span className="inline-block mt-1 text-[11px] text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full font-bold">
-                      ACTIVE FIREWALL
-                    </span>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-                    <span className="text-[10px] font-mono uppercase text-slate-400 font-bold">ENCRYPTION LEVEL</span>
-                    <p className="text-sm font-bold text-slate-800 mt-1">256-Bit AES-GCM</p>
-                    <span className="inline-block mt-1 text-[11px] text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-full font-bold">
-                      FIPS 140-2 READY
-                    </span>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-                    <span className="text-[10px] font-mono uppercase text-slate-400 font-bold">OTP RATE LIMIT</span>
-                    <p className="text-sm font-bold text-slate-800 mt-1">Max 3 Requests / 24h</p>
-                    <span className="inline-block mt-1 text-[11px] text-purple-700 bg-purple-100/70 px-2 py-0.5 rounded-full font-bold">
-                      RATE-LIMITED
-                    </span>
-                  </div>
-                </div>
-
                 {/* Change Password Form */}
-                <form onSubmit={handleUpdatePassword} className="space-y-6 pt-2">
-                  <div className="border-t border-slate-100 pt-6">
-                    <h3 className="text-sm font-bold text-slate-900 mb-1">
-                      Change Master Password
-                    </h3>
-                    <p className="text-xs text-slate-500 mb-4">
-                      Updating your password will re-encrypt your authentication credentials and require an immediate session re-login.
-                    </p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      <div>
-                        <div className="flex justify-between items-center mb-1.5">
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                            New Master Password
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="text-[11px] font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
-                          >
-                            {showPassword ? 'Hide' : 'Show'}
-                          </button>
-                        </div>
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          required
-                          minLength={6}
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          placeholder="••••••••••••"
-                          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                          Confirm New Password
+                <form onSubmit={handleUpdatePassword} className="space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider" htmlFor="newPassword">
+                          New Password
                         </label>
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          required
-                          minLength={6}
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          placeholder="••••••••••••"
-                          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="text-[11px] font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
+                        >
+                          {showPassword ? 'Hide' : 'Show'}
+                        </button>
                       </div>
+                      <input
+                        id="newPassword"
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        minLength={6}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="••••••••••••"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
                     </div>
 
-                    {/* NIST SP 800-63B Entropy Meter */}
-                    <div className="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1.5">
-                      <div className="flex justify-between items-center text-[10px] font-mono text-slate-500">
-                        <span>SECURITY LEVEL: {newPassword.length >= 8 ? 'STRONG (AES-256)' : 'STANDARD'}</span>
-                        <span className="font-semibold text-slate-700">NIST SP 800-63B COMPLIANT</span>
-                      </div>
-                      <div className="grid grid-cols-4 gap-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                        <div className={`transition-all ${newPassword.length >= 6 ? 'bg-emerald-500' : 'bg-transparent'}`} />
-                        <div className={`transition-all ${newPassword.length >= 8 ? 'bg-emerald-500' : 'bg-transparent'}`} />
-                        <div className={`transition-all ${newPassword.length >= 10 ? 'bg-emerald-500' : 'bg-transparent'}`} />
-                        <div className={`transition-all ${newPassword.length >= 12 && newPassword === confirmPassword ? 'bg-emerald-500' : 'bg-transparent'}`} />
-                      </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5" htmlFor="confirmPassword">
+                        Confirm Password
+                      </label>
+                      <input
+                        id="confirmPassword"
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        minLength={6}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••••••"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
                     </div>
                   </div>
 
@@ -530,25 +492,10 @@ function SettingsContent() {
                       disabled={isUpdatingPassword || !newPassword || !confirmPassword}
                       className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-md shadow-blue-500/20 transition-all cursor-pointer disabled:opacity-50"
                     >
-                      {isUpdatingPassword ? "Updating & Committing..." : "Update Master Password"}
+                      {isUpdatingPassword ? "Updating..." : "Update Password"}
                     </button>
                   </div>
                 </form>
-
-                {/* Additional Recovery Option */}
-                <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                  <div>
-                    <p className="text-xs font-bold text-slate-900">Email Recovery Challenge</p>
-                    <p className="text-[11px] text-slate-500">Dispatch an out-of-band recovery token to your registered email address.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleResetPassword}
-                    className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer shrink-0"
-                  >
-                    Send Recovery Code
-                  </button>
-                </div>
               </div>
             )}
 

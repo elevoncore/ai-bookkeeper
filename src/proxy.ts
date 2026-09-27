@@ -36,31 +36,78 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const isLoginRoute = request.nextUrl.pathname === '/login'
-  const isVerifyOtpRoute = request.nextUrl.pathname === '/verify-otp'
-  const isResetPasswordRoute = request.nextUrl.pathname === '/reset-password'
-  const isLandingRoute = request.nextUrl.pathname === '/'
-  const isApiRoute = request.nextUrl.pathname.startsWith('/api')
+  const pathname = request.nextUrl.pathname
+  const isLoginRoute = pathname === '/login'
+  const isVerifyOtpRoute = pathname === '/verify-otp'
+  const isResetPasswordRoute = pathname === '/reset-password'
+  const isLandingRoute = pathname === '/'
+  const isApiRoute = pathname.startsWith('/api')
 
   const isPublicAuthRoute = isLoginRoute || isVerifyOtpRoute || isResetPasswordRoute
+  const isProtectedRoute = pathname.startsWith('/dashboard') || (!isPublicAuthRoute && !isApiRoute && !isLandingRoute)
 
-  // 1. If no user and not on public auth, api, or landing routes -> kick to login
-  if (!user && !isPublicAuthRoute && !isApiRoute && !isLandingRoute) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
+  // Helper to preserve cookies set during getUser() on redirect
+  const redirectWithCookies = (url: URL) => {
+    const res = NextResponse.redirect(url)
+    for (const cookie of supabaseResponse.cookies.getAll()) {
+      res.cookies.set(cookie.name, cookie.value, cookie)
+    }
+    return res
   }
 
-  // 2. If user exists and tries to view login or verify-otp -> kick to dashboard
-  // (Keep /reset-password accessible when user has active recovery session)
-  if (user && (isLoginRoute || isVerifyOtpRoute)) {
+  // 1. Unauthenticated users (no user session)
+  if (!user) {
+    if (isProtectedRoute) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      return redirectWithCookies(url)
+    }
+    return supabaseResponse
+  }
+
+  // 2. Authenticated user: Check if email is verified
+  const isEmailVerified = Boolean(user.email_confirmed_at || (user as any).confirmed_at)
+
+  if (!isEmailVerified) {
+    // If user is already on /verify-otp, allow them access to enter OTP
+    if (isVerifyOtpRoute) {
+      // If email parameter is missing from the query string, automatically attach it
+      if (!request.nextUrl.searchParams.get('email') && user.email) {
+        const url = request.nextUrl.clone()
+        url.searchParams.set('email', user.email)
+        return redirectWithCookies(url)
+      }
+      return supabaseResponse
+    }
+
+    // Allow password reset or api routes if needed
+    if (isResetPasswordRoute || isApiRoute) {
+      return supabaseResponse
+    }
+
+    // CRITICAL GUARD: Intercept access to /dashboard (or any protected route or /login)
+    // and redirect immediately to /verify-otp with user's email
+    const url = request.nextUrl.clone()
+    url.pathname = '/verify-otp'
+    if (user.email) {
+      url.searchParams.set('email', user.email)
+    }
+    return redirectWithCookies(url)
+  }
+
+  // 3. Authenticated & Verified user:
+  // Visiting login or verify-otp redirects to dashboard
+  if (isLoginRoute || isVerifyOtpRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
+    url.search = ''
+    return redirectWithCookies(url)
   }
 
   return supabaseResponse
 }
+
+export default proxy
 
 export const config = {
   matcher: [

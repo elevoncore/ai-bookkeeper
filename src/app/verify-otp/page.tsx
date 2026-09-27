@@ -1,36 +1,39 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { verifySignupOtp, resendSignupOtp } from '../actions/auth';
+import { createBrowserClient } from '@supabase/ssr';
+import { resendSignupOtp } from '../actions/auth';
 import Link from 'next/link';
-import { ShieldCheck, ArrowLeft, RotateCw, AlertTriangle, CheckCircle2, Lock } from 'lucide-react';
+import { ArrowLeft, RotateCw, AlertTriangle, CheckCircle2, Lock } from 'lucide-react';
 
 function VerifyOtpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const emailParam = searchParams.get('email') || '';
-  const [email, setEmail] = useState(emailParam);
+  // Phase 3: Retrieve the email safely
+  const email = searchParams.get('email');
+  const [manualEmail, setManualEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [timeLeft, setTimeLeft] = useState(120);
   const [isVerifying, setIsVerifying] = useState(false);
+  const isVerifyingRef = useRef(false);
   const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  // Sync email from search params if updated
-  useEffect(() => {
-    if (emailParam) {
-      setEmail(emailParam);
-    }
-  }, [emailParam]);
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  const activeEmail = (email || manualEmail || '').toLowerCase().trim();
 
   // Strict 120s countdown timer backed by sessionStorage to prevent bypass via refresh
   useEffect(() => {
-    if (!email) return;
+    if (!activeEmail) return;
 
-    const storageKey = `inscribe_otp_expiry_${email.toLowerCase()}`;
+    const storageKey = `inscribe_otp_expiry_${activeEmail}`;
     const storedExpiry = sessionStorage.getItem(storageKey);
     let targetTime: number;
 
@@ -50,44 +53,83 @@ function VerifyOtpContent() {
     const interval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(interval);
-  }, [email]);
+  }, [activeEmail]);
 
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
-    if (!email) {
-      setError('Please provide the registered email address.');
-      return;
-    }
-    if (!otp || otp.trim().length !== 6) {
-      setError('Please enter the full 6-digit verification code.');
+
+    // Prevent double-firing
+    if (isVerifying || isVerifyingRef.current) return;
+
+    // Email resolution and sanitization
+    const resolvedEmail = (email || manualEmail || '').toLowerCase().trim();
+    if (!resolvedEmail) {
+      setError('Please provide your email address.');
       return;
     }
 
+    // Phase 1: Trim the entered OTP before submission. Require exactly 8 digits.
+    const enteredToken = otp.trim();
+    if (!enteredToken || enteredToken.length === 0) {
+      setError('Please enter the 8-digit code.');
+      return;
+    }
+
+    if (enteredToken.length !== 8) {
+      setError('Code must be exactly 8 digits.');
+      return;
+    }
+
+    isVerifyingRef.current = true;
     setIsVerifying(true);
     setError(null);
     setMessage(null);
 
     try {
-      const result = await verifySignupOtp({ email, token: otp.trim() });
-      if (result.error) {
-        setError(result.error);
+      // Phase 3: Ensure payload matches { email, token: enteredToken, type: 'signup' }
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        email: resolvedEmail,
+        token: enteredToken,
+        type: 'signup',
+      });
+
+      if (verifyError) {
+        setError(verifyError.message);
         setIsVerifying(false);
-      } else {
-        setMessage('Identity cryptographic challenge verified! Initializing your double-entry ledger...');
-        setTimeout(() => {
-          router.push('/dashboard');
-          router.refresh();
-        }, 800);
+        isVerifyingRef.current = false;
+        return;
       }
+
+      if (data?.user) {
+        try {
+          await supabase.from('profiles').upsert({
+            id: data.user.id,
+            email: data.user.email,
+            created_at: new Date().toISOString(),
+          }, { onConflict: 'id' });
+
+          await supabase.rpc('initialize_default_accounts', { p_user_id: data.user.id });
+        } catch (dbErr) {
+          console.warn('Profile/accounts initialization notice:', dbErr);
+        }
+      }
+
+      setMessage('Email verified successfully! Redirecting...');
+      setTimeout(() => {
+        router.push('/dashboard');
+        router.refresh();
+      }, 800);
     } catch (err: any) {
-      setError(err.message || 'Failed to verify OTP code.');
+      setError(err.message || 'Failed to verify code.');
       setIsVerifying(false);
+      isVerifyingRef.current = false;
     }
   }
 
   async function handleResend() {
     if (timeLeft > 0 || isResending) return;
-    if (!email) {
+    const resolvedEmail = (email || manualEmail || '').toLowerCase().trim();
+    if (!resolvedEmail) {
       setError('Email address is missing.');
       return;
     }
@@ -97,14 +139,14 @@ function VerifyOtpContent() {
     setMessage(null);
 
     try {
-      const result = await resendSignupOtp(email);
+      const result = await resendSignupOtp(resolvedEmail);
       if (result.error) {
         setError(result.error);
       } else {
-        setMessage('New 6-digit verification code dispatched to your mailbox.');
+        setMessage('A new verification code has been sent to your email.');
         // Reset 120s countdown
         const newExpiry = Date.now() + 120 * 1000;
-        const storageKey = `inscribe_otp_expiry_${email.toLowerCase()}`;
+        const storageKey = `inscribe_otp_expiry_${resolvedEmail}`;
         sessionStorage.setItem(storageKey, newExpiry.toString());
         setTimeLeft(120);
       }
@@ -125,19 +167,15 @@ function VerifyOtpContent() {
     <div className="relative flex min-h-screen items-center justify-center bg-slate-50 text-slate-900 px-4 py-12">
       <div className="w-full max-w-md space-y-6 rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-slate-200">
         
-        {/* Header Telemetry */}
+        {/* Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-xs font-mono font-bold text-slate-700 border border-slate-200">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>CHALLENGE: SIGNUP_OTP_VERIFICATION</span>
-          </div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
             Verify Your Email
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
-            Enter the 6-digit confirmation code dispatched to:
+            Enter the 8-digit code sent to:
             <br />
-            <strong className="text-slate-800 font-mono text-xs">{email || 'your registered corporate email'}</strong>
+            <strong className="text-slate-800 font-mono text-xs">{activeEmail || 'your email address'}</strong>
           </p>
         </div>
 
@@ -146,7 +184,7 @@ function VerifyOtpContent() {
           <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-medium flex items-start gap-2.5 animate-in fade-in duration-200" role="alert">
             <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
             <div className="flex-1 leading-relaxed">
-              <span className="font-bold">[VERIFICATION ERROR]</span> {error}
+              {error}
             </div>
           </div>
         )}
@@ -156,45 +194,40 @@ function VerifyOtpContent() {
           <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-medium flex items-start gap-2.5 animate-in fade-in duration-200" role="status">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
             <div className="flex-1 leading-relaxed">
-              <span className="font-bold">[SUCCESS]</span> {message}
+              {message}
             </div>
           </div>
         )}
 
         {/* Form Submission */}
         <form onSubmit={handleVerify} className="space-y-5">
-          {!emailParam && (
+          {!email && (
             <div>
               <label htmlFor="manualEmail" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Target Email Address
+                Email
               </label>
               <input
                 id="manualEmail"
                 type="email"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@company.com"
+                value={manualEmail}
+                onChange={(e) => setManualEmail(e.target.value)}
+                placeholder="name@example.com"
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               />
             </div>
           )}
 
           <div>
-            <div className="flex justify-between items-center mb-1.5">
-              <label htmlFor="otpInput" className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                6-Digit Security Token
-              </label>
-              <span className="text-[10px] font-mono text-slate-400">
-                NUMERIC ONLY
-              </span>
-            </div>
+            <label htmlFor="otpInput" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+              8-Digit Verification Code
+            </label>
 
             <div className="relative">
               <input
                 id="otpInput"
                 type="text"
-                maxLength={6}
+                maxLength={8}
                 inputMode="numeric"
                 pattern="[0-9]*"
                 autoComplete="one-time-code"
@@ -202,33 +235,33 @@ function VerifyOtpContent() {
                 required
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                placeholder="123456"
-                className="w-full tracking-[0.5em] text-center font-mono font-extrabold text-2xl py-3 px-4 rounded-xl border-2 border-slate-200 focus:border-slate-900 focus:ring-0 outline-none transition-all placeholder:text-slate-300 placeholder:tracking-normal"
+                placeholder="12345678"
+                className="w-full tracking-[0.25em] sm:tracking-[0.35em] text-center font-mono font-extrabold text-2xl py-3 px-4 rounded-xl border-2 border-slate-200 focus:border-slate-900 focus:ring-0 outline-none transition-all placeholder:text-slate-300 placeholder:tracking-normal"
               />
               <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-4" />
             </div>
             <p className="text-[11px] text-slate-500 mt-1.5 text-center">
-              Token expires in 15 minutes. Check spam/junk folder if not received.
+              Enter the 8-digit code sent to your email. Expires in 15 minutes. Check your spam folder if not received.
             </p>
           </div>
 
           <div className="space-y-3 pt-1">
             <button
               type="submit"
-              disabled={isVerifying || otp.length !== 6}
+              disabled={isVerifying || otp.trim().length !== 8}
               className="w-full py-3 min-h-[44px] rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
             >
               {isVerifying ? (
                 <>
                   <RotateCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>VERIFYING CRYPTOGRAPHIC TOKEN...</span>
+                  <span>Verifying...</span>
                 </>
               ) : (
-                <span>CONFIRM &amp; ACTIVATE ACCOUNT →</span>
+                <span>Verify Code</span>
               )}
             </button>
 
-            {/* Strict 2-minute (120s) Countdown Timer & Resend Button */}
+            {/* 2-minute (120s) Countdown Timer & Resend Button */}
             <div className="text-center pt-2">
               <button
                 type="button"
@@ -241,7 +274,7 @@ function VerifyOtpContent() {
                 }`}
               >
                 {isResending ? (
-                  'Dispatching new token...'
+                  'Sending code...'
                 ) : timeLeft > 0 ? (
                   `Resend Code in ${formatTime(timeLeft)}`
                 ) : (
@@ -258,9 +291,6 @@ function VerifyOtpContent() {
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Return to Sign In</span>
           </Link>
-          <span className="font-mono text-[10px] text-slate-400">
-            MAX 3 ATTEMPTS / 24H
-          </span>
         </div>
 
       </div>
@@ -274,7 +304,7 @@ export default function VerifyOtpPage() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex items-center gap-3 text-slate-600 font-semibold text-sm">
           <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          Loading Verification Gateway...
+          Loading...
         </div>
       </div>
     }>

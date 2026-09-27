@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { verifyRecoveryOtp, updateUserPassword, requestPasswordReset, signOutUser } from '../actions/auth';
 import Link from 'next/link';
-import { KeyRound, ArrowLeft, RotateCw, AlertTriangle, CheckCircle2, Lock, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, RotateCw, AlertTriangle, CheckCircle2, Lock } from 'lucide-react';
 
 function ResetPasswordContent() {
   const router = useRouter();
@@ -58,11 +58,11 @@ function ResetPasswordContent() {
   async function handleVerifyOtp(e: React.FormEvent) {
     e.preventDefault();
     if (!email) {
-      setError('Corporate email is required.');
+      setError('Email is required.');
       return;
     }
-    if (!otp || otp.trim().length !== 6) {
-      setError('Please enter the full 6-digit recovery code.');
+    if (!otp || otp.trim().length !== 8) {
+      setError('Please enter the 8-digit recovery code.');
       return;
     }
 
@@ -76,12 +76,12 @@ function ResetPasswordContent() {
         setError(result.error);
         setIsLoading(false);
       } else {
-        setMessage('Recovery token authenticated. Please establish your new master password.');
+        setMessage('Code verified. Please enter your new password.');
         setPhase('new_password');
         setIsLoading(false);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to authenticate recovery token.');
+      setError(err.message || 'Failed to verify recovery code.');
       setIsLoading(false);
     }
   }
@@ -89,7 +89,7 @@ function ResetPasswordContent() {
   async function handleResendCode() {
     if (timeLeft > 0 || isResending) return;
     if (!email) {
-      setError('Please provide your corporate email address.');
+      setError('Email is required.');
       return;
     }
 
@@ -102,14 +102,14 @@ function ResetPasswordContent() {
       if (result.error) {
         setError(result.error);
       } else {
-        setMessage('New 6-digit recovery code dispatched to your mailbox.');
+        setMessage('A new recovery code has been sent to your email.');
         const newExpiry = Date.now() + 120 * 1000;
         const storageKey = `inscribe_recovery_expiry_${email.toLowerCase()}`;
         sessionStorage.setItem(storageKey, newExpiry.toString());
         setTimeLeft(120);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to resend recovery token.');
+      setError(err.message || 'Failed to resend recovery code.');
     } finally {
       setIsResending(false);
     }
@@ -136,14 +136,14 @@ function ResetPasswordContent() {
         setError(result.error);
         setIsLoading(false);
       } else {
-        setMessage('Master password updated successfully! Redirecting to secure login...');
+        setMessage('Password updated successfully! Redirecting to sign in...');
         await signOutUser();
         setTimeout(() => {
           router.push('/login?reset=success');
         }, 1000);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to update master password.');
+      setError(err.message || 'Failed to update password.');
       setIsLoading(false);
     }
   }
@@ -158,25 +158,13 @@ function ResetPasswordContent() {
     <div className="relative flex min-h-screen items-center justify-center bg-slate-50 text-slate-900 px-4 py-12">
       <div className="w-full max-w-md space-y-6 rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-slate-200">
         
-        {/* Header Telemetry */}
+        {/* Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-xs font-mono font-bold text-slate-700 border border-slate-200">
-            <KeyRound className="w-3.5 h-3.5 text-blue-600" />
-            <span>PROTOCOL: RECOVERY_SESSION_AUTH</span>
-          </div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-            {phase === 'verify' ? 'Password Recovery' : 'Create New Password'}
+            {phase === 'verify' ? 'Reset Password' : 'Create New Password'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
-            {phase === 'verify' ? (
-              <>
-                Enter the 6-digit recovery OTP dispatched to:
-                <br />
-                <strong className="text-slate-800 font-mono text-xs">{email || 'your registered corporate email'}</strong>
-              </>
-            ) : (
-              'Enter and confirm your new master credentials.'
-            )}
+            {phase === 'verify' ? 'Enter your email address and 8-digit code.' : 'Enter your new password below.'}
           </p>
         </div>
 
@@ -185,7 +173,7 @@ function ResetPasswordContent() {
           <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-medium flex items-start gap-2.5 animate-in fade-in duration-200" role="alert">
             <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
             <div className="flex-1 leading-relaxed">
-              <span className="font-bold">[RECOVERY ERROR]</span> {error}
+              {error}
             </div>
           </div>
         )}
@@ -195,46 +183,39 @@ function ResetPasswordContent() {
           <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-medium flex items-start gap-2.5 animate-in fade-in duration-200" role="status">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
             <div className="flex-1 leading-relaxed">
-              <span className="font-bold">[SUCCESS]</span> {message}
+              {message}
             </div>
           </div>
         )}
 
         {phase === 'verify' ? (
-          /* STEP 1: VERIFY 6-DIGIT RECOVERY OTP */
+          /* STEP 1: VERIFY 8-DIGIT RECOVERY OTP */
           <form onSubmit={handleVerifyOtp} className="space-y-5">
-            {!emailParam && (
-              <div>
-                <label htmlFor="recoveryEmail" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Corporate Email
-                </label>
-                <input
-                  id="recoveryEmail"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="alex.vance@company.com"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-              </div>
-            )}
+            <div>
+              <label htmlFor="recoveryEmail" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Email
+              </label>
+              <input
+                id="recoveryEmail"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@example.com"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
 
             <div>
-              <div className="flex justify-between items-center mb-1.5">
-                <label htmlFor="recoveryOtp" className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  6-Digit Recovery Token
-                </label>
-                <span className="text-[10px] font-mono text-slate-400">
-                  NUMERIC
-                </span>
-              </div>
+              <label htmlFor="recoveryOtp" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                8-Digit Recovery Code
+              </label>
 
               <div className="relative">
                 <input
                   id="recoveryOtp"
                   type="text"
-                  maxLength={6}
+                  maxLength={8}
                   inputMode="numeric"
                   pattern="[0-9]*"
                   autoComplete="one-time-code"
@@ -242,26 +223,29 @@ function ResetPasswordContent() {
                   required
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                  placeholder="123456"
-                  className="w-full tracking-[0.5em] text-center font-mono font-extrabold text-2xl py-3 px-4 rounded-xl border-2 border-slate-200 focus:border-slate-900 focus:ring-0 outline-none transition-all placeholder:text-slate-300 placeholder:tracking-normal"
+                  placeholder="12345678"
+                  className="w-full tracking-[0.25em] sm:tracking-[0.35em] text-center font-mono font-extrabold text-2xl py-3 px-4 rounded-xl border-2 border-slate-200 focus:border-slate-900 focus:ring-0 outline-none transition-all placeholder:text-slate-300 placeholder:tracking-normal"
                 />
                 <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-4" />
               </div>
+              <p className="text-[11px] text-slate-500 mt-1.5 text-center">
+                Enter the 8-digit code sent to your email. Expires in 15 minutes.
+              </p>
             </div>
 
             <div className="space-y-3 pt-1">
               <button
                 type="submit"
-                disabled={isLoading || otp.length !== 6}
+                disabled={isLoading || otp.trim().length !== 8}
                 className="w-full py-3 min-h-[44px] rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
               >
                 {isLoading ? (
                   <>
                     <RotateCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>AUTHENTICATING RECOVERY TOKEN...</span>
+                    <span>Verifying...</span>
                   </>
                 ) : (
-                  <span>VALIDATE TOKEN &amp; PROCEED →</span>
+                  <span>Verify Code</span>
                 )}
               </button>
 
@@ -278,11 +262,11 @@ function ResetPasswordContent() {
                   }`}
                 >
                   {isResending ? (
-                    'Dispatching token...'
+                    'Sending code...'
                   ) : timeLeft > 0 ? (
                     `Resend Code in ${formatTime(timeLeft)}`
                   ) : (
-                    'Resend Recovery Token'
+                    'Resend Code'
                   )}
                 </button>
               </div>
@@ -294,7 +278,7 @@ function ResetPasswordContent() {
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider" htmlFor="newPassword">
-                  New Master Password
+                  New Password
                 </label>
                 <button
                   type="button"
@@ -318,7 +302,7 @@ function ResetPasswordContent() {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5" htmlFor="confirmPassword">
-                Confirm New Password
+                Confirm Password
               </label>
               <input
                 id="confirmPassword"
@@ -332,20 +316,6 @@ function ResetPasswordContent() {
               />
             </div>
 
-            {/* NIST SP 800-63B Entropy Meter */}
-            <div className="pt-1 space-y-1">
-              <div className="flex justify-between items-center text-[10px] font-mono text-slate-500">
-                <span>SECURITY LEVEL: {newPassword.length >= 8 ? 'STRONG (AES-256)' : 'STANDARD'}</span>
-                <span className="font-semibold text-slate-700">NIST COMPLIANT</span>
-              </div>
-              <div className="grid grid-cols-4 gap-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                <div className={`transition-all ${newPassword.length >= 6 ? 'bg-emerald-500' : 'bg-slate-200'}`} />
-                <div className={`transition-all ${newPassword.length >= 8 ? 'bg-emerald-500' : 'bg-slate-200'}`} />
-                <div className={`transition-all ${newPassword.length >= 10 ? 'bg-emerald-500' : 'bg-slate-200'}`} />
-                <div className={`transition-all ${newPassword.length >= 12 && newPassword === confirmPassword ? 'bg-emerald-500' : 'bg-slate-200'}`} />
-              </div>
-            </div>
-
             <div className="pt-2">
               <button
                 type="submit"
@@ -355,10 +325,10 @@ function ResetPasswordContent() {
                 {isLoading ? (
                   <>
                     <RotateCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>ENCRYPTING &amp; COMMITTING CREDENTIALS...</span>
+                    <span>Updating...</span>
                   </>
                 ) : (
-                  <span>UPDATE MASTER PASSWORD →</span>
+                  <span>Update Password</span>
                 )}
               </button>
             </div>
@@ -371,9 +341,6 @@ function ResetPasswordContent() {
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Return to Sign In</span>
           </Link>
-          <span className="font-mono text-[10px] text-slate-400">
-            FIPS 140-2 COMPLIANT
-          </span>
         </div>
 
       </div>
@@ -387,7 +354,7 @@ export default function ResetPasswordPage() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex items-center gap-3 text-slate-600 font-semibold text-sm">
           <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          Loading Recovery Portal...
+          Loading...
         </div>
       </div>
     }>

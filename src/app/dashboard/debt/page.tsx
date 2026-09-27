@@ -62,7 +62,14 @@ function DebtContent() {
     setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        window.location.href = '/login';
+        return;
+      }
+      if (!user.email_confirmed_at && !(user as any).confirmed_at) {
+        window.location.href = `/verify-otp?email=${encodeURIComponent(user.email || '')}`;
+        return;
+      }
       setUserEmail(user.email || '');
 
       // Fetch accounts

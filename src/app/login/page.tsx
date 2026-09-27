@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { signInWithEmail, signUpWithEmail, requestPasswordReset } from '../actions/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
-import { ShieldCheck, ArrowLeft, KeyRound, Mail, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 function LoginContent() {
   const router = useRouter();
@@ -16,6 +17,8 @@ function LoginContent() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
 
@@ -26,7 +29,7 @@ function LoginContent() {
 
   useEffect(() => {
     if (searchParams.get('reset') === 'success' || searchParams.get('message') === 'password_changed') {
-      setMessage('Password updated successfully. Please authenticate with your new credentials.');
+      setMessage('Password updated successfully. Please sign in with your new credentials.');
       setMode('signin');
     }
   }, [searchParams]);
@@ -44,38 +47,98 @@ function LoginContent() {
 
       if (error) {
         setError(error.message);
+        toast.error(error.message);
         setGoogleLoading(false);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to initiate Google sign in.');
+      const msg = err.message || 'Failed to initiate Google sign in.';
+      setError(msg);
+      toast.error(msg);
       setGoogleLoading(false);
     }
   }
 
-  async function handleSubmit(formData: FormData) {
+  async function handleAuthSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    // Prevent double-firing / race conditions (Phase 1)
+    if (loading || isSubmitting || isSubmittingRef.current) {
+      return;
+    }
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
     setLoading(true);
     setError(null);
     setMessage(null);
 
-    const emailInput = (formData.get('email') as string || '').toLowerCase().trim();
+    const formData = new FormData(e.currentTarget);
+    const rawEmail = (formData.get('email') as string || '');
+    const email = rawEmail.toLowerCase().trim();
+    // Enforce lowercase trimmed email before sending to Supabase signUp
+    formData.set('email', email);
+    const passwordInput = formData.get('password') as string;
+
+    if (!email || !passwordInput) {
+      const err = 'Email and password are required.';
+      setError(err);
+      toast.error(err);
+      setLoading(false);
+      setIsSubmitting(false);
+      isSubmittingRef.current = false;
+      return;
+    }
 
     if (mode === 'signup') {
-      const result = await signUpWithEmail(formData);
-      if (result.error) {
-        setError(result.error);
+      try {
+        const result = await signUpWithEmail(formData);
+        if (result.error) {
+          setError(result.error);
+          toast.error(result.error);
+          setLoading(false);
+          setIsSubmitting(false);
+          isSubmittingRef.current = false;
+        } else {
+          toast.success('Account created! Please verify your email.');
+          // Phase 2: Secure Email State Transfer
+          router.push('/verify-otp?email=' + encodeURIComponent(email.toLowerCase().trim()));
+        }
+      } catch (err: any) {
+        const msg = err.message || 'Registration failed. Please try again.';
+        setError(msg);
+        toast.error(msg);
         setLoading(false);
-      } else {
-        // UI Intercept: Redirect to /verify-otp screen
-        router.push(`/verify-otp?email=${encodeURIComponent(emailInput)}&type=signup`);
+        setIsSubmitting(false);
+        isSubmittingRef.current = false;
       }
     } else if (mode === 'signin') {
-      const result = await signInWithEmail(formData);
-      if (result.error) {
-        setError(result.error);
+      try {
+        const result = await signInWithEmail(formData);
+        if (result.error) {
+          if (result.requiresVerification) {
+            toast.error(result.error);
+            router.push('/verify-otp?email=' + encodeURIComponent((result.email || email).toLowerCase().trim()));
+            return;
+          }
+          setError(result.error);
+          toast.error(result.error);
+          setLoading(false);
+          setIsSubmitting(false);
+          isSubmittingRef.current = false;
+        } else if (result.requiresVerification) {
+          toast('Please verify your email to continue.');
+          router.push('/verify-otp?email=' + encodeURIComponent((result.email || email).toLowerCase().trim()));
+        } else {
+          toast.success('Signed in successfully.');
+          router.push('/dashboard');
+          router.refresh();
+        }
+      } catch (err: any) {
+        const msg = err.message || 'Invalid credentials.';
+        setError(msg);
+        toast.error(msg);
         setLoading(false);
-      } else {
-        router.push('/dashboard');
-        router.refresh();
+        setIsSubmitting(false);
+        isSubmittingRef.current = false;
       }
     }
   }
@@ -88,17 +151,28 @@ function LoginContent() {
 
     const cleanEmail = forgotEmail.toLowerCase().trim();
     if (!cleanEmail) {
-      setError('Please provide your corporate email address.');
+      const err = 'Enter your email address.';
+      setError(err);
+      toast.error(err);
       setLoading(false);
       return;
     }
 
-    const result = await requestPasswordReset(cleanEmail);
-    if (result.error) {
-      setError(result.error);
+    try {
+      const result = await requestPasswordReset(cleanEmail);
+      if (result.error) {
+        setError(result.error);
+        toast.error(result.error);
+        setLoading(false);
+      } else {
+        toast.success('Reset code sent to your email.');
+        router.push(`/reset-password?email=${encodeURIComponent(cleanEmail)}`);
+      }
+    } catch (err: any) {
+      const msg = err.message || 'Failed to send reset code.';
+      setError(msg);
+      toast.error(msg);
       setLoading(false);
-    } else {
-      router.push(`/reset-password?email=${encodeURIComponent(cleanEmail)}`);
     }
   }
 
@@ -108,13 +182,9 @@ function LoginContent() {
         
         {/* App Brand Header */}
         <div className="text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-xs font-mono font-bold text-slate-700 mb-3 border border-slate-200">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>FIPS 140-2 ENCRYPTED GATEWAY</span>
-          </div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
             {mode === 'forgot_password'
-              ? 'Reset Master Password'
+              ? 'Reset Password'
               : mode === 'signup'
               ? 'Create your account'
               : 'Welcome back'}
@@ -129,7 +199,7 @@ function LoginContent() {
           <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-medium flex items-start gap-2.5 animate-in fade-in duration-200" role="alert">
             <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
             <div className="flex-1 leading-relaxed">
-              <span className="font-bold">{error.includes('Too many attempts') ? '[ACCOUNT LOCKED]' : '[AUTHENTICATION ERROR]'}</span> {error}
+              {error}
             </div>
           </div>
         )}
@@ -139,7 +209,7 @@ function LoginContent() {
           <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-medium flex items-start gap-2.5 animate-in fade-in duration-200" role="status">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
             <div className="flex-1 leading-relaxed">
-              <span className="font-bold">[SUCCESS]</span> {message}
+              {message}
             </div>
           </div>
         )}
@@ -149,24 +219,21 @@ function LoginContent() {
           <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
             <div className="space-y-1">
               <p className="text-xs text-slate-600 leading-relaxed">
-                Enter your verified corporate email address. A 6-digit recovery OTP will be dispatched to authorize your password reset.
+                Enter your email address.
               </p>
               <div className="pt-2">
                 <label htmlFor="forgotEmail" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Work Email (Corporate Domain)
+                  Email
                 </label>
-                <div className="relative">
-                  <input
-                    id="forgotEmail"
-                    type="email"
-                    required
-                    value={forgotEmail}
-                    onChange={(e) => setForgotEmail(e.target.value)}
-                    placeholder="alex.vance@company-domain.com"
-                    className="w-full px-4 py-2.5 pl-10 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  />
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                </div>
+                <input
+                  id="forgotEmail"
+                  type="email"
+                  required
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="alex.vance@company.com"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                />
               </div>
             </div>
 
@@ -176,7 +243,7 @@ function LoginContent() {
                 disabled={loading}
                 className="w-full py-3 min-h-[44px] rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
               >
-                {loading ? 'DISPATCHING RECOVERY CODE...' : 'DISPATCH RECOVERY OTP →'}
+                {loading ? 'Sending code...' : 'Send Reset Code'}
               </button>
 
               <button
@@ -236,7 +303,7 @@ function LoginContent() {
                   <path fill="#FBBC05" d="M5.28 14.29c-.25-.72-.38-1.49-.38-2.29s.13-1.57.38-2.29V6.58H1.26C.46 8.18 0 9.99 0 12s.46 3.82 1.26 5.42l4.02-3.13z" />
                   <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.36 0 3.26 2.64 1.26 6.58l4.02 3.13c.95-2.83 3.6-4.96 6.72-4.96z" />
                 </svg>
-                <span>{googleLoading ? 'Connecting to Google SSO...' : 'Continue with Google'}</span>
+                <span>{googleLoading ? 'Connecting to Google...' : 'Continue with Google'}</span>
               </button>
             </div>
 
@@ -248,11 +315,11 @@ function LoginContent() {
             </div>
 
             {/* Email + Password Form */}
-            <form action={handleSubmit} className="space-y-4">
+            <form onSubmit={handleAuthSubmit} className="space-y-4">
               {mode === 'signup' && (
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5" htmlFor="fullName">
-                    Full Name (Entitled Officer)
+                    Name or Business Name
                   </label>
                   <input
                     id="fullName"
@@ -267,14 +334,14 @@ function LoginContent() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5" htmlFor="email">
-                  Work Email (Corporate Domain)
+                  Email
                 </label>
                 <input
                   id="email"
                   name="email"
                   type="email"
                   required
-                  placeholder="alex.vance@company-domain.com"
+                  placeholder="alex.vance@company.com"
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                 />
               </div>
@@ -282,7 +349,7 @@ function LoginContent() {
               <div>
                 <div className="flex justify-between items-center mb-1.5">
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider" htmlFor="password">
-                    Master Password / Token
+                    Password
                   </label>
                   <button
                     type="button"
@@ -314,35 +381,19 @@ function LoginContent() {
                     </button>
                   </div>
                 )}
-
-                {/* NIST SP 800-63B Entropy Meter on Sign Up */}
-                {mode === 'signup' && (
-                  <div className="pt-2 space-y-1">
-                    <div className="flex justify-between items-center text-[10px] font-mono text-slate-500">
-                      <span>ENTROPY: 94.2 BITS</span>
-                      <span className="font-semibold text-slate-700">NIST SP 800-63B COMPLIANT</span>
-                    </div>
-                    <div className="grid grid-cols-4 gap-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="bg-emerald-500" />
-                      <div className="bg-emerald-500" />
-                      <div className="bg-emerald-500" />
-                      <div className="bg-emerald-500" />
-                    </div>
-                  </div>
-                )}
               </div>
 
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={loading || googleLoading}
+                  disabled={loading || isSubmitting || googleLoading}
                   className="w-full py-3 min-h-[44px] rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
                 >
-                  {loading
-                    ? 'PROCESSING SESSION...'
+                  {loading || isSubmitting
+                    ? 'Processing...'
                     : mode === 'signup'
-                    ? 'PROVISION ACCOUNT →'
-                    : 'AUTHENTICATE SESSION →'}
+                    ? 'Register'
+                    : 'Sign In'}
                 </button>
               </div>
             </form>
@@ -350,7 +401,7 @@ function LoginContent() {
             <div className="pt-2 border-t border-slate-100 text-center">
               <Link href="/" className="text-xs text-slate-500 hover:text-slate-800 font-semibold inline-flex items-center gap-1">
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Return to Home Spec</span>
+                <span>Return to Home</span>
               </Link>
             </div>
           </>
@@ -367,7 +418,7 @@ export default function LoginPage() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex items-center gap-3 text-slate-600 font-semibold text-sm">
           <div className="w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
-          Loading Authentication Gateway...
+          Loading...
         </div>
       </div>
     }>

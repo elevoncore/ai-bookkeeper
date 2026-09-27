@@ -164,10 +164,9 @@ export async function recordLoginFailure(email: string): Promise<{ isLocked: boo
     };
   }
 
-  const remaining = 3 - currentAttempts;
   return {
     isLocked: false,
-    error: `Invalid credentials. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before account lockout.`,
+    error: 'Invalid credentials.',
   };
 }
 
@@ -271,7 +270,7 @@ export async function signUpWithEmail(formData: FormData) {
   const fullName = formData.get('fullName') as string;
 
   if (!email || !password) {
-    return { error: 'Work email and password are required.' };
+    return { error: 'Email and password are required.' };
   }
 
   // Pre-Check: 3 OTP requests in 24h limit
@@ -297,10 +296,12 @@ export async function signUpWithEmail(formData: FormData) {
   }
 
   // UI Intercept: We do NOT redirect to dashboard. User must verify OTP.
+  // With email confirmation enforced, Supabase returns a user but session is null.
   return {
     success: true,
     requiresVerification: true,
     email,
+    hasSession: Boolean(data?.session),
   };
 }
 
@@ -325,9 +326,25 @@ export async function signInWithEmail(formData: FormData) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
+    if (error.message.toLowerCase().includes('email not confirmed')) {
+      return {
+        error: 'Email not confirmed. Please verify your email address.',
+        requiresVerification: true,
+        email,
+      };
+    }
     // Failure handling: Increment failed attempts, trigger 24h lockout if hits 3
     const failureResult = await recordLoginFailure(email);
     return { error: failureResult.error };
+  }
+
+  // Guard: If user credentials are valid but email is unconfirmed
+  if (data?.user && !data.user.email_confirmed_at && !(data.user as any).confirmed_at) {
+    return {
+      success: true,
+      requiresVerification: true,
+      email: data.user.email || email,
+    };
   }
 
   // Success handling: Reset failed login attempts
@@ -350,12 +367,20 @@ export async function signInWithEmail(formData: FormData) {
   return { success: true };
 }
 
-export async function verifySignupOtp({ email, token }: { email: string; token: string }) {
-  const cleanEmail = email.toLowerCase().trim();
-  const cleanToken = token.trim();
+export async function verifyOtp({
+  email,
+  token,
+  type = 'signup',
+}: {
+  email: string;
+  token: string;
+  type?: 'signup' | 'email' | 'recovery';
+}) {
+  const cleanEmail = (email || '').toLowerCase().trim();
+  const cleanToken = (token || '').trim();
 
   if (!cleanEmail || !cleanToken) {
-    return { error: 'Email and 6-digit verification code are required.' };
+    return { error: 'Email and 8-digit verification code are required.' };
   }
 
   const supabase = await getSupabaseServerClient();
@@ -363,7 +388,7 @@ export async function verifySignupOtp({ email, token }: { email: string; token: 
   const { data, error } = await supabase.auth.verifyOtp({
     email: cleanEmail,
     token: cleanToken,
-    type: 'signup',
+    type: (type || 'signup') as any,
   });
 
   if (error) {
@@ -380,8 +405,10 @@ export async function verifySignupOtp({ email, token }: { email: string; token: 
     await supabase.rpc('initialize_default_accounts', { p_user_id: data.user.id });
   }
 
-  return { success: true };
+  return { success: true, user: data?.user };
 }
+
+export const verifySignupOtp = verifyOtp;
 
 export async function resendSignupOtp(email: string) {
   const cleanEmail = email.toLowerCase().trim();
@@ -435,7 +462,7 @@ export async function verifyRecoveryOtp({ email, token }: { email: string; token
   const cleanToken = token.trim();
 
   if (!cleanEmail || !cleanToken) {
-    return { error: 'Email and 6-digit recovery code are required.' };
+    return { error: 'Email and 8-digit recovery code are required.' };
   }
 
   const supabase = await getSupabaseServerClient();

@@ -93,8 +93,21 @@ export default function DashboardPage() {
     
     // 1. Fetch Auth User
     const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      setIsLoading(false);
+      window.location.href = '/login';
+      return;
+    }
+
+    if (!user.email_confirmed_at && !(user as any).confirmed_at) {
+      setIsLoading(false);
+      window.location.href = `/verify-otp?email=${encodeURIComponent(user.email || '')}`;
+      return;
+    }
+
     let currentUserId = null;
-    if (user?.email) {
+    if (user.email) {
       setUserEmail(user.email);
       setUserId(user.id);
       currentUserId = user.id;
